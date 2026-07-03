@@ -518,3 +518,408 @@ export type WorkflowApi = {
   listAssigneeOptions: () => Promise<ApiResponse<WorkflowAssigneeOption[]>>;
 };
 
+// -----------------------------
+// Slice 5：组织岗位
+// -----------------------------
+
+export type OrgStatus = "ACTIVE" | "INACTIVE";
+
+/** @deprecated 部门模型不再暴露组织类型，库表保留默认值 DEPARTMENT */
+export type OrgType = "COMPANY" | "DIVISION" | "DEPARTMENT" | "TEAM";
+
+/** 组织属性：实体 / 虚拟 */
+export type OrgAttribute = "PHYSICAL" | "VIRTUAL";
+
+/** 组织职能 */
+export type OrgFunction = "RND" | "MANUFACTURING" | "MARKET" | "FUNCTION";
+
+export type LegalEntity = {
+  id: string;
+  code: string;
+  name: string;
+  creditCode?: string;
+  region?: string;
+  status: OrgStatus;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type LegalEntityCreateRequest = {
+  code: string;
+  name: string;
+  creditCode?: string;
+  region?: string;
+  status?: OrgStatus;
+};
+
+export type LegalEntityUpdateRequest = {
+  name?: string;
+  creditCode?: string;
+  region?: string;
+  status?: OrgStatus;
+};
+
+export type LegalEntityListQuery = {
+  keyword?: string;
+  page: number;
+  pageSize: number;
+};
+
+export type CostCenter = {
+  id: string;
+  code: string;
+  name: string;
+  legalEntityId: string;
+  legalEntityName?: string;
+  status: OrgStatus;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type CostCenterCreateRequest = {
+  code: string;
+  name: string;
+  legalEntityId: string;
+  status?: OrgStatus;
+};
+
+export type CostCenterUpdateRequest = {
+  name?: string;
+  legalEntityId?: string;
+  status?: OrgStatus;
+};
+
+export type CostCenterListQuery = {
+  keyword?: string;
+  legalEntityId?: string;
+  page: number;
+  pageSize: number;
+};
+
+export type DictOption = {
+  value: string;
+  label: string;
+};
+
+export type Organization = {
+  id: string;
+  /** 八位部门编号，如 20000001 */
+  code: string;
+  name: string;
+  parentCode?: string;
+  parentId?: string;
+  parentName?: string;
+  status: OrgStatus;
+  statusLabel?: string;
+  effectiveStartDate: string; // YYYY-MM-DD
+  effectiveEndDate?: string; // YYYY-MM-DD, NULL=当前有效
+  location?: string;
+  locationLabel?: string;
+  legalCompany?: string;
+  legalCompanyLabel?: string;
+  departmentType?: string;
+  departmentTypeLabel?: string;
+  departmentLevel?: string;
+  departmentLevelLabel?: string;
+  costCenter?: string;
+  orgLeaderNo?: string;
+  supervisingLeaderNo?: string;
+  orgAttribute?: OrgAttribute;
+  orgAttributeLabel?: string;
+  orgFunction?: OrgFunction;
+  orgFunctionLabel?: string;
+  orgTags?: string;
+  financialCode?: string;
+  hrCoordinatorNo?: string;
+  hrbpNo?: string;
+  sscNo?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type OrganizationTreeNode = Organization & {
+  children: OrganizationTreeNode[];
+};
+
+export type OrganizationCreateRequest = {
+  name: string;
+  parentCode?: string;
+  effectiveStartDate: string;
+  status?: OrgStatus;
+  location?: string;
+  legalCompany?: string;
+  departmentType?: string;
+  departmentLevel?: string;
+  costCenter?: string;
+  orgLeaderNo?: string;
+  supervisingLeaderNo?: string;
+  orgAttribute?: OrgAttribute;
+  orgFunction?: OrgFunction;
+  orgTags?: string;
+  financialCode?: string;
+  hrCoordinatorNo?: string;
+  hrbpNo?: string;
+  sscNo?: string;
+};
+
+export type OrganizationUpdateRequest = {
+  /** CURRENT=修改当前版本；NEW_VERSION=按新生效日创建版本 */
+  editMode?: OrganizationEditMode;
+  name?: string;
+  parentCode?: string;
+  effectiveStartDate?: string;
+  status?: OrgStatus;
+  location?: string;
+  legalCompany?: string;
+  departmentType?: string;
+  departmentLevel?: string;
+  costCenter?: string;
+  orgLeaderNo?: string;
+  supervisingLeaderNo?: string;
+  orgAttribute?: OrgAttribute;
+  orgFunction?: OrgFunction;
+  orgTags?: string;
+  financialCode?: string;
+  hrCoordinatorNo?: string;
+  hrbpNo?: string;
+  sscNo?: string;
+};
+
+export type OrganizationEditMode = "CURRENT" | "NEW_VERSION";
+
+/** 同一部门编码下的生效版本摘要 */
+export type OrganizationVersion = {
+  id: string;
+  code: string;
+  name: string;
+  effectiveStartDate: string;
+  effectiveEndDate?: string;
+  status: OrgStatus;
+  statusLabel?: string;
+  /** 相对今天的时态 */
+  temporal: "past" | "present" | "future";
+  temporalLabel: string;
+  /** 是否为当前开放版本（effectiveEndDate 为空） */
+  isOpen: boolean;
+};
+
+export type OrganizationFormOptions = {
+  locations: DictOption[];
+  legalCompanies: DictOption[];
+  departmentTypes: DictOption[];
+  departmentLevels: DictOption[];
+};
+
+export type OrganizationTreeQuery = {
+  asOfDate?: string; // YYYY-MM-DD
+};
+
+export type YesNo = "YES" | "NO";
+
+export type PositionKind = "OFFICE" | "NON_OFFICE";
+
+export type PositionSequence = "P" | "M" | "T";
+
+export type Position = {
+  id: string;
+  code: string;
+  name: string;
+  effectiveStartDate: string; // YYYY-MM-DD
+  effectiveEndDate?: string; // YYYY-MM-DD
+  organizationId: string;
+  organizationName?: string;
+  organizationCode?: string;
+  status: OrgStatus;
+  occupationalDisease: YesNo;
+  positionCategory?: string;
+  positionCategoryLabel?: string;
+  positionKind?: PositionKind;
+  positionSequence?: PositionSequence;
+  positionLevel?: string;
+  positionLevelLabel?: string;
+  keyPosition: YesNo;
+  identityCategory?: string;
+  identityCategoryLabel?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type PositionEditMode = OrganizationEditMode;
+
+/** 同一岗位编码下的生效版本摘要 */
+export type PositionVersion = {
+  id: string;
+  code: string;
+  name: string;
+  effectiveStartDate: string;
+  effectiveEndDate?: string;
+  status: OrgStatus;
+  statusLabel?: string;
+  temporal: "past" | "present" | "future";
+  temporalLabel: string;
+  isOpen: boolean;
+};
+
+export type PositionFormOptions = {
+  positionCategories: DictOption[];
+  positionLevels: DictOption[];
+  identityCategories: DictOption[];
+};
+
+export type PositionCreateRequest = {
+  name: string;
+  effectiveStartDate: string;
+  organizationId: string;
+  status?: OrgStatus;
+  occupationalDisease?: YesNo;
+  positionCategory?: string;
+  positionKind?: PositionKind;
+  positionSequence?: PositionSequence;
+  positionLevel?: string;
+  keyPosition?: YesNo;
+  identityCategory?: string;
+};
+
+export type PositionUpdateRequest = {
+  editMode?: PositionEditMode;
+  name?: string;
+  effectiveStartDate?: string;
+  organizationId?: string;
+  status?: OrgStatus;
+  occupationalDisease?: YesNo;
+  positionCategory?: string;
+  positionKind?: PositionKind;
+  positionSequence?: PositionSequence;
+  positionLevel?: string;
+  keyPosition?: YesNo;
+  identityCategory?: string;
+};
+
+export type PositionListQuery = {
+  keyword?: string;
+  organizationId?: string;
+  asOfDate?: string; // YYYY-MM-DD
+  page: number;
+  pageSize: number;
+};
+
+export type OrganizationApi = {
+  /** GET /api/v1/legal-entities?page=&pageSize=&keyword= */
+  listLegalEntities: (query: LegalEntityListQuery) => Promise<ApiResponse<PageResult<LegalEntity>>>;
+  /** POST /api/v1/legal-entities */
+  createLegalEntity: (req: LegalEntityCreateRequest) => Promise<ApiResponse<LegalEntity>>;
+  /** PUT /api/v1/legal-entities/{id} */
+  updateLegalEntity: (id: string, req: LegalEntityUpdateRequest) => Promise<ApiResponse<LegalEntity>>;
+  /** DELETE /api/v1/legal-entities/{id} */
+  deleteLegalEntity: (id: string) => Promise<ApiResponse<{ id: string }>>;
+
+  /** GET /api/v1/cost-centers?page=&pageSize=&keyword=&legalEntityId= */
+  listCostCenters: (query: CostCenterListQuery) => Promise<ApiResponse<PageResult<CostCenter>>>;
+  /** POST /api/v1/cost-centers */
+  createCostCenter: (req: CostCenterCreateRequest) => Promise<ApiResponse<CostCenter>>;
+  /** PUT /api/v1/cost-centers/{id} */
+  updateCostCenter: (id: string, req: CostCenterUpdateRequest) => Promise<ApiResponse<CostCenter>>;
+  /** DELETE /api/v1/cost-centers/{id} */
+  deleteCostCenter: (id: string) => Promise<ApiResponse<{ id: string }>>;
+
+  /** GET /api/v1/organizations/tree?asOfDate= */
+  getOrganizationTree: (query?: OrganizationTreeQuery) => Promise<ApiResponse<OrganizationTreeNode[]>>;
+  /** GET /api/v1/organizations/department-type-options */
+  listDepartmentTypeOptions: () => Promise<ApiResponse<DictOption[]>>;
+  /** GET /api/v1/organizations/form-options */
+  getOrganizationFormOptions: () => Promise<ApiResponse<OrganizationFormOptions>>;
+  /** GET /api/v1/organizations/{id} */
+  getOrganization: (id: string) => Promise<ApiResponse<Organization>>;
+  /** GET /api/v1/organizations/by-code/{code}/versions */
+  getOrganizationVersions: (code: string) => Promise<ApiResponse<OrganizationVersion[]>>;
+  /** POST /api/v1/organizations */
+  createOrganization: (req: OrganizationCreateRequest) => Promise<ApiResponse<Organization>>;
+  /** PUT /api/v1/organizations/{id} */
+  updateOrganization: (id: string, req: OrganizationUpdateRequest) => Promise<ApiResponse<Organization>>;
+
+  /** GET /api/v1/positions/form-options */
+  getPositionFormOptions: () => Promise<ApiResponse<PositionFormOptions>>;
+  /** GET /api/v1/positions/{id} */
+  getPosition: (id: string) => Promise<ApiResponse<Position>>;
+  /** GET /api/v1/positions/by-code/{code}/versions */
+  getPositionVersions: (code: string) => Promise<ApiResponse<PositionVersion[]>>;
+
+  /** GET /api/v1/positions?page=&pageSize=&keyword=&organizationId=&asOfDate= */
+  listPositions: (query: PositionListQuery) => Promise<ApiResponse<PageResult<Position>>>;
+  /** POST /api/v1/positions */
+  createPosition: (req: PositionCreateRequest) => Promise<ApiResponse<Position>>;
+  /** PUT /api/v1/positions/{id} */
+  updatePosition: (id: string, req: PositionUpdateRequest) => Promise<ApiResponse<Position>>;
+  /** DELETE /api/v1/positions/{id} */
+  deletePosition: (id: string) => Promise<ApiResponse<{ id: string }>>;
+};
+
+// -----------------------------
+// Slice 6：编制
+// -----------------------------
+
+export type HeadcountPlan = {
+  id: string;
+  organizationId: string;
+  organizationCode?: string;
+  organizationName?: string;
+  fiscalYear: number;
+  plannedCount: number;
+  occupiedCount: number;
+  reservedCount: number;
+  availableCount: number;
+  usageRate: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type HeadcountPlanCreateRequest = {
+  organizationId: string;
+  fiscalYear: number;
+  plannedCount: number;
+};
+
+export type HeadcountPlanUpdateRequest = {
+  plannedCount?: number;
+  occupiedCount?: number;
+  reservedCount?: number;
+};
+
+export type HeadcountPlanListQuery = {
+  keyword?: string;
+  fiscalYear?: number;
+  page: number;
+  pageSize: number;
+};
+
+export type HeadcountCheckRequest = {
+  organizationId: string;
+  fiscalYear?: number;
+  /** 本次拟占用编制数，默认 1 */
+  delta?: number;
+};
+
+export type HeadcountCheckResult = {
+  allowed: boolean;
+  organizationId: string;
+  fiscalYear: number;
+  plannedCount: number;
+  occupiedCount: number;
+  reservedCount: number;
+  availableCount: number;
+  reason?: string;
+};
+
+export type HeadcountApi = {
+  /** GET /api/v1/headcount-plans?page=&pageSize=&keyword=&fiscalYear= */
+  listHeadcountPlans: (query: HeadcountPlanListQuery) => Promise<ApiResponse<PageResult<HeadcountPlan>>>;
+  /** POST /api/v1/headcount-plans */
+  createHeadcountPlan: (req: HeadcountPlanCreateRequest) => Promise<ApiResponse<HeadcountPlan>>;
+  /** PUT /api/v1/headcount-plans/{id} */
+  updateHeadcountPlan: (id: string, req: HeadcountPlanUpdateRequest) => Promise<ApiResponse<HeadcountPlan>>;
+  /** DELETE /api/v1/headcount-plans/{id} */
+  deleteHeadcountPlan: (id: string) => Promise<ApiResponse<{ id: string }>>;
+  /** POST /api/v1/headcount/check */
+  checkHeadcount: (req: HeadcountCheckRequest) => Promise<ApiResponse<HeadcountCheckResult>>;
+};
+

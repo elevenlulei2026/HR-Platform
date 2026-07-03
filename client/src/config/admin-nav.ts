@@ -42,7 +42,7 @@ export const adminTopNav: AdminNavTopItem[] = [
         links: [
           {
             title: "组织架构",
-            description: "组织树与历史快照（后续支持 asOfDate）",
+            description: "组织树与历史快照（asOfDate）",
             to: "/admin/org/structure",
             group: "组织岗位",
             permission: "organization:view",
@@ -50,7 +50,7 @@ export const adminTopNav: AdminNavTopItem[] = [
           },
           {
             title: "岗位体系",
-            description: "岗位/职务/职级（后续切片完善）",
+            description: "岗位主数据与分类属性维护",
             to: "/admin/org/positions",
             group: "组织岗位",
             permission: "position:view",
@@ -58,7 +58,7 @@ export const adminTopNav: AdminNavTopItem[] = [
           },
           {
             title: "编制管理",
-            description: "部门编制计划与使用情况（后续切片完善）",
+            description: "部门编制计划、使用率与校验",
             to: "/admin/org/headcount",
             group: "组织岗位",
             permission: "headcount:view",

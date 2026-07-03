@@ -9,6 +9,9 @@ import { AdminDevHealthPage } from "@/pages/admin/dev/AdminDevHealthPage";
 import { AdminAuditLogsPage } from "@/pages/admin/platform/AdminAuditLogsPage";
 import { AdminPermissionsPage } from "@/pages/admin/platform/AdminPermissionsPage";
 import { AdminTasksPage } from "@/pages/admin/platform/AdminTasksPage";
+import { AdminOrgHeadcountPage } from "@/pages/admin/org/AdminOrgHeadcountPage";
+import { AdminOrgPositionsPage } from "@/pages/admin/org/AdminOrgPositionsPage";
+import { AdminOrgStructurePage } from "@/pages/admin/org/AdminOrgStructurePage";
 import { AdminWorkflowPage } from "@/pages/admin/platform/AdminWorkflowPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
@@ -32,9 +35,9 @@ export default function App() {
         <Route path="reports" element={<AdminPlaceholderPage title="报表概览" />} />
         <Route path="settings" element={<AdminSettingsPage />} />
 
-        <Route path="org/structure" element={<AdminPlaceholderPage title="组织架构" />} />
-        <Route path="org/positions" element={<AdminPlaceholderPage title="岗位体系" />} />
-        <Route path="org/headcount" element={<AdminPlaceholderPage title="编制管理" />} />
+        <Route path="org/structure" element={<AdminOrgStructurePage />} />
+        <Route path="org/positions" element={<AdminOrgPositionsPage />} />
+        <Route path="org/headcount" element={<AdminOrgHeadcountPage />} />
 
         <Route path="employees/roster" element={<AdminPlaceholderPage title="员工花名册" />} />
         <Route

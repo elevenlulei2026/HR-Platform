@@ -51,11 +51,15 @@ public class CodeGeneratorService {
       rule.setLastSeq(nextSeq);
     }
 
-    int updated = codeRuleMapper.update(rule, new LambdaQueryWrapper<CodeRuleEntity>()
+    LambdaQueryWrapper<CodeRuleEntity> lock = new LambdaQueryWrapper<CodeRuleEntity>()
         .eq(CodeRuleEntity::getId, rule.getId())
-        .eq(CodeRuleEntity::getLastSeq, prevSeq)
-        .eq(CodeRuleEntity::getLastResetKey, prevResetKey)
-    );
+        .eq(CodeRuleEntity::getLastSeq, prevSeq);
+    if (prevResetKey == null) {
+      lock.isNull(CodeRuleEntity::getLastResetKey);
+    } else {
+      lock.eq(CodeRuleEntity::getLastResetKey, prevResetKey);
+    }
+    int updated = codeRuleMapper.update(rule, lock);
     if (updated <= 0) {
       CodeRuleEntity latest = codeRuleMapper.selectById(rule.getId());
       if (latest == null) throw new IllegalArgumentException("编码规则不存在");

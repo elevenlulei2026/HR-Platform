@@ -66,11 +66,53 @@ function CommandDialog({
 
 function CommandInput({
   className,
+  groupClassName,
+  wrapperClassName,
+  variant = "default",
   ...props
-}: React.ComponentProps<typeof CommandPrimitive.Input>) {
+}: React.ComponentProps<typeof CommandPrimitive.Input> & {
+  groupClassName?: string
+  wrapperClassName?: string
+  /** soft=无边框内嵌搜索条，适合下拉面板 */
+  variant?: "default" | "soft"
+}) {
+  if (variant === "soft") {
+    return (
+      <div
+        data-slot="command-input-wrapper"
+        className={cn("border-b border-border/25 px-3 py-2.5", wrapperClassName)}
+      >
+        <div
+          className={cn(
+            "flex h-9 items-center gap-2.5 rounded-lg bg-muted/20 px-3 transition-colors",
+            "focus-within:bg-muted/30",
+            groupClassName,
+          )}
+        >
+          <SearchIcon className="size-3.5 shrink-0 text-muted-foreground/55" />
+          <CommandPrimitive.Input
+            data-slot="command-input"
+            className={cn(
+              "min-w-0 flex-1 bg-transparent text-sm outline-none",
+              "placeholder:text-muted-foreground/55",
+              "disabled:cursor-not-allowed disabled:opacity-50",
+              className,
+            )}
+            {...props}
+          />
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div data-slot="command-input-wrapper" className="p-1 pb-0">
-      <InputGroup className="h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!">
+    <div data-slot="command-input-wrapper" className={cn("p-1 pb-0", wrapperClassName)}>
+      <InputGroup
+        className={cn(
+          "h-8! rounded-lg! border-input/30 bg-input/30 shadow-none! *:data-[slot=input-group-addon]:pl-2!",
+          groupClassName,
+        )}
+      >
         <CommandPrimitive.Input
           data-slot="command-input"
           className={cn(

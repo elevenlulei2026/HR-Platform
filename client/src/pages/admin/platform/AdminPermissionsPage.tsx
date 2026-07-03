@@ -97,6 +97,25 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function DataScopeBadge({ dataScope }: { dataScope: RoleForm["dataScope"] }) {
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "shrink-0 text-xs font-medium",
+        dataScope === "ALL" &&
+          "border-sky-500/30 bg-sky-500/12 text-sky-800 dark:border-sky-400/35 dark:bg-sky-500/18 dark:text-sky-200",
+        dataScope === "DEPARTMENT" &&
+          "border-amber-500/30 bg-amber-500/12 text-amber-900 dark:border-amber-400/35 dark:bg-amber-500/18 dark:text-amber-100",
+        dataScope === "SELF" &&
+          "border-border bg-muted/60 text-muted-foreground",
+      )}
+    >
+      {DATA_SCOPE_LABEL[dataScope] ?? dataScope}
+    </Badge>
+  );
+}
+
 export function AdminPermissionsPage() {
   const { refreshMe } = useAuth();
   const perm = usePermission();
@@ -466,9 +485,7 @@ export function AdminPermissionsPage() {
                           <div className="min-w-0 text-sm font-medium text-foreground">
                             {r.name}
                           </div>
-                          <Badge variant="outline" className="shrink-0 font-mono text-[10px]">
-                            {DATA_SCOPE_LABEL[r.dataScope] ?? r.dataScope}
-                          </Badge>
+                          <DataScopeBadge dataScope={r.dataScope} />
                         </div>
                         <div className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
                           {r.code}
@@ -541,9 +558,7 @@ export function AdminPermissionsPage() {
                       {selectedRole.code}
                     </Badge>
                     <StatusBadge status={selectedRole.status} />
-                    <Badge variant="secondary">
-                      {DATA_SCOPE_LABEL[selectedRole.dataScope] ?? selectedRole.dataScope}
-                    </Badge>
+                    <DataScopeBadge dataScope={selectedRole.dataScope} />
                   </div>
                   {selectedRole.description ? (
                     <div className="mt-2 text-sm text-muted-foreground">{selectedRole.description}</div>
