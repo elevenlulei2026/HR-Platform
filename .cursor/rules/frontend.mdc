@@ -1,0 +1,226 @@
+---
+description: HR Platform 前端开发规范（以 client/ 已实现为准）
+globs: client/**/*.{ts,tsx,css}
+alwaysApply: false
+---
+
+# 前端开发规范
+
+> **权威顺序**：`client/` 已实现代码 > 本规则 > `docs/前端UI与信息架构规范.md`（愿景/后补能力）  
+> 新页面须对齐 **AdminSettingsPage**、**AdminPermissionsPage**、**AdminWorkflowPage** 等已落地页面的结构与交互。
+
+## 技术栈（当前实际）
+
+| 类别 | 选型 | 备注 |
+| --- | --- | --- |
+| 框架 | React 19 + TypeScript | Vite 8 构建 |
+| 路由 | React Router DOM **v7** | `BrowserRouter` + nested routes |
+| 样式 | Tailwind CSS 3 + CSS 变量 | 语义 token 见 `client/src/index.css` |
+| UI 基座 | shadcn **v4**（`@base-ui/react`） | 组件在 `components/ui/` |
+| 图标 | `lucide-react` | **唯一**图标库 |
+| 主题 | `next-themes` | `attribute="class"`，`light` / `dark` / `system` |
+| 反馈 | `sonner` | `toast.success` / `toast.error` |
+| 命令面板 | `cmdk` + `CommandDialog` | 快捷键 `Ctrl/Cmd+K` |
+| 契约类型 | `@shared/api.interface` | Vite alias `@shared` → `../shared` |
+
+**尚未引入（勿臆造依赖）**：React Query、Zustand、React Hook Form、Zod、`Select` 组件、ReactECharts。复杂表单/图表切片落地后再补依赖与规范。
+
+## 目录结构
+
+```text
+client/src/
+├── api/              # 按领域拆分；底层用 api/http.ts
+├── auth/             # AuthProvider、RequireAuth
+├── components/
+│   ├── admin/        # 业务复用壳层（PageHeader、PanelCard、FormField…）
+│   └── ui/           # shadcn 原子组件
+├── config/           # admin-nav.ts、app.ts
+├── hooks/            # usePermission、useDebouncedValue、useDocumentTitle…
+├── layouts/          # AdminLayout
+├── pages/            # 按路由域分目录
+│   ├── admin/        # AdminSettingsPage、platform/*、占位页
+│   ├── LoginPage.tsx
+│   └── NotFoundPage.tsx
+├── lib/utils.ts      # cn()
+├── index.css         # 主题变量 + 字体栈
+├── App.tsx           # 路由表
+└── main.tsx          # ThemeProvider + AuthProvider + Toaster
+```
+
+路径别名：`@/` → `src/`，`@shared/` → `shared/`。
+
+## 布局（必须）
+
+- **顶栏 + 面包屑 + 主内容**；禁止左侧固定边栏作为主导航
+- `AdminLayout`：sticky 顶栏 → 面包屑 → `main`（`max-w-[1440px] mx-auto p-6`）
+- 菜单单一数据源：`config/admin-nav.ts`（`route`、`permission`、`icon`、Mega Menu 列）
+- 权限：`usePermission().has(code)` 控制菜单/按钮/整页；无权限用 `NoPermissionCard`
+- 页面标题：`useDocumentTitle` 随面包屑末级更新
+
+## 共享 Admin 组件（新页优先复用）
+
+实现位置：`components/admin/`。列表/配置类页面 **必须** 优先使用，禁止各页重复造轮子。
+
+| 组件 | 文件 | 用途 |
+| --- | --- | --- |
+| `PageHeader` | `page-shell.tsx` | `h1` 22px bold + 13px 描述；可选右侧 `actions` |
+| `PanelCard` | `page-shell.tsx` | 列表外框：`border-t-2 border-t-primary/70` + 面板头 `bg-muted/20` |
+| `SearchInput` | `page-shell.tsx` | `InputGroup` + Search 图标，宽 `sm:w-[220px]` |
+| `PanelLoading` / `PanelError` / `PanelEmpty` | `page-shell.tsx` | 三态；error 须展示 `traceId` + 重试 |
+| `PaginationBar` | `page-shell.tsx` | `共 N 条 · 第 x/y 页` + 上一页/下一页 `outline sm` |
+| `NoPermissionCard` | `page-shell.tsx` | 居中图标 + 说明 |
+| `FormField` | `form-field.tsx` | 标签 + 必填 `*` + hint |
+| `OptionToggle` | `form-field.tsx` | 枚举二选一/多选一（ACTIVE/DISABLED、数据范围等） |
+| `STATUS_OPTIONS` | `form-field.tsx` | 启用/停用常量 |
+| `ConfirmDialog` | `confirm-dialog.tsx` | 破坏性操作确认；**禁止** `window.confirm` |
+
+**基准参照页**
+
+- 页面壳 + 三态 + 分页：`AdminSettingsPage`、`AdminWorkflowPage`、`AdminAuditLogsPage`
+- 表单字段 + Sheet：`AdminPermissionsPage`
+- 待办行内操作：`AdminTasksPage`
+
+## 页面结构约定
+
+```tsx
+<div className="space-y-5">
+  <PageHeader title="…" description="…" actions={…} />  {/* 页级次要操作可放 actions */}
+  <PanelCard title="…" toolbar={<>搜索 + 刷新 + 主 CTA</>}>
+    {/* loading / error / empty / 列表 */}
+    <PaginationBar … />
+  </PanelCard>
+</div>
+```
+
+- 页间距：`space-y-5`（不用 `space-y-4`）
+- 页标题：`text-[22px] font-bold`；描述：`text-[13px] text-muted-foreground`
+- **主 CTA（新建）放在 `PanelCard` 的 `toolbar` 内**，不放页头（与 Settings/Workflow 一致）
+- 列表区操作按钮：`size="sm"`；`variant="outline"` 用于刷新/分页；`variant="ghost"` 用于行内文字操作
+
+## 按钮与图标
+
+- 使用 `components/ui/button` 的 `variant` / `size`；禁止原生 `<button>` 做主要交互
+- 面板/列表：`size="sm"`（h-7）；Sheet 底部保存可用默认 `size`
+- 带图标按钮：图标与文字 **横向** 排列；图标不写 `className="size-4"`，交给 Button 内置 svg 尺寸
+  - 正确：`<Button size="sm"><Plus />新建</Button>`
+- 行内操作：优先 **纯文字** `ghost sm`（编辑 / 删除 / 发布）；表格内仅图标可用 `ghost icon-sm`
+- 破坏性：Sheet 内 `variant="destructive"` 或 `ConfirmDialog` + `destructive`
+
+## Sheet 抽屉（必须）
+
+- 详情/新建/编辑：**右侧 `Sheet`**，`side="right"`，`className="gap-0 p-0"`
+- 结构：
+
+```tsx
+<SheetContent side="right" className="gap-0 p-0">
+  <SheetHeader>…</SheetHeader>
+  <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">…</div>
+  <SheetFooter>
+    <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+      <Button variant="outline">取消</Button>
+      <Button>保存</Button>
+    </div>
+  </SheetFooter>
+</SheetContent>
+```
+
+- **禁止** 在 `SheetFooter` 内直接放多个 `Button` 而不包横向容器（`SheetFooter` 默认 `flex-col` 会导致上下排列）
+- 含删除时：参考 `AdminSettingsPage` — `sm:justify-between`，左侧 `destructive`，右侧取消+保存
+- 宽度：默认 `min(560px,100vw)`（`sheet.tsx` 内置），非必要不覆盖 `max-w-*`
+- 枚举字段：用 `OptionToggle`，**禁止**用 `Input` 手填 `ACTIVE` / `DISABLED`
+
+## 表单（当前阶段）
+
+- MVP 配置页：`useState` 本地表单 + `FormField` 包裹 `Input` / `Textarea`
+- **禁止**原生 `<input>` / `<textarea>` / `<select>`
+- 尚未安装 `Select`：下拉枚举一律 `OptionToggle` 或后续补 shadcn `Select`
+- 多步/强校验表单（员工档案等后补切片）：再引入 React Hook Form + Zod + shadcn Form
+
+## 数据加载与 API
+
+### 请求层
+
+- 统一 `api/http.ts`：`getJson` / `postJson` / `putJson` / `deleteJson`
+- 返回 `ApiResponse<T>`；失败抛 `ApiError { message, traceId? }`
+- Token：`localStorage` key `hrPlatform.authToken`，Header `Authorization: Bearer`
+- 基址：`VITE_API_BASE_URL`（默认 `http://localhost:8087`）
+- 领域 API 单文件：`api/dict.ts`、`api/workflow.ts` 等，类型从 `@shared/api.interface` 导入
+
+### 页面数据模式
+
+```tsx
+type LoadState<T> =
+  | { type: "loading" }
+  | { type: "error"; error: ApiError }
+  | { type: "ok"; data: T };
+
+const load = useCallback(async () => {
+  try {
+    setState((prev) => (prev.type === "ok" ? prev : { type: "loading" }));
+    const res = await listXxx(query);
+    setState({ type: "ok", data: res.data });
+  } catch (e: unknown) {
+    const err = toApiError(e);
+    setState({ type: "error", error: err });
+    toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
+  }
+}, [deps]);
+
+useEffect(() => { void load(); }, [load]);
+```
+
+- **禁止 mock**；须处理 loading / error / empty
+- 分页对接 `{ items, total, page, pageSize }`；`pageSize` 常用 20
+- 搜索 debounce：`useDebouncedValue(value, 280)`（默认 280ms）
+- 筛选变更时 `setPage(1)`
+- 错误 Toast 与 `PanelError` 均须带 `traceId`（若有）
+
+## 权限与认证
+
+- `AuthProvider` 提供 `user` / `login` / `logout` / `refreshMe`
+- 受保护路由：`<RequireAuth><AdminLayout /></RequireAuth>`
+- 功能点：`usePermission().has("module:action")`；页面级无权限返回 `NoPermissionCard`
+- 菜单：`admin-nav` 的 `permission` 字段 + Layout 内裁剪
+
+## 状态展示
+
+- 启用/停用：`StatusBadge` 模式（`Badge` + emerald 启用态），或 `STATUS_OPTIONS` + `OptionToggle`
+- 流程/业务枚举：与 `@shared/api.interface` 常量一致；展示用本地 `*_LABEL` Record
+- 敏感字段（后补）：脱敏 + 小标签；明文查看须权限
+
+## 样式与主题
+
+- 颜色/间距用 Tailwind 语义类：`bg-background`、`text-muted-foreground`、`border-border`、`bg-primary`
+- 列表卡片：`rounded-xl border border-t-2 border-t-primary/70 shadow-sm`
+- 面板头：`border-b bg-muted/20 px-4 py-3`
+- 字体栈：`index.css` 中 `Noto Sans SC` + `Inter` 回退；等宽字段 `font-mono`
+- 暗色：`next-themes` + `.dark` CSS 变量；尊重 `prefers-reduced-motion`
+
+## 交互禁令
+
+- 禁止 `alert` / `confirm` / `prompt` → 用 `ConfirmDialog` 或 Sheet 内确认
+- 禁止左侧边栏主导航
+- 禁止 Google Fonts CDN；字体自托管或系统栈
+- 禁止在未对接 API 的页面写死业务数据
+
+## 新页面 Checklist
+
+1. 读 `shared/api.interface.ts` 与对应 `api/*.ts`
+2. 在 `App.tsx` 注册路由；`admin-nav.ts` 补菜单与 `permission`
+3. 使用 `PageHeader` + `PanelCard` + 三态组件
+4. 新建/编辑走 `Sheet` + `FormField`；删除/停用走 `ConfirmDialog` 或 Sheet `destructive`
+5. `usePermission` 守卫；`loading` / `error` / `empty` 三态齐全
+6. `npm run build` 通过；禁止 `any` / `as any`
+
+## 路由对照（MVP Admin）
+
+| 路径 | 页面 | 状态 |
+| --- | --- | --- |
+| `/admin/settings` | AdminSettingsPage | ✅ |
+| `/admin/platform/workflow` | AdminWorkflowPage | ✅ |
+| `/admin/platform/tasks` | AdminTasksPage | ✅ |
+| `/admin/platform/permissions` | AdminPermissionsPage | ✅ |
+| `/admin/platform/audit` | AdminAuditLogsPage | ✅ |
+| 其他 `/admin/*` | AdminPlaceholderPage | 占位 |
+
+未实现路由用 `AdminPlaceholderPage`；勿留无路由菜单项。

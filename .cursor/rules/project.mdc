@@ -1,0 +1,46 @@
+---
+description: HR Platform 全局约定（契约优先、垂直切片、权限与安全）
+alwaysApply: true
+---
+
+# HR Platform 全局规则
+
+## 开发顺序
+
+1. 读 `AGENTS.md` 和当前 Slice（`docs/MVP-AI开发路线图.md`）
+2. 读 `docs/领域模型与表设计-MVP.md` 相关实体
+3. 更新 `shared/api.interface.ts` → Flyway → Java → React 页面
+4. 垂直切片交付，禁止一次生成全部模块
+
+## 契约与类型
+
+- 接口变更**先**改 `shared/api.interface.ts`
+- API JSON 用 camelCase；禁止 snake_case 泄漏到前端类型
+- 禁止 `any`、`as any`；禁止臆造未导出的类型
+
+## 安全
+
+- 后端每个写接口和功能接口必须鉴权
+- 员工手机号、证件号加密 + 脱敏；导出单独权限 + 审计
+- 附件用受控下载，禁止公开静态路径
+
+## 前端
+
+- UI/菜单/交互以 **`client/` 已实现页面** 与 `.cursor/rules/frontend.mdc` 为准；愿景文档见 `docs/前端UI与信息架构规范.md`
+- 顶栏 + Mega Menu + 面包屑；禁止左侧边栏主导航
+- shadcn/ui（`components/ui/`）+ 业务壳层（`components/admin/page-shell`、`form-field`、`confirm-dialog`）
+- 禁止原生 input/select/textarea；枚举用 `OptionToggle`
+- 列表/配置页：`PageHeader` + `PanelCard` + loading/error/empty + `PaginationBar`
+- 新建/编辑：右侧 `Sheet`（`gap-0 p-0`，Footer 须横向按钮容器）；确认用 `ConfirmDialog`
+- 数据：`api/http.ts` + `useState` LoadState 模式；禁止 mock；debounce 280ms
+- 权限：`usePermission`；图标仅 `lucide-react`；反馈 `sonner`
+
+## 后端
+
+- Java 17 + Spring Boot 3；禁止 Node 后端
+- 业务状态机在 Service/Domain，不在 Controller
+- 跨模块用领域事件，禁止跨模块改对方表
+
+## 生效日期
+
+组织、任职、汇报关系变更必须持久化 `effective_start_date` / `effective_end_date`。

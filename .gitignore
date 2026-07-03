@@ -1,0 +1,17 @@
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs & debug
+*.log
+debug-*.log
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+
+# Dependencies & build (also covered by client/server .gitignore)
+node_modules/
+dist/
+target/

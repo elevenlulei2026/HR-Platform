@@ -1,0 +1,8 @@
+cd "D:\文档\HR Platform\server"
+./mvnw spring-boot:run
+
+
+
+cd "D:\文档\HR Platform\client"
+npm run dev
+

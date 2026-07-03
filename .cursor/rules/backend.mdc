@@ -1,0 +1,44 @@
+---
+description: HR Platform Java 后端规范（Spring Boot + MyBatis-Plus + Flyway）
+globs: server/**/*.{java,xml,yml,yaml,sql}
+alwaysApply: false
+---
+
+# 后端开发规范
+
+## 分层
+
+```text
+controller/   # 入参校验、鉴权上下文、DTO 转换，无业务逻辑
+service/      # 用例编排、事务、流程发起、事件发布
+domain/       # 状态机、领域规则（复杂模块）
+mapper/       # MyBatis-Plus Mapper
+entity/       # 与表一一对应
+dto/          # 请求/响应，与 shared 契约对齐
+```
+
+## Flyway
+
+- 路径：`server/src/main/resources/db/migration/`
+- 命名：`V{version}__{module}_{desc}.sql`，如 `V1_001__core_organization.sql`
+- 禁止修改已执行脚本；变更用新 migration
+
+## API
+
+- 路径：`/api/v1/{resource}`
+- 统一 `ApiResponse<T>`；异常由 `@RestControllerAdvice` 处理
+- 列表：`GET` + `page`/`pageSize`；历史：`asOfDate`
+- 写操作关键接口支持幂等（入职、异动）
+
+## 包依赖
+
+`modules.*` → `core.*` → `platform.*`；`core` 不得 import `modules`
+
+## 权限
+
+- 使用项目统一鉴权注解/拦截器
+- 数据范围在 Service 层过滤，不仅靠 SQL 拼接在 Controller
+
+## 日志
+
+- 结构化日志含 traceId；禁止日志输出明文敏感字段
