@@ -71,14 +71,19 @@
 
 ### Slice 7：员工主数据
 
+> **范围澄清**：MVP 员工档案须覆盖 **27 项二级模块**（见 `docs/领域模型与表设计-MVP.md` §4.1）。培训/绩效/盘点等 **不做独立业务模块**，但须在档案内 **记录** 对应多行数据。当前代码仅完成骨架（主档/任职/汇报/异动/导入导出），**27 项档案尚未齐** — 以路线图 §Slice 7 细粒度清单为准继续交付。
+
 | 任务 | 说明 |
 | --- | --- |
-| `employee` 主档 | 身份稳定字段 |
-| `employee_assignment` 任职 | 含 effective_start/end |
-| `reporting_line` 汇报关系 | 支持 asOfDate 查询 |
-| `employee_movement` 异动事件 | 入转调离写入 |
-| 员工档案详情页 | 多 Tab：基本信息、任职、汇报、异动 |
-| Excel 导入 | 模板下载 + 校验报告 |
+| **7.1 个人信息** | #1–5：主档全字段 + 证件/家属/内部亲属子表 CRUD |
+| **7.2 工作信息** | #6–11：任职全字段 + 成本中心分摊 + 合同/协议档案 |
+| **7.3 员工服务** | #12–17：考勤卡、银行卡、社保、特殊福利、班车住宿、附件 |
+| **7.4 背景信息** | #18–21：教育、工作经历、资格职称、奖惩 |
+| **7.5 人才发展档案** | #22–27：培训/绩效/价值观/盘点/项目/智能体归属（只记录） |
+| **7.6 汇报关系** | `reporting_line`，支持 `asOfDate` |
+| **7.7 异动事件** | `employee_movement` + 字典种子；档案 Tab 只读 |
+| **7.8 导入导出** | Excel 模板、校验报告、花名册导出 + 审计 |
+| 花名册 + 档案 Sheet | 5 个一级 Tab + 异动；见前端 UI 规范 §5.2 |
 
 ## 阶段 3：入转调离（Slice 8–12）
 
@@ -110,10 +115,12 @@
 
 ### Slice 11：合同
 
+> **档案 CRUD 在 Slice 7.2**（`employee_contract` / `employee_agreement`）。本 Slice 侧重续签流程、到期提醒与审批联动。
+
 | 任务 | 说明 |
 | --- | --- |
-| `employee_contract` | 类型、起止、状态、附件 |
-| 合同列表/续签提醒 | 到期前 30 天待办（可选） |
+| 续签/变更流程 | 对接 Slice 4；审批通过后更新 §4.3 合同档案 |
+| 合同到期提醒 | 到期前 30 天待办（可选） |
 
 ### Slice 12：离职
 
@@ -188,7 +195,7 @@
 
 1. **Admin 端**可独立完成全部 MVP 演示（无 MSS/ESS 页面）
 2. 组织、岗位、职级、法人可维护，支持生效日期；组织部门可填写成本中心文本字段
-3. 员工档案、任职、汇报、异动完整
+3. 员工档案 **27 项二级模块** 可维护（见领域模型 §4.1）；任职、汇报、异动完整
 4. 入职 → 转正 → 调岗 → 离职全流程可跑通（均在 Admin）
 5. RBAC + 数据范围 + 敏感字段脱敏 + 审计
 6. 待办驱动审批（Admin 待办中心）
@@ -450,60 +457,98 @@ flowchart TD
 
 ### Slice 7：员工主数据
 
-#### 7.1 员工主档（含敏感字段脱敏）
+> **范围总览**：须覆盖 `docs/领域模型与表设计-MVP.md` §4.1 全部 **27 项**档案二级模块。  
+> **模块 vs 档案**：LMS、绩效校准、盘点流程、项目 PMO、智能体编排等 **独立系统不做**；对应信息以 **档案多行记录** 形式落在 Slice 7.5。  
+> **当前实现状态**：7.6–7.8 骨架已有；7.1–7.5 **大部分未完成**（勿以现有代码反推范围）。
 
-- **7.1.1**：shared 增加 `Employee`、`EmployeeStatus`
-  - 验收：与 `docs/领域模型与表设计-MVP.md` 状态枚举一致
-- **7.1.2**：Flyway 创建 `employee`（`mobile`、`id_card_no` 加密存储）
+#### 7.1 个人信息（档案 #1–5）
+
+- **7.1.1**：shared 增加 `Employee`、`EmployeeStatus` 及 §4.2 **全部主档列**
+  - 验收：契约与领域模型 §4.2 一致（含联系、地址、紧急联系人列）
+- **7.1.2**：Flyway `employee` 全字段 + `employee_id_document` / `employee_family_member` / `employee_internal_relative`
+  - 验收：迁移成功；证件号、手机号加密存储
+- **7.1.3**：后端子表 CRUD + 加密脱敏（`employee:sensitive:view` + VIEW 审计）
+  - 验收：证件/家属/内部亲属多行增删改查；接口默认脱敏
+- **7.1.4**：花名册分页 API（数据范围 SELF/DEPARTMENT/ALL）
+  - 验收：不同角色可见范围不同
+- **7.1.5**：前端花名册 + Sheet「个人信息」Tab
+  - 验收：展示/编辑 #1–5 全部块；三态完整；脱敏标识
+
+#### 7.2 工作信息（档案 #6–11）
+
+- **7.2.1**：shared 增加 `EmployeeAssignment`、`EmployeeCostCenterAllocation`、`EmployeeContract`、`EmployeeAgreement` 等
+  - 验收：含 `effectiveStartDate/effectiveEndDate`；assignment 含 §4.4 岗位/组织/雇工/工作关系列
+- **7.2.2**：Flyway 创建/扩展 `employee_assignment`、`employee_cost_center_allocation`、`employee_contract`、`employee_agreement`
+  - 验收：主任职重叠服务校验；成本中心/合同/协议多行 CRUD
+- **7.2.3**：后端任职、成本中心、合同/协议增改接口（事务 + 校验）
+  - 验收：非法重叠任职被拒绝；合同附件走受控文件服务
+- **7.2.4**：前端 Sheet「工作信息」Tab
+  - 验收：岗位/组织/雇工/工作关系摘要 + 任职列表 + 成本中心/合同/协议多行维护
+
+#### 7.3 员工服务（档案 #12–17）
+
+- **7.3.1**：shared 增加考勤卡、银行卡、社保、特殊福利、班车住宿、附件类型
+  - 验收：与 §4.3 子表字段对齐
+- **7.3.2**：Flyway 创建 `employee_attendance_card`、`employee_bank_account`、`employee_social_insurance`、`employee_special_benefit`、`employee_commute_accommodation`、`employee_attachment`
+  - 验收：迁移成功；银行账号/社保号加密
+- **7.3.3**：后端各子表 CRUD + 附件受控下载
+  - 验收：鉴权 + 敏感字段脱敏/审计
+- **7.3.4**：前端 Sheet「员工服务」Tab
+  - 验收：6 类信息分块展示；多行可维护；附件可上传/下载
+
+#### 7.4 背景信息（档案 #18–21）
+
+- **7.4.1**：shared 增加教育、工作经历、资格职称、奖惩类型
+- **7.4.2**：Flyway 创建 `employee_education`、`employee_work_experience`、`employee_qualification`、`employee_reward`、`employee_penalty`
   - 验收：迁移成功
-- **7.1.3**：后端实现加密存储与脱敏展示（查看明文预留权限点 `employee:sensitive:view`）
-  - 验收：DB 存密文；接口出参默认脱敏
-- **7.1.4**：后端员工花名册分页 API（接入数据范围）
-  - 验收：不同用户返回不同范围数据
-- **7.1.5**：前端 `/admin/employees/roster` 花名册（列表 + 右侧 Sheet 档案）
-  - 验收：三态完整；敏感字段脱敏并标识
+- **7.4.3**：后端 CRUD API
+  - 验收：多行增删改查；附件字段走受控存储
+- **7.4.4**：前端 Sheet「背景信息」Tab
+  - 验收：四块多行列表 + 新建/编辑 Sheet 或行内表单
 
-#### 7.2 任职（有效期）
+#### 7.5 人才发展档案（档案 #22–27，只记录非模块）
 
-- **7.2.1**：shared 增加 `EmployeeAssignment`
-  - 验收：包含 `effectiveStartDate/effectiveEndDate` 等核心字段
-- **7.2.2**：Flyway 创建 `employee_assignment`（主任职约束）
-  - 验收：同一员工同一时段仅允许一条主任职（MVP 先用服务校验）
-- **7.2.3**：后端任职增改接口（事务 + 校验）
-  - 验收：非法重叠任职被拒绝
-- **7.2.4**：前端档案 Sheet 增加「任职」Tab
-  - 验收：可新增任职记录并立即展示
+- **7.5.1**：shared 增加培训记录、历史绩效、价值观、盘点、项目、智能体归属类型
+  - 验收：字段满足 HR 手工录入与后续流程回写；**不含** LMS/绩效引擎 API
+- **7.5.2**：Flyway 创建 `employee_training_record`、`employee_performance_record`、`employee_values_assessment`、`employee_talent_review`、`employee_project`、`employee_agent_assignment`
+  - 验收：迁移成功
+- **7.5.3**：后端各子表 CRUD（HR 维护为主；预留 `source_type`/`source_id` 供后续回写）
+  - 验收：多行增删改查
+- **7.5.4**：前端 Sheet「人才发展」Tab
+  - 验收：6 类多行记录可查看/维护；文案标明「档案记录，非业务模块入口」
 
-#### 7.3 汇报关系（有效期 + asOfDate）
+#### 7.6 汇报关系（有效期 + asOfDate）
 
-- **7.3.1**：shared 增加 `ReportingLine`
+- **7.6.1**：shared 增加 `ReportingLine`
   - 验收：DIRECT/DOTTED 可表达
-- **7.3.2**：Flyway 创建 `reporting_line`
+- **7.6.2**：Flyway 创建 `reporting_line`
   - 验收：迁移成功
-- **7.3.3**：后端汇报关系查询/维护（支持 `asOfDate`）
+- **7.6.3**：后端汇报关系查询/维护（支持 `asOfDate`）
   - 验收：历史快照正确
-- **7.3.4**：前端 `/admin/employees/reporting-lines` 维护页
+- **7.6.4**：前端 `/admin/employees/reporting-lines` 维护页
   - 验收：三态完整
 
-#### 7.4 异动事件（只读）
+#### 7.7 异动事件（只读 + 字典种子）
 
-- **7.4.1**：shared 增加 `EmployeeMovement`
-  - 验收：包含 `movementType/effectiveDate` 等
-- **7.4.2**：Flyway 创建 `employee_movement`
-  - 验收：迁移成功
-- **7.4.3**：后端异动查询 API（写入由入/转/调/离业务触发）
-  - 验收：按员工可查时间线
-- **7.4.4**：前端档案 Sheet 增加「异动」Tab（时间线）
-  - 验收：展示正确排序
+- **7.7.1**：shared 增加 `EmployeeMovement`、`MovementType`（HIR/REH/PRC/SPR/PRO/DEM/DTA/XFR/PAY/TER）
+  - 验收：含 `movementType`、`reasonCode`、`reasonSubCode`、`effectiveDate` 等
+- **7.7.2**：Flyway 创建 `employee_movement`；种子数据写入有效 `movement_reason` 字典
+  - 验收：迁移成功；仅「有效」原因码可被选
+- **7.7.3**：后端异动查询 API（写入由入/转/调/离业务触发）
+  - 验收：按员工可查时间线；展示操作描述 + 原因描述
+- **7.7.4**：前端档案 Sheet「异动记录」Tab（时间线）
+  - 验收：按 `effective_date` 倒序；类型标签对齐操作码
 
-#### 7.5 导入导出（禁止 mock）
+#### 7.8 导入导出（禁止 mock）
 
-- **7.5.1**：员工 Excel 导入（模板下载 + 校验报告）
-  - 验收：错误行可生成报告；成功行入库
-- **7.5.2**：花名册导出（需要 `report:export` 或独立 `employee:export` 权限 + 审计）
+- **7.8.1**：员工 Excel 导入（模板下载 + 校验报告）
+  - 验收：错误行可生成报告（可下载或明细面板）；成功行入库
+- **7.8.2**：花名册导出（`employee:export` 权限 + 审计）
   - 验收：导出会写 `audit_log`
-- **7.5.3**：前端花名册导入/导出按钮组
-  - 验收：真实 API，loading/error/empty 完整
+- **7.8.3**：前端花名册导入/导出按钮组
+  - 验收：真实 API；导出前 ConfirmDialog；loading/error/empty 完整
+
+**Slice 7 完成定义（DoD）**：§4.1 表格 27 行均可通过花名册档案 Sheet 或关联 API 维护；7.6–7.8 验收通过。
 
 ### Slice 8：入职
 
@@ -519,7 +564,7 @@ flowchart TD
   - 验收：超编不可提交，返回原因
 - **8.1.6**：提交触发流程（Slice 4），并生成待办
   - 验收：待办中心可看到入职审批任务
-- **8.1.7**：审批通过回调：创建 `employee` + `employee_assignment` + `employee_movement(HIRE)`
+- **8.1.7**：审批通过回调：创建 `employee` + `employee_assignment` + `employee_movement(HIR, H01)`
   - 验收：花名册出现新员工；异动记录存在
 - **8.1.8**：联动编制 occupied_count 更新
   - 验收：该部门已用编制 +1
@@ -536,7 +581,7 @@ flowchart TD
   - 验收：迁移成功
 - **9.1.3**：后端发起/审批转正（接 Slice 4）
   - 验收：待办中心可审批
-- **9.1.4**：审批通过后更新 `employee.status`（PROBATION→ACTIVE）并写入 `employee_movement(REGULARIZE)`
+- **9.1.4**：审批通过后更新 `employee.status`（PROBATION→ACTIVE）并写入 `employee_movement(PRC, P01|P02|P03)`
   - 验收：员工状态变化；异动记录存在
 - **9.1.5**：前端在 `/admin/movements` 或相关入口提供转正发起能力
   - 验收：能针对试用期员工发起并走通
@@ -551,22 +596,22 @@ flowchart TD
   - 验收：超编被拒绝；正常生成待办
 - **10.1.4**：审批通过：关闭旧任职、创建新任职（事务一致）
   - 验收：主任职只剩一条当前有效；旧任职正确 end
-- **10.1.5**：写入 `employee_movement(TRANSFER)`
+- **10.1.5**：写入 `employee_movement(XFR, X01–X14)`；若含调薪占位则另写 `PAY`
   - 验收：异动时间线可见
 - **10.1.6**：前端 `/admin/movements` 提供调岗列表/详情/发起
   - 验收：端到端可演示
 
 ### Slice 11：合同
 
-- **11.1.1**：shared 增加 `EmployeeContract/ContractStatus`
+> **合同/协议档案表与 CRUD 已在 Slice 7.2 交付**。本 Slice 做流程与运营能力。
+
+- **11.1.1**：shared 增加 `ContractRenewalRequest` 等续签/变更流程契约（若与档案类型复用则引用 Slice 7.2）
   - 验收：DTO 对齐
-- **11.1.2**：Flyway 创建 `employee_contract`
-  - 验收：迁移成功
-- **11.1.3**：后端合同 CRUD（附件先占位，后续可接文件模块）
-  - 验收：可为员工新增合同并查询
-- **11.1.4（可选）**：到期前 30 天提醒生成待办
+- **11.1.2**：续签/变更对接 Slice 4 流程；审批通过后 **更新** `employee_contract` / `employee_agreement`
+  - 验收：档案状态与日期正确变更
+- **11.1.3（可选）**：到期前 30 天提醒生成待办
   - 验收：至少能产生一条提醒待办
-- **11.1.5**：前端 `/admin/contracts` 合同管理页
+- **11.1.4**：前端 `/admin/contracts` 合同 **运营** 页（续签待办、到期筛选；档案详情仍在花名册 Sheet）
   - 验收：列表筛选可用；三态完整
 
 ### Slice 12：离职
@@ -579,7 +624,7 @@ flowchart TD
   - 验收：待办中心可审批
 - **12.1.4**：审批通过：结束任职、`employee.status`→TERMINATED（写 effective_end_date）
   - 验收：花名册状态更新
-- **12.1.5**：写入 `employee_movement(TERMINATE)` + 编制释放
+- **12.1.5**：写入 `employee_movement(TER, TA–TH)` + 编制释放
   - 验收：异动记录存在；编制已用 -1
 - **12.1.6**：前端 `/admin/offboarding` 离职办理页（列表 + 详情）
   - 验收：端到端可演示离职完成

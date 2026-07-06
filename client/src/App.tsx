@@ -12,6 +12,8 @@ import { AdminTasksPage } from "@/pages/admin/platform/AdminTasksPage";
 import { AdminOrgHeadcountPage } from "@/pages/admin/org/AdminOrgHeadcountPage";
 import { AdminOrgPositionsPage } from "@/pages/admin/org/AdminOrgPositionsPage";
 import { AdminOrgStructurePage } from "@/pages/admin/org/AdminOrgStructurePage";
+import { AdminEmployeesRosterPage } from "@/pages/admin/employees/AdminEmployeesRosterPage";
+import { AdminReportingLinesPage } from "@/pages/admin/employees/AdminReportingLinesPage";
 import { AdminWorkflowPage } from "@/pages/admin/platform/AdminWorkflowPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
@@ -39,11 +41,8 @@ export default function App() {
         <Route path="org/positions" element={<AdminOrgPositionsPage />} />
         <Route path="org/headcount" element={<AdminOrgHeadcountPage />} />
 
-        <Route path="employees/roster" element={<AdminPlaceholderPage title="员工花名册" />} />
-        <Route
-          path="employees/reporting-lines"
-          element={<AdminPlaceholderPage title="汇报关系" />}
-        />
+        <Route path="employees/roster" element={<AdminEmployeesRosterPage />} />
+        <Route path="employees/reporting-lines" element={<AdminReportingLinesPage />} />
 
         <Route path="onboarding" element={<AdminPlaceholderPage title="入职办理" />} />
         <Route path="movements" element={<AdminPlaceholderPage title="人事异动" />} />

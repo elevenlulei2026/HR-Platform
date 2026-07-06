@@ -1,0 +1,245 @@
+import type {
+  EmployeeAgentAssignment,
+  EmployeeAgreement,
+  EmployeeArchive,
+  EmployeeArchiveCreateRequest,
+  EmployeeArchiveResourceByPath,
+  EmployeeArchiveResourcePath,
+  EmployeeArchiveUpdateRequest,
+  EmployeeAttachment,
+  EmployeeAttendanceCard,
+  EmployeeBankAccount,
+  EmployeeCommuteAccommodation,
+  EmployeeContract,
+  EmployeeCostCenterAllocation,
+  EmployeeEducation,
+  EmployeeFamilyMember,
+  EmployeeIdDocument,
+  EmployeeImportErrorReportRequest,
+  EmployeeInternalRelative,
+  EmployeePenalty,
+  EmployeePerformanceRecord,
+  EmployeeProject,
+  EmployeeQualification,
+  EmployeeReward,
+  EmployeeSocialInsurance,
+  EmployeeSpecialBenefit,
+  EmployeeTalentReview,
+  EmployeeTrainingRecord,
+  EmployeeValuesAssessment,
+  EmployeeWorkExperience,
+} from "@shared/api.interface";
+
+import { deleteJson, getAuthToken, getJson, postJson, putJson } from "@/api/http";
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL?.toString().replace(/\/$/, "") ||
+  "http://localhost:8087";
+
+export type FileUploadResult = {
+  storageKey: string;
+  originalFilename: string;
+  size: number;
+  contentType: string;
+};
+
+export async function uploadEmployeeFile(file: File, category = "employee-attachment") {
+  const token = getAuthToken();
+  const form = new FormData();
+  form.append("file", file);
+  form.append("category", category);
+  const res = await fetch(`${API_BASE}/api/v1/files/upload`, {
+    method: "POST",
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
+  });
+  if (!res.ok) {
+    throw new Error(`上传失败（HTTP ${res.status}）`);
+  }
+  const json = (await res.json()) as { data: FileUploadResult };
+  return json.data;
+}
+
+export async function downloadEmployeeAttachment(employeeId: string, attachmentId: string) {
+  const token = getAuthToken();
+  const res = await fetch(
+    `${API_BASE}/api/v1/employees/${employeeId}/attachments/${attachmentId}/download`,
+    { headers: token ? { Authorization: `Bearer ${token}` } : {} },
+  );
+  if (!res.ok) {
+    throw new Error(`下载失败（HTTP ${res.status}）`);
+  }
+  return res.blob();
+}
+
+function archivePath(employeeId: string, resourcePath: EmployeeArchiveResourcePath) {
+  return `/api/v1/employees/${employeeId}/${resourcePath}`;
+}
+
+export async function getEmployeeArchive(employeeId: string) {
+  return getJson<EmployeeArchive>(`/api/v1/employees/${employeeId}/archive`);
+}
+
+export async function listEmployeeArchiveResource<TPath extends EmployeeArchiveResourcePath>(
+  employeeId: string,
+  resourcePath: TPath,
+) {
+  return getJson<EmployeeArchiveResourceByPath[TPath][]>(
+    archivePath(employeeId, resourcePath),
+  );
+}
+
+export async function createEmployeeArchiveResource<TPath extends EmployeeArchiveResourcePath>(
+  employeeId: string,
+  resourcePath: TPath,
+  req:
+    | EmployeeArchiveCreateRequest<EmployeeArchiveResourceByPath[TPath]>
+    | Record<string, unknown>,
+) {
+  const body = req as EmployeeArchiveCreateRequest<EmployeeArchiveResourceByPath[TPath]> &
+    Record<string, unknown>;
+  return postJson<
+    EmployeeArchiveResourceByPath[TPath],
+    EmployeeArchiveCreateRequest<EmployeeArchiveResourceByPath[TPath]> &
+      Record<string, unknown>
+  >(archivePath(employeeId, resourcePath), body);
+}
+
+export async function updateEmployeeArchiveResource<TPath extends EmployeeArchiveResourcePath>(
+  employeeId: string,
+  resourcePath: TPath,
+  id: string,
+  req:
+    | EmployeeArchiveUpdateRequest<EmployeeArchiveResourceByPath[TPath]>
+    | Record<string, unknown>,
+) {
+  const body = req as EmployeeArchiveUpdateRequest<EmployeeArchiveResourceByPath[TPath]> &
+    Record<string, unknown>;
+  return putJson<
+    EmployeeArchiveResourceByPath[TPath],
+    EmployeeArchiveUpdateRequest<EmployeeArchiveResourceByPath[TPath]> &
+      Record<string, unknown>
+  >(`${archivePath(employeeId, resourcePath)}/${id}`, body);
+}
+
+export async function deleteEmployeeArchiveResource(
+  employeeId: string,
+  resourcePath: EmployeeArchiveResourcePath,
+  id: string,
+) {
+  return deleteJson<{ id: string; employeeId: string }>(
+    `${archivePath(employeeId, resourcePath)}/${id}`,
+  );
+}
+
+function buildArchiveCrud<TPath extends EmployeeArchiveResourcePath>(resourcePath: TPath) {
+  return {
+    list: (employeeId: string) => listEmployeeArchiveResource(employeeId, resourcePath),
+    create: (
+      employeeId: string,
+      req: EmployeeArchiveCreateRequest<EmployeeArchiveResourceByPath[TPath]>,
+    ) => createEmployeeArchiveResource(employeeId, resourcePath, req),
+    update: (
+      employeeId: string,
+      id: string,
+      req: EmployeeArchiveUpdateRequest<EmployeeArchiveResourceByPath[TPath]>,
+    ) => updateEmployeeArchiveResource(employeeId, resourcePath, id, req),
+    remove: (employeeId: string, id: string) =>
+      deleteEmployeeArchiveResource(employeeId, resourcePath, id),
+  };
+}
+
+export const archiveCrud = {
+  familyMembers: buildArchiveCrud("family-members"),
+  internalRelatives: buildArchiveCrud("internal-relatives"),
+  idDocuments: buildArchiveCrud("id-documents"),
+  costCenterAllocations: buildArchiveCrud("cost-center-allocations"),
+  contracts: buildArchiveCrud("contracts"),
+  agreements: buildArchiveCrud("agreements"),
+  attendanceCards: buildArchiveCrud("attendance-cards"),
+  bankAccounts: buildArchiveCrud("bank-accounts"),
+  socialInsurances: buildArchiveCrud("social-insurances"),
+  specialBenefits: buildArchiveCrud("special-benefits"),
+  commuteAccommodations: buildArchiveCrud("commute-accommodations"),
+  attachments: buildArchiveCrud("attachments"),
+  educations: buildArchiveCrud("educations"),
+  workExperiences: buildArchiveCrud("work-experiences"),
+  qualifications: buildArchiveCrud("qualifications"),
+  rewards: buildArchiveCrud("rewards"),
+  penalties: buildArchiveCrud("penalties"),
+  trainingRecords: buildArchiveCrud("training-records"),
+  performanceRecords: buildArchiveCrud("performance-records"),
+  valuesAssessments: buildArchiveCrud("values-assessments"),
+  talentReviews: buildArchiveCrud("talent-reviews"),
+  projects: buildArchiveCrud("projects"),
+  agentAssignments: buildArchiveCrud("agent-assignments"),
+} satisfies {
+  familyMembers: ReturnType<typeof buildArchiveCrud<"family-members">>;
+  internalRelatives: ReturnType<typeof buildArchiveCrud<"internal-relatives">>;
+  idDocuments: ReturnType<typeof buildArchiveCrud<"id-documents">>;
+  costCenterAllocations: ReturnType<typeof buildArchiveCrud<"cost-center-allocations">>;
+  contracts: ReturnType<typeof buildArchiveCrud<"contracts">>;
+  agreements: ReturnType<typeof buildArchiveCrud<"agreements">>;
+  attendanceCards: ReturnType<typeof buildArchiveCrud<"attendance-cards">>;
+  bankAccounts: ReturnType<typeof buildArchiveCrud<"bank-accounts">>;
+  socialInsurances: ReturnType<typeof buildArchiveCrud<"social-insurances">>;
+  specialBenefits: ReturnType<typeof buildArchiveCrud<"special-benefits">>;
+  commuteAccommodations: ReturnType<typeof buildArchiveCrud<"commute-accommodations">>;
+  attachments: ReturnType<typeof buildArchiveCrud<"attachments">>;
+  educations: ReturnType<typeof buildArchiveCrud<"educations">>;
+  workExperiences: ReturnType<typeof buildArchiveCrud<"work-experiences">>;
+  qualifications: ReturnType<typeof buildArchiveCrud<"qualifications">>;
+  rewards: ReturnType<typeof buildArchiveCrud<"rewards">>;
+  penalties: ReturnType<typeof buildArchiveCrud<"penalties">>;
+  trainingRecords: ReturnType<typeof buildArchiveCrud<"training-records">>;
+  performanceRecords: ReturnType<typeof buildArchiveCrud<"performance-records">>;
+  valuesAssessments: ReturnType<typeof buildArchiveCrud<"values-assessments">>;
+  talentReviews: ReturnType<typeof buildArchiveCrud<"talent-reviews">>;
+  projects: ReturnType<typeof buildArchiveCrud<"projects">>;
+  agentAssignments: ReturnType<typeof buildArchiveCrud<"agent-assignments">>;
+};
+
+export async function downloadImportErrorReport(
+  req: EmployeeImportErrorReportRequest,
+): Promise<Blob> {
+  const token = getAuthToken();
+  const url = `${API_BASE}/api/v1/employees/import-error-report`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    throw new Error(`请求失败（HTTP ${res.status}）`);
+  }
+  return res.blob();
+}
+
+export type EmployeeArchiveResourceTypes = {
+  familyMembers: EmployeeFamilyMember;
+  internalRelatives: EmployeeInternalRelative;
+  idDocuments: EmployeeIdDocument;
+  costCenterAllocations: EmployeeCostCenterAllocation;
+  contracts: EmployeeContract;
+  agreements: EmployeeAgreement;
+  attendanceCards: EmployeeAttendanceCard;
+  bankAccounts: EmployeeBankAccount;
+  socialInsurances: EmployeeSocialInsurance;
+  specialBenefits: EmployeeSpecialBenefit;
+  commuteAccommodations: EmployeeCommuteAccommodation;
+  attachments: EmployeeAttachment;
+  educations: EmployeeEducation;
+  workExperiences: EmployeeWorkExperience;
+  qualifications: EmployeeQualification;
+  rewards: EmployeeReward;
+  penalties: EmployeePenalty;
+  trainingRecords: EmployeeTrainingRecord;
+  performanceRecords: EmployeePerformanceRecord;
+  valuesAssessments: EmployeeValuesAssessment;
+  talentReviews: EmployeeTalentReview;
+  projects: EmployeeProject;
+  agentAssignments: EmployeeAgentAssignment;
+};

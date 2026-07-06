@@ -124,9 +124,9 @@
 | 组织岗位 | 组织架构 | `org-structure` | `organization:view` | `/admin/org/structure` | 5 |
 | | 岗位体系 | `position-system` | `position:view` | `/admin/org/positions` | 5 |
 | | 编制管理 | `headcount` | `headcount:view` | `/admin/org/headcount` | 6 |
-| 员工主数据 | 员工花名册 | `roster` | `employee:roster:view` | `/admin/employees/roster` | 7 |
-| | 档案详情 | `employee-archive` | `employee:detail:view` | 花名册内抽屉，无独立列表页 | 7 |
-| | 汇报关系 | `reporting-line` | `reporting-line:view` | `/admin/employees/reporting-lines` | 7 |
+| 员工主数据 | 员工花名册 | `roster` | `employee:roster:view` | `/admin/employees/roster` | 7（含 27 项档案 Sheet） |
+| | 档案详情 | `employee-archive` | `employee:detail:view` | 花名册内抽屉（6 Tab），无独立列表页 | 7 |
+| | 汇报关系 | `reporting-line` | `reporting-line:view` | `/admin/employees/reporting-lines` | 7.6 |
 | 入转调离 | 入职办理 | `onboarding` | `onboarding:view` | `/admin/onboarding` | 8 |
 | | 人事异动 | `movement` | `employee:movement:view` | `/admin/movements` | 9–10 |
 | | 离职办理 | `offboarding` | `offboarding:view` | `/admin/offboarding` | 12 |
@@ -221,15 +221,20 @@ client/src/hooks/usePermission.ts
 
 | 模式 | 标题 | Tab | 底部按钮 |
 | --- | --- | --- | --- |
-| 查看 | 员工详情 | 基本信息 / 任职信息 / 异动记录 | 关闭、**编辑** |
+| 查看 | 员工详情 | **个人信息** / **工作信息** / **员工服务** / **背景信息** / **人才发展** / **异动记录** | 关闭、**编辑** |
 | 编辑 | 编辑员工 | 无 Tab | 取消、**保存** |
 | 新建 | 新建员工 | 无 Tab | 取消、**保存** |
 
 - 宽度：`min(560px, 100vw)`；右侧滑入；遮罩点击关闭
-- **查看模式**：
+- **查看模式**（对齐 `docs/领域模型与表设计-MVP.md` §4.1 共 **27 项**档案二级模块，**均属 Slice 7**）：
   - 顶部 **Hero 摘要**（头像、姓名、工号/部门/岗位、状态）固定在 Tab 上方
   - Tab 切换不关闭抽屉；切换后内容区滚回顶部
-  - **异动记录**：纵向时间轴（入职/调岗/晋职/转正/离职/待入职），当前节点高亮 `is-current`
+  - **个人信息**（#1–5）：个人基础、证件（多行）、联系、地址、家属、紧急联系人、内部亲属（多行）
+  - **工作信息**（#6–11）：当前任职（岗位/组织/雇工/工作关系）、任职历史、成本中心分摊（多行）、合同与协议（多行）
+  - **员工服务**（#12–17）：考勤卡、银行卡、社保公积金、特殊福利、班车&住宿、附件（多行/受控下载）
+  - **背景信息**（#18–21）：教育、工作经历、资格职称、奖惩（均多行）
+  - **人才发展**（#22–27）：培训记录、历史绩效、价值观评价、人才盘点、项目信息、智能体归属（均多行；**档案记录**，非 LMS/绩效/盘点模块入口）
+  - **异动记录**：纵向时间轴，节点展示操作码中文名 + 原因描述；当前任职相关节点高亮 `is-current`
 - **编辑/新建**：双列表单网格；必填 `*`；字段级错误红框 + 文案；提交前校验，失败 Toast + focus 首个错误
 - `Esc`、关闭按钮、取消按钮均关闭抽屉
 
@@ -286,7 +291,7 @@ client/src/hooks/usePermission.ts
 | 敏感字段 | 列表与详情默认脱敏；`sensitive-tag` 标示 |
 | 导出 | 独立权限 + 确认提示 + 审计 |
 | 入职/离职/异动 | 状态标签与后端状态机枚举一致 |
-| 异动时间轴 | 写入 `employee_movement`；当前任职标记「当前」 |
+| 异动时间轴 | 写入 `employee_movement`；展示 `movement_type` + `reason_code` 中文；当前任职标记「当前」 |
 
 ## 8. React 实现映射
 

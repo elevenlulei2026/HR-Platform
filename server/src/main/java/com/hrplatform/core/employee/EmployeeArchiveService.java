@@ -1,0 +1,1015 @@
+package com.hrplatform.core.employee;
+
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.mapper.BaseMapper;
+import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
+import com.hrplatform.platform.crypto.FieldCryptoService;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.function.BiConsumer;
+
+@Service
+public class EmployeeArchiveService {
+  private final EmployeeService employeeService;
+  private final FieldCryptoService fieldCryptoService;
+  private final EmployeeFamilyMemberMapper familyMemberMapper;
+  private final EmployeeInternalRelativeMapper internalRelativeMapper;
+  private final EmployeeIdDocumentMapper idDocumentMapper;
+  private final EmployeeCostCenterAllocationMapper costCenterAllocationMapper;
+  private final EmployeeContractMapper contractMapper;
+  private final EmployeeAgreementMapper agreementMapper;
+  private final EmployeeAttendanceCardMapper attendanceCardMapper;
+  private final EmployeeBankAccountMapper bankAccountMapper;
+  private final EmployeeSocialInsuranceMapper socialInsuranceMapper;
+  private final EmployeeSpecialBenefitMapper specialBenefitMapper;
+  private final EmployeeCommuteAccommodationMapper commuteAccommodationMapper;
+  private final EmployeeAttachmentMapper attachmentMapper;
+  private final EmployeeEducationMapper educationMapper;
+  private final EmployeeWorkExperienceMapper workExperienceMapper;
+  private final EmployeeQualificationMapper qualificationMapper;
+  private final EmployeeRewardMapper rewardMapper;
+  private final EmployeePenaltyMapper penaltyMapper;
+  private final EmployeeTrainingRecordMapper trainingRecordMapper;
+  private final EmployeePerformanceRecordMapper performanceRecordMapper;
+  private final EmployeeValuesAssessmentMapper valuesAssessmentMapper;
+  private final EmployeeTalentReviewMapper talentReviewMapper;
+  private final EmployeeProjectMapper projectMapper;
+  private final EmployeeAgentAssignmentMapper agentAssignmentMapper;
+
+  public EmployeeArchiveService(
+      EmployeeService employeeService,
+      FieldCryptoService fieldCryptoService,
+      EmployeeFamilyMemberMapper familyMemberMapper,
+      EmployeeInternalRelativeMapper internalRelativeMapper,
+      EmployeeIdDocumentMapper idDocumentMapper,
+      EmployeeCostCenterAllocationMapper costCenterAllocationMapper,
+      EmployeeContractMapper contractMapper,
+      EmployeeAgreementMapper agreementMapper,
+      EmployeeAttendanceCardMapper attendanceCardMapper,
+      EmployeeBankAccountMapper bankAccountMapper,
+      EmployeeSocialInsuranceMapper socialInsuranceMapper,
+      EmployeeSpecialBenefitMapper specialBenefitMapper,
+      EmployeeCommuteAccommodationMapper commuteAccommodationMapper,
+      EmployeeAttachmentMapper attachmentMapper,
+      EmployeeEducationMapper educationMapper,
+      EmployeeWorkExperienceMapper workExperienceMapper,
+      EmployeeQualificationMapper qualificationMapper,
+      EmployeeRewardMapper rewardMapper,
+      EmployeePenaltyMapper penaltyMapper,
+      EmployeeTrainingRecordMapper trainingRecordMapper,
+      EmployeePerformanceRecordMapper performanceRecordMapper,
+      EmployeeValuesAssessmentMapper valuesAssessmentMapper,
+      EmployeeTalentReviewMapper talentReviewMapper,
+      EmployeeProjectMapper projectMapper,
+      EmployeeAgentAssignmentMapper agentAssignmentMapper
+  ) {
+    this.employeeService = employeeService;
+    this.fieldCryptoService = fieldCryptoService;
+    this.familyMemberMapper = familyMemberMapper;
+    this.internalRelativeMapper = internalRelativeMapper;
+    this.idDocumentMapper = idDocumentMapper;
+    this.costCenterAllocationMapper = costCenterAllocationMapper;
+    this.contractMapper = contractMapper;
+    this.agreementMapper = agreementMapper;
+    this.attendanceCardMapper = attendanceCardMapper;
+    this.bankAccountMapper = bankAccountMapper;
+    this.socialInsuranceMapper = socialInsuranceMapper;
+    this.specialBenefitMapper = specialBenefitMapper;
+    this.commuteAccommodationMapper = commuteAccommodationMapper;
+    this.attachmentMapper = attachmentMapper;
+    this.educationMapper = educationMapper;
+    this.workExperienceMapper = workExperienceMapper;
+    this.qualificationMapper = qualificationMapper;
+    this.rewardMapper = rewardMapper;
+    this.penaltyMapper = penaltyMapper;
+    this.trainingRecordMapper = trainingRecordMapper;
+    this.performanceRecordMapper = performanceRecordMapper;
+    this.valuesAssessmentMapper = valuesAssessmentMapper;
+    this.talentReviewMapper = talentReviewMapper;
+    this.projectMapper = projectMapper;
+    this.agentAssignmentMapper = agentAssignmentMapper;
+  }
+
+  public Map<String, Object> getArchiveBundle(long employeeId) {
+    employeeService.require(employeeId);
+    Map<String, Object> bundle = new LinkedHashMap<>();
+    bundle.put("familyMembers", listFamilyMembers(employeeId));
+    bundle.put("internalRelatives", listInternalRelatives(employeeId));
+    bundle.put("idDocuments", listIdDocuments(employeeId));
+    bundle.put("costCenterAllocations", listCostCenterAllocations(employeeId));
+    bundle.put("contracts", listContracts(employeeId));
+    bundle.put("agreements", listAgreements(employeeId));
+    bundle.put("attendanceCards", listAttendanceCards(employeeId));
+    bundle.put("bankAccounts", listBankAccounts(employeeId));
+    bundle.put("socialInsurances", listSocialInsurances(employeeId));
+    bundle.put("specialBenefits", listSpecialBenefits(employeeId));
+    bundle.put("commuteAccommodations", listCommuteAccommodations(employeeId));
+    bundle.put("attachments", listAttachments(employeeId));
+    bundle.put("educations", listEducations(employeeId));
+    bundle.put("workExperiences", listWorkExperiences(employeeId));
+    bundle.put("qualifications", listQualifications(employeeId));
+    bundle.put("rewards", listRewards(employeeId));
+    bundle.put("penalties", listPenalties(employeeId));
+    bundle.put("trainingRecords", listTrainingRecords(employeeId));
+    bundle.put("performanceRecords", listPerformanceRecords(employeeId));
+    bundle.put("valuesAssessments", listValuesAssessments(employeeId));
+    bundle.put("talentReviews", listTalentReviews(employeeId));
+    bundle.put("projects", listProjects(employeeId));
+    bundle.put("agentAssignments", listAgentAssignments(employeeId));
+    return bundle;
+  }
+
+  public List<EmployeeFamilyMemberEntity> listFamilyMembers(long employeeId) {
+    return listByEmployee(familyMemberMapper, EmployeeFamilyMemberEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeFamilyMemberEntity createFamilyMember(long employeeId, EmployeeFamilyMemberEntity entity) {
+    return create(
+        familyMemberMapper,
+        employeeId,
+        entity,
+        EmployeeFamilyMemberEntity::setEmployeeId
+    );
+  }
+
+  @Transactional
+  public EmployeeFamilyMemberEntity updateFamilyMember(long employeeId, long id, EmployeeFamilyMemberEntity entity) {
+    return update(
+        familyMemberMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeFamilyMemberEntity::getEmployeeId,
+        EmployeeFamilyMemberEntity::getId,
+        this::mergeFamilyMember
+    );
+  }
+
+  @Transactional
+  public void deleteFamilyMember(long employeeId, long id) {
+    delete(familyMemberMapper, employeeId, id, EmployeeFamilyMemberEntity::getEmployeeId);
+  }
+
+  public List<EmployeeInternalRelativeEntity> listInternalRelatives(long employeeId) {
+    return listByEmployee(internalRelativeMapper, EmployeeInternalRelativeEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeInternalRelativeEntity createInternalRelative(long employeeId, EmployeeInternalRelativeEntity entity) {
+    return create(
+        internalRelativeMapper,
+        employeeId,
+        entity,
+        EmployeeInternalRelativeEntity::setEmployeeId
+    );
+  }
+
+  @Transactional
+  public EmployeeInternalRelativeEntity updateInternalRelative(
+      long employeeId,
+      long id,
+      EmployeeInternalRelativeEntity entity
+  ) {
+    return update(
+        internalRelativeMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeInternalRelativeEntity::getEmployeeId,
+        EmployeeInternalRelativeEntity::getId,
+        this::mergeInternalRelative
+    );
+  }
+
+  @Transactional
+  public void deleteInternalRelative(long employeeId, long id) {
+    delete(internalRelativeMapper, employeeId, id, EmployeeInternalRelativeEntity::getEmployeeId);
+  }
+
+  public List<EmployeeIdDocumentEntity> listIdDocuments(long employeeId) {
+    return listByEmployee(idDocumentMapper, EmployeeIdDocumentEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeIdDocumentEntity createIdDocument(long employeeId, EmployeeIdDocumentEntity entity) {
+    encryptIdDocument(entity);
+    EmployeeIdDocumentEntity created = create(
+        idDocumentMapper,
+        employeeId,
+        entity,
+        EmployeeIdDocumentEntity::setEmployeeId
+    );
+    decryptIdDocument(created);
+    return created;
+  }
+
+  @Transactional
+  public EmployeeIdDocumentEntity updateIdDocument(long employeeId, long id, EmployeeIdDocumentEntity entity) {
+    encryptIdDocument(entity);
+    EmployeeIdDocumentEntity updated = update(
+        idDocumentMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeIdDocumentEntity::getEmployeeId,
+        EmployeeIdDocumentEntity::getId,
+        this::mergeIdDocument
+    );
+    decryptIdDocument(updated);
+    return updated;
+  }
+
+  @Transactional
+  public void deleteIdDocument(long employeeId, long id) {
+    delete(idDocumentMapper, employeeId, id, EmployeeIdDocumentEntity::getEmployeeId);
+  }
+
+  public List<EmployeeCostCenterAllocationEntity> listCostCenterAllocations(long employeeId) {
+    return listByEmployee(costCenterAllocationMapper, EmployeeCostCenterAllocationEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeCostCenterAllocationEntity createCostCenterAllocation(
+      long employeeId,
+      EmployeeCostCenterAllocationEntity entity
+  ) {
+    return create(
+        costCenterAllocationMapper,
+        employeeId,
+        entity,
+        EmployeeCostCenterAllocationEntity::setEmployeeId
+    );
+  }
+
+  @Transactional
+  public EmployeeCostCenterAllocationEntity updateCostCenterAllocation(
+      long employeeId,
+      long id,
+      EmployeeCostCenterAllocationEntity entity
+  ) {
+    return update(
+        costCenterAllocationMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeCostCenterAllocationEntity::getEmployeeId,
+        EmployeeCostCenterAllocationEntity::getId,
+        this::mergeCostCenterAllocation
+    );
+  }
+
+  @Transactional
+  public void deleteCostCenterAllocation(long employeeId, long id) {
+    delete(costCenterAllocationMapper, employeeId, id, EmployeeCostCenterAllocationEntity::getEmployeeId);
+  }
+
+  public List<EmployeeContractEntity> listContracts(long employeeId) {
+    return listByEmployee(contractMapper, EmployeeContractEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeContractEntity createContract(long employeeId, EmployeeContractEntity entity) {
+    return create(contractMapper, employeeId, entity, EmployeeContractEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeContractEntity updateContract(long employeeId, long id, EmployeeContractEntity entity) {
+    return update(
+        contractMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeContractEntity::getEmployeeId,
+        EmployeeContractEntity::getId,
+        this::mergeContract
+    );
+  }
+
+  @Transactional
+  public void deleteContract(long employeeId, long id) {
+    delete(contractMapper, employeeId, id, EmployeeContractEntity::getEmployeeId);
+  }
+
+  public List<EmployeeAgreementEntity> listAgreements(long employeeId) {
+    return listByEmployee(agreementMapper, EmployeeAgreementEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeAgreementEntity createAgreement(long employeeId, EmployeeAgreementEntity entity) {
+    return create(agreementMapper, employeeId, entity, EmployeeAgreementEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeAgreementEntity updateAgreement(long employeeId, long id, EmployeeAgreementEntity entity) {
+    return update(
+        agreementMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeAgreementEntity::getEmployeeId,
+        EmployeeAgreementEntity::getId,
+        this::mergeAgreement
+    );
+  }
+
+  @Transactional
+  public void deleteAgreement(long employeeId, long id) {
+    delete(agreementMapper, employeeId, id, EmployeeAgreementEntity::getEmployeeId);
+  }
+
+  public List<EmployeeAttendanceCardEntity> listAttendanceCards(long employeeId) {
+    return listByEmployee(attendanceCardMapper, EmployeeAttendanceCardEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeAttendanceCardEntity createAttendanceCard(long employeeId, EmployeeAttendanceCardEntity entity) {
+    return create(attendanceCardMapper, employeeId, entity, EmployeeAttendanceCardEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeAttendanceCardEntity updateAttendanceCard(
+      long employeeId,
+      long id,
+      EmployeeAttendanceCardEntity entity
+  ) {
+    return update(
+        attendanceCardMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeAttendanceCardEntity::getEmployeeId,
+        EmployeeAttendanceCardEntity::getId,
+        this::mergeAttendanceCard
+    );
+  }
+
+  @Transactional
+  public void deleteAttendanceCard(long employeeId, long id) {
+    delete(attendanceCardMapper, employeeId, id, EmployeeAttendanceCardEntity::getEmployeeId);
+  }
+
+  public List<EmployeeBankAccountEntity> listBankAccounts(long employeeId) {
+    return listByEmployee(bankAccountMapper, EmployeeBankAccountEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeBankAccountEntity createBankAccount(long employeeId, EmployeeBankAccountEntity entity) {
+    encryptBankAccount(entity);
+    EmployeeBankAccountEntity created = create(
+        bankAccountMapper,
+        employeeId,
+        entity,
+        EmployeeBankAccountEntity::setEmployeeId
+    );
+    decryptBankAccount(created);
+    return created;
+  }
+
+  @Transactional
+  public EmployeeBankAccountEntity updateBankAccount(long employeeId, long id, EmployeeBankAccountEntity entity) {
+    encryptBankAccount(entity);
+    EmployeeBankAccountEntity updated = update(
+        bankAccountMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeBankAccountEntity::getEmployeeId,
+        EmployeeBankAccountEntity::getId,
+        this::mergeBankAccount
+    );
+    decryptBankAccount(updated);
+    return updated;
+  }
+
+  @Transactional
+  public void deleteBankAccount(long employeeId, long id) {
+    delete(bankAccountMapper, employeeId, id, EmployeeBankAccountEntity::getEmployeeId);
+  }
+
+  public List<EmployeeSocialInsuranceEntity> listSocialInsurances(long employeeId) {
+    return listByEmployee(
+        socialInsuranceMapper,
+        EmployeeSocialInsuranceEntity::getEmployeeId,
+        employeeId
+    );
+  }
+
+  @Transactional
+  public EmployeeSocialInsuranceEntity createSocialInsurance(long employeeId, EmployeeSocialInsuranceEntity entity) {
+    encryptSocialInsurance(entity);
+    EmployeeSocialInsuranceEntity created = create(
+        socialInsuranceMapper,
+        employeeId,
+        entity,
+        EmployeeSocialInsuranceEntity::setEmployeeId
+    );
+    decryptSocialInsurance(created);
+    return created;
+  }
+
+  @Transactional
+  public EmployeeSocialInsuranceEntity updateSocialInsurance(
+      long employeeId,
+      long id,
+      EmployeeSocialInsuranceEntity entity
+  ) {
+    encryptSocialInsurance(entity);
+    EmployeeSocialInsuranceEntity updated = update(
+        socialInsuranceMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeSocialInsuranceEntity::getEmployeeId,
+        EmployeeSocialInsuranceEntity::getId,
+        this::mergeSocialInsurance
+    );
+    decryptSocialInsurance(updated);
+    return updated;
+  }
+
+  @Transactional
+  public void deleteSocialInsurance(long employeeId, long id) {
+    delete(socialInsuranceMapper, employeeId, id, EmployeeSocialInsuranceEntity::getEmployeeId);
+  }
+
+  public List<EmployeeSpecialBenefitEntity> listSpecialBenefits(long employeeId) {
+    return listByEmployee(specialBenefitMapper, EmployeeSpecialBenefitEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeSpecialBenefitEntity createSpecialBenefit(long employeeId, EmployeeSpecialBenefitEntity entity) {
+    return create(specialBenefitMapper, employeeId, entity, EmployeeSpecialBenefitEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeSpecialBenefitEntity updateSpecialBenefit(
+      long employeeId,
+      long id,
+      EmployeeSpecialBenefitEntity entity
+  ) {
+    return update(
+        specialBenefitMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeSpecialBenefitEntity::getEmployeeId,
+        EmployeeSpecialBenefitEntity::getId,
+        this::mergeSpecialBenefit
+    );
+  }
+
+  @Transactional
+  public void deleteSpecialBenefit(long employeeId, long id) {
+    delete(specialBenefitMapper, employeeId, id, EmployeeSpecialBenefitEntity::getEmployeeId);
+  }
+
+  public List<EmployeeCommuteAccommodationEntity> listCommuteAccommodations(long employeeId) {
+    return listByEmployee(commuteAccommodationMapper, EmployeeCommuteAccommodationEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeCommuteAccommodationEntity createCommuteAccommodation(
+      long employeeId,
+      EmployeeCommuteAccommodationEntity entity
+  ) {
+    return create(
+        commuteAccommodationMapper,
+        employeeId,
+        entity,
+        EmployeeCommuteAccommodationEntity::setEmployeeId
+    );
+  }
+
+  @Transactional
+  public EmployeeCommuteAccommodationEntity updateCommuteAccommodation(
+      long employeeId,
+      long id,
+      EmployeeCommuteAccommodationEntity entity
+  ) {
+    return update(
+        commuteAccommodationMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeCommuteAccommodationEntity::getEmployeeId,
+        EmployeeCommuteAccommodationEntity::getId,
+        this::mergeCommuteAccommodation
+    );
+  }
+
+  @Transactional
+  public void deleteCommuteAccommodation(long employeeId, long id) {
+    delete(commuteAccommodationMapper, employeeId, id, EmployeeCommuteAccommodationEntity::getEmployeeId);
+  }
+
+  public List<EmployeeAttachmentEntity> listAttachments(long employeeId) {
+    return listByEmployee(attachmentMapper, EmployeeAttachmentEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeAttachmentEntity createAttachment(long employeeId, EmployeeAttachmentEntity entity) {
+    if (entity.getUploadedAt() == null) {
+      entity.setUploadedAt(java.time.LocalDateTime.now());
+    }
+    return create(attachmentMapper, employeeId, entity, EmployeeAttachmentEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeAttachmentEntity updateAttachment(long employeeId, long id, EmployeeAttachmentEntity entity) {
+    return update(
+        attachmentMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeAttachmentEntity::getEmployeeId,
+        EmployeeAttachmentEntity::getId,
+        this::mergeAttachment
+    );
+  }
+
+  @Transactional
+  public void deleteAttachment(long employeeId, long id) {
+    delete(attachmentMapper, employeeId, id, EmployeeAttachmentEntity::getEmployeeId);
+  }
+
+  public EmployeeAttachmentEntity requireAttachment(long employeeId, long attachmentId) {
+    employeeService.require(employeeId);
+    EmployeeAttachmentEntity entity = attachmentMapper.selectById(attachmentId);
+    if (entity == null || !entity.getEmployeeId().equals(employeeId)) {
+      throw new IllegalArgumentException("附件不存在");
+    }
+    return entity;
+  }
+
+  public List<EmployeeEducationEntity> listEducations(long employeeId) {
+    return listByEmployee(educationMapper, EmployeeEducationEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeEducationEntity createEducation(long employeeId, EmployeeEducationEntity entity) {
+    return create(educationMapper, employeeId, entity, EmployeeEducationEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeEducationEntity updateEducation(long employeeId, long id, EmployeeEducationEntity entity) {
+    return update(
+        educationMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeEducationEntity::getEmployeeId,
+        EmployeeEducationEntity::getId,
+        this::mergeEducation
+    );
+  }
+
+  @Transactional
+  public void deleteEducation(long employeeId, long id) {
+    delete(educationMapper, employeeId, id, EmployeeEducationEntity::getEmployeeId);
+  }
+
+  public List<EmployeeWorkExperienceEntity> listWorkExperiences(long employeeId) {
+    return listByEmployee(workExperienceMapper, EmployeeWorkExperienceEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeWorkExperienceEntity createWorkExperience(long employeeId, EmployeeWorkExperienceEntity entity) {
+    return create(workExperienceMapper, employeeId, entity, EmployeeWorkExperienceEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeWorkExperienceEntity updateWorkExperience(
+      long employeeId,
+      long id,
+      EmployeeWorkExperienceEntity entity
+  ) {
+    return update(
+        workExperienceMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeWorkExperienceEntity::getEmployeeId,
+        EmployeeWorkExperienceEntity::getId,
+        this::mergeWorkExperience
+    );
+  }
+
+  @Transactional
+  public void deleteWorkExperience(long employeeId, long id) {
+    delete(workExperienceMapper, employeeId, id, EmployeeWorkExperienceEntity::getEmployeeId);
+  }
+
+  public List<EmployeeQualificationEntity> listQualifications(long employeeId) {
+    return listByEmployee(qualificationMapper, EmployeeQualificationEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeQualificationEntity createQualification(long employeeId, EmployeeQualificationEntity entity) {
+    return create(qualificationMapper, employeeId, entity, EmployeeQualificationEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeQualificationEntity updateQualification(
+      long employeeId,
+      long id,
+      EmployeeQualificationEntity entity
+  ) {
+    return update(
+        qualificationMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeQualificationEntity::getEmployeeId,
+        EmployeeQualificationEntity::getId,
+        this::mergeQualification
+    );
+  }
+
+  @Transactional
+  public void deleteQualification(long employeeId, long id) {
+    delete(qualificationMapper, employeeId, id, EmployeeQualificationEntity::getEmployeeId);
+  }
+
+  public List<EmployeeRewardEntity> listRewards(long employeeId) {
+    return listByEmployee(rewardMapper, EmployeeRewardEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeRewardEntity createReward(long employeeId, EmployeeRewardEntity entity) {
+    return create(rewardMapper, employeeId, entity, EmployeeRewardEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeRewardEntity updateReward(long employeeId, long id, EmployeeRewardEntity entity) {
+    return update(
+        rewardMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeRewardEntity::getEmployeeId,
+        EmployeeRewardEntity::getId,
+        this::mergeReward
+    );
+  }
+
+  @Transactional
+  public void deleteReward(long employeeId, long id) {
+    delete(rewardMapper, employeeId, id, EmployeeRewardEntity::getEmployeeId);
+  }
+
+  public List<EmployeePenaltyEntity> listPenalties(long employeeId) {
+    return listByEmployee(penaltyMapper, EmployeePenaltyEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeePenaltyEntity createPenalty(long employeeId, EmployeePenaltyEntity entity) {
+    return create(penaltyMapper, employeeId, entity, EmployeePenaltyEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeePenaltyEntity updatePenalty(long employeeId, long id, EmployeePenaltyEntity entity) {
+    return update(
+        penaltyMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeePenaltyEntity::getEmployeeId,
+        EmployeePenaltyEntity::getId,
+        this::mergePenalty
+    );
+  }
+
+  @Transactional
+  public void deletePenalty(long employeeId, long id) {
+    delete(penaltyMapper, employeeId, id, EmployeePenaltyEntity::getEmployeeId);
+  }
+
+  public List<EmployeeTrainingRecordEntity> listTrainingRecords(long employeeId) {
+    return listByEmployee(trainingRecordMapper, EmployeeTrainingRecordEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeTrainingRecordEntity createTrainingRecord(long employeeId, EmployeeTrainingRecordEntity entity) {
+    return create(trainingRecordMapper, employeeId, entity, EmployeeTrainingRecordEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeTrainingRecordEntity updateTrainingRecord(
+      long employeeId,
+      long id,
+      EmployeeTrainingRecordEntity entity
+  ) {
+    return update(
+        trainingRecordMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeTrainingRecordEntity::getEmployeeId,
+        EmployeeTrainingRecordEntity::getId,
+        this::mergeTrainingRecord
+    );
+  }
+
+  @Transactional
+  public void deleteTrainingRecord(long employeeId, long id) {
+    delete(trainingRecordMapper, employeeId, id, EmployeeTrainingRecordEntity::getEmployeeId);
+  }
+
+  public List<EmployeePerformanceRecordEntity> listPerformanceRecords(long employeeId) {
+    return listByEmployee(performanceRecordMapper, EmployeePerformanceRecordEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeePerformanceRecordEntity createPerformanceRecord(
+      long employeeId,
+      EmployeePerformanceRecordEntity entity
+  ) {
+    return create(performanceRecordMapper, employeeId, entity, EmployeePerformanceRecordEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeePerformanceRecordEntity updatePerformanceRecord(
+      long employeeId,
+      long id,
+      EmployeePerformanceRecordEntity entity
+  ) {
+    return update(
+        performanceRecordMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeePerformanceRecordEntity::getEmployeeId,
+        EmployeePerformanceRecordEntity::getId,
+        this::mergePerformanceRecord
+    );
+  }
+
+  @Transactional
+  public void deletePerformanceRecord(long employeeId, long id) {
+    delete(performanceRecordMapper, employeeId, id, EmployeePerformanceRecordEntity::getEmployeeId);
+  }
+
+  public List<EmployeeValuesAssessmentEntity> listValuesAssessments(long employeeId) {
+    return listByEmployee(valuesAssessmentMapper, EmployeeValuesAssessmentEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeValuesAssessmentEntity createValuesAssessment(
+      long employeeId,
+      EmployeeValuesAssessmentEntity entity
+  ) {
+    return create(valuesAssessmentMapper, employeeId, entity, EmployeeValuesAssessmentEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeValuesAssessmentEntity updateValuesAssessment(
+      long employeeId,
+      long id,
+      EmployeeValuesAssessmentEntity entity
+  ) {
+    return update(
+        valuesAssessmentMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeValuesAssessmentEntity::getEmployeeId,
+        EmployeeValuesAssessmentEntity::getId,
+        this::mergeValuesAssessment
+    );
+  }
+
+  @Transactional
+  public void deleteValuesAssessment(long employeeId, long id) {
+    delete(valuesAssessmentMapper, employeeId, id, EmployeeValuesAssessmentEntity::getEmployeeId);
+  }
+
+  public List<EmployeeTalentReviewEntity> listTalentReviews(long employeeId) {
+    return listByEmployee(talentReviewMapper, EmployeeTalentReviewEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeTalentReviewEntity createTalentReview(long employeeId, EmployeeTalentReviewEntity entity) {
+    return create(talentReviewMapper, employeeId, entity, EmployeeTalentReviewEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeTalentReviewEntity updateTalentReview(
+      long employeeId,
+      long id,
+      EmployeeTalentReviewEntity entity
+  ) {
+    return update(
+        talentReviewMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeTalentReviewEntity::getEmployeeId,
+        EmployeeTalentReviewEntity::getId,
+        this::mergeTalentReview
+    );
+  }
+
+  @Transactional
+  public void deleteTalentReview(long employeeId, long id) {
+    delete(talentReviewMapper, employeeId, id, EmployeeTalentReviewEntity::getEmployeeId);
+  }
+
+  public List<EmployeeProjectEntity> listProjects(long employeeId) {
+    return listByEmployee(projectMapper, EmployeeProjectEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeProjectEntity createProject(long employeeId, EmployeeProjectEntity entity) {
+    return create(projectMapper, employeeId, entity, EmployeeProjectEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeProjectEntity updateProject(long employeeId, long id, EmployeeProjectEntity entity) {
+    return update(
+        projectMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeProjectEntity::getEmployeeId,
+        EmployeeProjectEntity::getId,
+        this::mergeProject
+    );
+  }
+
+  @Transactional
+  public void deleteProject(long employeeId, long id) {
+    delete(projectMapper, employeeId, id, EmployeeProjectEntity::getEmployeeId);
+  }
+
+  public List<EmployeeAgentAssignmentEntity> listAgentAssignments(long employeeId) {
+    return listByEmployee(agentAssignmentMapper, EmployeeAgentAssignmentEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeAgentAssignmentEntity createAgentAssignment(
+      long employeeId,
+      EmployeeAgentAssignmentEntity entity
+  ) {
+    return create(agentAssignmentMapper, employeeId, entity, EmployeeAgentAssignmentEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeAgentAssignmentEntity updateAgentAssignment(
+      long employeeId,
+      long id,
+      EmployeeAgentAssignmentEntity entity
+  ) {
+    return update(
+        agentAssignmentMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeAgentAssignmentEntity::getEmployeeId,
+        EmployeeAgentAssignmentEntity::getId,
+        this::mergeAgentAssignment
+    );
+  }
+
+  @Transactional
+  public void deleteAgentAssignment(long employeeId, long id) {
+    delete(agentAssignmentMapper, employeeId, id, EmployeeAgentAssignmentEntity::getEmployeeId);
+  }
+
+  private <T> List<T> listByEmployee(
+      BaseMapper<T> mapper,
+      SFunction<T, Long> employeeIdGetter,
+      long employeeId
+  ) {
+    employeeService.require(employeeId);
+    return mapper.selectList(
+        new LambdaQueryWrapper<T>()
+            .eq(employeeIdGetter, employeeId)
+    );
+  }
+
+  private <T> T create(
+      BaseMapper<T> mapper,
+      long employeeId,
+      T entity,
+      BiConsumer<T, Long> employeeSetter
+  ) {
+    employeeService.require(employeeId);
+    employeeSetter.accept(entity, employeeId);
+    mapper.insert(entity);
+    return entity;
+  }
+
+  private <T> T update(
+      BaseMapper<T> mapper,
+      long employeeId,
+      long id,
+      T patch,
+      SFunction<T, Long> employeeGetter,
+      SFunction<T, Long> idGetter,
+      BiConsumer<T, T> merger
+  ) {
+    employeeService.require(employeeId);
+    T current = mapper.selectById(id);
+    if (current == null || !employeeMatched(current, employeeGetter, employeeId)) {
+      throw new IllegalArgumentException("档案记录不存在");
+    }
+    merger.accept(current, patch);
+    mapper.updateById(current);
+    return mapper.selectById(id);
+  }
+
+  private <T> void delete(
+      BaseMapper<T> mapper,
+      long employeeId,
+      long id,
+      SFunction<T, Long> employeeGetter
+  ) {
+    employeeService.require(employeeId);
+    T current = mapper.selectById(id);
+    if (current == null || !employeeMatched(current, employeeGetter, employeeId)) {
+      throw new IllegalArgumentException("档案记录不存在");
+    }
+    mapper.deleteById(id);
+  }
+
+  private <T> boolean employeeMatched(T entity, SFunction<T, Long> employeeGetter, long employeeId) {
+    Long value = employeeGetter.apply(entity);
+    return value != null && value.equals(employeeId);
+  }
+
+  private void mergeFamilyMember(EmployeeFamilyMemberEntity current, EmployeeFamilyMemberEntity patch) { mergeAll(current, patch); }
+  private void mergeInternalRelative(EmployeeInternalRelativeEntity current, EmployeeInternalRelativeEntity patch) { mergeAll(current, patch); }
+  private void mergeIdDocument(EmployeeIdDocumentEntity current, EmployeeIdDocumentEntity patch) { mergeAll(current, patch); }
+  private void mergeCostCenterAllocation(EmployeeCostCenterAllocationEntity current, EmployeeCostCenterAllocationEntity patch) { mergeAll(current, patch); }
+  private void mergeContract(EmployeeContractEntity current, EmployeeContractEntity patch) { mergeAll(current, patch); }
+  private void mergeAgreement(EmployeeAgreementEntity current, EmployeeAgreementEntity patch) { mergeAll(current, patch); }
+  private void mergeAttendanceCard(EmployeeAttendanceCardEntity current, EmployeeAttendanceCardEntity patch) { mergeAll(current, patch); }
+  private void mergeBankAccount(EmployeeBankAccountEntity current, EmployeeBankAccountEntity patch) { mergeAll(current, patch); }
+  private void mergeSocialInsurance(EmployeeSocialInsuranceEntity current, EmployeeSocialInsuranceEntity patch) { mergeAll(current, patch); }
+  private void mergeSpecialBenefit(EmployeeSpecialBenefitEntity current, EmployeeSpecialBenefitEntity patch) { mergeAll(current, patch); }
+  private void mergeCommuteAccommodation(EmployeeCommuteAccommodationEntity current, EmployeeCommuteAccommodationEntity patch) { mergeAll(current, patch); }
+  private void mergeAttachment(EmployeeAttachmentEntity current, EmployeeAttachmentEntity patch) { mergeAll(current, patch); }
+  private void mergeEducation(EmployeeEducationEntity current, EmployeeEducationEntity patch) { mergeAll(current, patch); }
+  private void mergeWorkExperience(EmployeeWorkExperienceEntity current, EmployeeWorkExperienceEntity patch) { mergeAll(current, patch); }
+  private void mergeQualification(EmployeeQualificationEntity current, EmployeeQualificationEntity patch) { mergeAll(current, patch); }
+  private void mergeReward(EmployeeRewardEntity current, EmployeeRewardEntity patch) { mergeAll(current, patch); }
+  private void mergePenalty(EmployeePenaltyEntity current, EmployeePenaltyEntity patch) { mergeAll(current, patch); }
+  private void mergeTrainingRecord(EmployeeTrainingRecordEntity current, EmployeeTrainingRecordEntity patch) { mergeAll(current, patch); }
+  private void mergePerformanceRecord(EmployeePerformanceRecordEntity current, EmployeePerformanceRecordEntity patch) { mergeAll(current, patch); }
+  private void mergeValuesAssessment(EmployeeValuesAssessmentEntity current, EmployeeValuesAssessmentEntity patch) { mergeAll(current, patch); }
+  private void mergeTalentReview(EmployeeTalentReviewEntity current, EmployeeTalentReviewEntity patch) { mergeAll(current, patch); }
+  private void mergeProject(EmployeeProjectEntity current, EmployeeProjectEntity patch) { mergeAll(current, patch); }
+  private void mergeAgentAssignment(EmployeeAgentAssignmentEntity current, EmployeeAgentAssignmentEntity patch) { mergeAll(current, patch); }
+
+  private <T> void mergeAll(T current, T patch) {
+    java.beans.PropertyDescriptor[] props;
+    try {
+      props = java.beans.Introspector.getBeanInfo(current.getClass(), Object.class).getPropertyDescriptors();
+      for (java.beans.PropertyDescriptor pd : props) {
+        if (pd.getWriteMethod() == null || pd.getReadMethod() == null) continue;
+        String name = pd.getName();
+        if ("id".equals(name) || "employeeId".equals(name) || "createdAt".equals(name) || "createdBy".equals(name)) {
+          continue;
+        }
+        Object value = pd.getReadMethod().invoke(patch);
+        if (value != null) {
+          pd.getWriteMethod().invoke(current, value);
+        }
+      }
+    } catch (Exception e) {
+      throw new IllegalStateException("更新档案记录失败", e);
+    }
+  }
+
+  private void encryptIdDocument(EmployeeIdDocumentEntity entity) {
+    if (entity.getIdNumber() == null || entity.getIdNumber().contains("*")) return;
+    entity.setIdNumber(fieldCryptoService.encrypt(entity.getIdNumber()));
+  }
+
+  private void decryptIdDocument(EmployeeIdDocumentEntity entity) {
+    entity.setIdNumber(fieldCryptoService.decrypt(entity.getIdNumber()));
+  }
+
+  private void encryptBankAccount(EmployeeBankAccountEntity entity) {
+    if (entity.getAccountNo() == null || entity.getAccountNo().contains("*")) return;
+    entity.setAccountNo(fieldCryptoService.encrypt(entity.getAccountNo()));
+  }
+
+  private void decryptBankAccount(EmployeeBankAccountEntity entity) {
+    entity.setAccountNo(fieldCryptoService.decrypt(entity.getAccountNo()));
+  }
+
+  private void encryptSocialInsurance(EmployeeSocialInsuranceEntity entity) {
+    if (entity.getSocialSecurityNo() == null || entity.getSocialSecurityNo().contains("*")) return;
+    entity.setSocialSecurityNo(fieldCryptoService.encrypt(entity.getSocialSecurityNo()));
+  }
+
+  private void decryptSocialInsurance(EmployeeSocialInsuranceEntity entity) {
+    entity.setSocialSecurityNo(fieldCryptoService.decrypt(entity.getSocialSecurityNo()));
+  }
+}

@@ -269,3 +269,47 @@ export async function deleteJson<T>(path: string): Promise<ApiResponse<T>> {
   return json as ApiResponse<T>;
 }
 
+function authHeaders(extra?: Record<string, string>): Record<string, string> {
+  const token = getAuthToken();
+  return {
+    ...(extra ?? {}),
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
+export async function getBlob(path: string): Promise<Blob> {
+  const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  const res = await fetch(url, { method: "GET", headers: authHeaders() });
+  if (!res.ok) {
+    let message = `请求失败（HTTP ${res.status}）`;
+    try {
+      const json = await res.json();
+      if (typeof (json as { message?: string }).message === "string") {
+        message = (json as { message: string }).message;
+      }
+    } catch {
+      // ignore
+    }
+    throw { message } satisfies ApiError;
+  }
+  return res.blob();
+}
+
+export async function postMultipart<T>(path: string, formData: FormData): Promise<ApiResponse<T>> {
+  const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  const res = await fetch(url, { method: "POST", headers: authHeaders(), body: formData });
+  const json = await res.json();
+  if (!res.ok) {
+    const traceId =
+      typeof (json as { traceId?: string }).traceId === "string"
+        ? (json as { traceId: string }).traceId
+        : undefined;
+    const message =
+      typeof (json as { message?: string }).message === "string"
+        ? (json as { message: string }).message
+        : `请求失败（HTTP ${res.status}）`;
+    throw { message, traceId } satisfies ApiError;
+  }
+  return json as ApiResponse<T>;
+}
+

@@ -883,3 +883,776 @@ export type HeadcountApi = {
   checkHeadcount: (req: HeadcountCheckRequest) => Promise<ApiResponse<HeadcountCheckResult>>;
 };
 
+// -----------------------------
+// Slice 7：员工主数据
+// -----------------------------
+
+export type EmployeeStatus = "CANDIDATE" | "PROBATION" | "ACTIVE" | "TERMINATED";
+
+export type AssignmentStatus = "ACTIVE" | "ENDED";
+
+export type ReportingLineType = "DIRECT" | "DOTTED";
+
+/** 职务数据异动操作码 */
+export type MovementType =
+  | "HIR"
+  | "REH"
+  | "PRC"
+  | "SPR"
+  | "PRO"
+  | "DEM"
+  | "DTA"
+  | "XFR"
+  | "PAY"
+  | "TER";
+
+export type Employee = {
+  id: string;
+  employeeNo: string;
+  fullName: string;
+  adAccount?: string;
+  gender?: string;
+  genderLabel?: string;
+  mobile: string;
+  /** 手机号是否已脱敏展示 */
+  mobileMasked: boolean;
+  companyEmail?: string;
+  personalEmail?: string;
+  maritalStatus?: string;
+  politicalAffiliation?: string;
+  highestEducation?: string;
+  highestEducationGradDate?: string; // YYYY-MM-DD
+  fertilityStatus?: string;
+  ethnicity?: string;
+  hobbies?: string;
+  nationality?: string;
+  householdType?: string;
+  householdLocation?: string;
+  partyOrgTransferred?: boolean;
+  workStartDate?: string; // YYYY-MM-DD
+  wechat?: string;
+  officePhone?: string;
+  officeExtension?: string;
+  homePhone?: string;
+  idCardAddress?: string;
+  residenceAddress?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  recruitmentChannel?: string;
+  recruitmentChannelDetail?: string;
+  groupSeniorityStartDate?: string; // YYYY-MM-DD
+  hireDate: string; // YYYY-MM-DD
+  status: EmployeeStatus;
+  statusLabel?: string;
+  /** 主任职摘要（列表/详情 Hero） */
+  primaryOrganizationId?: string;
+  primaryOrganizationName?: string;
+  primaryPositionId?: string;
+  primaryPositionName?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type EmployeeIdDocument = {
+  id: string;
+  employeeId: string;
+  countryRegion?: string;
+  idType?: string;
+  idTypeLabel?: string;
+  idNumber: string;
+  idNumberMasked: boolean;
+  validFrom?: string;
+  validTo?: string;
+  isPrimary: boolean;
+};
+
+export type EmployeeAssignment = {
+  id: string;
+  employeeId: string;
+  organizationId: string;
+  organizationName?: string;
+  organizationCode?: string;
+  positionId: string;
+  positionName?: string;
+  positionCode?: string;
+  jobId?: string;
+  jobGradeCode?: string;
+  jobSequence?: string;
+  employmentType?: string;
+  employmentTypeLabel?: string;
+  employmentSubType?: string;
+  employeeNature?: string;
+  contractLocation?: string;
+  workLocation?: string;
+  isPrimary: boolean;
+  isResponsibilitySystem?: boolean;
+  approvalAuthority?: string;
+  isManagementCadre?: boolean;
+  isCoreTalent?: boolean;
+  specialTags?: string;
+  groupAttrLevel?: string;
+  payrollCompanyId?: string;
+  costLegalEntityId?: string;
+  salaryGroup?: string;
+  businessUnit?: string;
+  legalEntityId?: string;
+  groupName?: string;
+  businessGroup?: string;
+  systemName?: string;
+  secondarySystem?: string;
+  centerName?: string;
+  departmentName?: string;
+  moduleName?: string;
+  teamName?: string;
+  secondaryTeam?: string;
+  lineOrStore?: string;
+  supplier?: string;
+  probationPeriod?: string;
+  expectedRegularizationDate?: string;
+  regularizationOpinion?: string;
+  actualRegularizationDate?: string;
+  groupResponsibilityStartDate?: string;
+  groupSeniorityStartDate?: string;
+  tenureOnPosition?: string;
+  companyTenure?: string;
+  hrCoordinatorNo?: string;
+  hrbpNo?: string;
+  sscNo?: string;
+  effectiveStartDate: string;
+  effectiveEndDate?: string;
+  status: AssignmentStatus;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ReportingLine = {
+  id: string;
+  employeeId: string;
+  employeeNo?: string;
+  employeeName?: string;
+  managerEmployeeId: string;
+  managerEmployeeNo?: string;
+  managerEmployeeName?: string;
+  lineType: ReportingLineType;
+  lineTypeLabel?: string;
+  effectiveStartDate: string;
+  effectiveEndDate?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type EmployeeMovement = {
+  id: string;
+  employeeId: string;
+  movementType: MovementType;
+  movementTypeName: string;
+  reasonCode?: string;
+  reasonDescription?: string;
+  reasonSubCode?: string;
+  reasonSubDescription?: string;
+  effectiveDate: string;
+  fromAssignmentId?: string;
+  toAssignmentId?: string;
+  sourceRequestType?: string;
+  sourceRequestId?: string;
+  remark?: string;
+  createdAt?: string;
+  createdBy?: string;
+};
+
+export type EmployeeListQuery = {
+  keyword?: string;
+  status?: EmployeeStatus;
+  organizationId?: string;
+  page: number;
+  pageSize: number;
+};
+
+export type EmployeeCreateRequest = {
+  fullName: string;
+  gender: string;
+  mobile: string;
+  companyEmail?: string;
+  personalEmail?: string;
+  adAccount?: string;
+  maritalStatus?: string;
+  politicalAffiliation?: string;
+  highestEducation?: string;
+  highestEducationGradDate?: string; // YYYY-MM-DD
+  fertilityStatus?: string;
+  ethnicity?: string;
+  hobbies?: string;
+  nationality?: string;
+  householdType?: string;
+  householdLocation?: string;
+  partyOrgTransferred?: boolean;
+  workStartDate?: string; // YYYY-MM-DD
+  wechat?: string;
+  officePhone?: string;
+  officeExtension?: string;
+  homePhone?: string;
+  idCardAddress?: string;
+  residenceAddress?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  recruitmentChannel?: string;
+  recruitmentChannelDetail?: string;
+  groupSeniorityStartDate?: string; // YYYY-MM-DD
+  hireDate: string;
+  status?: EmployeeStatus;
+  /** 可选：同时创建主任职 */
+  organizationId?: string;
+  positionId?: string;
+  employmentType?: string;
+  assignmentEffectiveStartDate?: string;
+};
+
+export type EmployeeUpdateRequest = {
+  fullName?: string;
+  gender?: string;
+  mobile?: string;
+  companyEmail?: string;
+  personalEmail?: string;
+  adAccount?: string;
+  maritalStatus?: string;
+  politicalAffiliation?: string;
+  highestEducation?: string;
+  highestEducationGradDate?: string; // YYYY-MM-DD
+  fertilityStatus?: string;
+  ethnicity?: string;
+  hobbies?: string;
+  nationality?: string;
+  householdType?: string;
+  householdLocation?: string;
+  partyOrgTransferred?: boolean;
+  workStartDate?: string; // YYYY-MM-DD
+  wechat?: string;
+  officePhone?: string;
+  officeExtension?: string;
+  homePhone?: string;
+  idCardAddress?: string;
+  residenceAddress?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  recruitmentChannel?: string;
+  recruitmentChannelDetail?: string;
+  groupSeniorityStartDate?: string; // YYYY-MM-DD
+  hireDate?: string;
+  status?: EmployeeStatus;
+};
+
+export type EmployeeAssignmentCreateRequest = {
+  organizationId: string;
+  positionId: string;
+  jobId?: string;
+  jobGradeCode?: string;
+  jobSequence?: string;
+  employmentType?: string;
+  employmentSubType?: string;
+  employeeNature?: string;
+  contractLocation?: string;
+  workLocation?: string;
+  isPrimary?: boolean;
+  isResponsibilitySystem?: boolean;
+  approvalAuthority?: string;
+  isManagementCadre?: boolean;
+  isCoreTalent?: boolean;
+  specialTags?: string;
+  groupAttrLevel?: string;
+  payrollCompanyId?: string;
+  costLegalEntityId?: string;
+  salaryGroup?: string;
+  businessUnit?: string;
+  legalEntityId?: string;
+  groupName?: string;
+  businessGroup?: string;
+  systemName?: string;
+  secondarySystem?: string;
+  centerName?: string;
+  departmentName?: string;
+  moduleName?: string;
+  teamName?: string;
+  secondaryTeam?: string;
+  lineOrStore?: string;
+  supplier?: string;
+  probationPeriod?: string;
+  expectedRegularizationDate?: string;
+  regularizationOpinion?: string;
+  actualRegularizationDate?: string;
+  groupResponsibilityStartDate?: string;
+  groupSeniorityStartDate?: string;
+  tenureOnPosition?: string;
+  companyTenure?: string;
+  hrCoordinatorNo?: string;
+  hrbpNo?: string;
+  sscNo?: string;
+  effectiveStartDate: string;
+  effectiveEndDate?: string;
+};
+
+export type EmployeeAssignmentUpdateRequest = Partial<EmployeeAssignmentCreateRequest> & {
+  status?: AssignmentStatus;
+};
+
+export type ReportingLineListQuery = {
+  keyword?: string;
+  asOfDate?: string;
+  lineType?: ReportingLineType;
+  page: number;
+  pageSize: number;
+};
+
+export type ReportingLineCreateRequest = {
+  employeeId: string;
+  managerEmployeeId: string;
+  lineType?: ReportingLineType;
+  effectiveStartDate: string;
+  effectiveEndDate?: string;
+};
+
+export type ReportingLineUpdateRequest = {
+  managerEmployeeId?: string;
+  lineType?: ReportingLineType;
+  effectiveStartDate?: string;
+  effectiveEndDate?: string;
+};
+
+export type EmployeeImportRowError = {
+  rowNumber: number;
+  field?: string;
+  message: string;
+};
+
+export type EmployeeImportResult = {
+  totalRows: number;
+  successCount: number;
+  failureCount: number;
+  errors: EmployeeImportRowError[];
+};
+
+export type EmployeeArchiveRecordBase = {
+  id: string;
+  employeeId: string;
+  createdAt?: string; // ISO-8601
+  updatedAt?: string; // ISO-8601
+  createdBy?: number;
+  updatedBy?: number;
+};
+
+export type EmployeeFamilyMember = EmployeeArchiveRecordBase & {
+  name?: string;
+  relation?: string;
+  isInternalEmployee?: boolean;
+  phone?: string;
+  employer?: string;
+  position?: string;
+  birthDate?: string; // YYYY-MM-DD
+  birthCertificate?: string;
+};
+
+export type EmployeeInternalRelative = EmployeeArchiveRecordBase & {
+  relativeEmployeeId?: string;
+  relation?: string;
+  departmentName?: string;
+  positionName?: string;
+  jobGradeName?: string;
+  hireDate?: string; // YYYY-MM-DD
+  employmentStatus?: string;
+  lastWorkDay?: string; // YYYY-MM-DD
+  remark?: string;
+};
+
+export type EmployeeCostCenterAllocation = EmployeeArchiveRecordBase & {
+  legalEntityId?: string;
+  costCenter?: string;
+  percentage?: number;
+  effectiveStartDate?: string; // YYYY-MM-DD
+  effectiveEndDate?: string; // YYYY-MM-DD
+};
+
+export type EmployeeContract = EmployeeArchiveRecordBase & {
+  contractCode?: string;
+  contractType?: string;
+  legalEntityId?: string;
+  operationType?: string;
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  effectiveDate?: string; // YYYY-MM-DD
+  status?: string;
+  fileAttachmentId?: string;
+  remark?: string;
+};
+
+export type EmployeeAgreement = EmployeeArchiveRecordBase & {
+  agreementType?: string;
+  legalEntityId?: string;
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  status?: string;
+  fileAttachmentId?: string;
+  remark?: string;
+};
+
+export type EmployeeAttendanceCard = EmployeeArchiveRecordBase & {
+  cardNo?: string;
+  deviceId?: string;
+  workLocation?: string;
+  effectiveStartDate?: string; // YYYY-MM-DD
+  effectiveEndDate?: string; // YYYY-MM-DD
+  status?: string;
+  remark?: string;
+};
+
+export type EmployeeBankAccount = EmployeeArchiveRecordBase & {
+  accountType?: string;
+  countryCode?: string;
+  bankId?: string;
+  branchId?: string;
+  accountNo?: string;
+  /** 银行账号是否已脱敏展示 */
+  accountNoMasked?: boolean;
+  accountName?: string;
+  currencyCode?: string;
+  cnapsCode?: string;
+  isPrimary?: boolean;
+};
+
+export type EmployeeSocialInsurance = EmployeeArchiveRecordBase & {
+  socialSecurityNo?: string;
+  /** 社保账号是否已脱敏展示 */
+  socialSecurityNoMasked?: boolean;
+  socialBase?: number;
+  housingFundNo?: string;
+  housingBase?: number;
+  company?: string;
+  insuranceRegion?: string;
+  isCompanyPayroll?: boolean;
+};
+
+export type EmployeeSpecialBenefit = EmployeeArchiveRecordBase & {
+  benefitType?: string;
+  benefitName?: string;
+  amount?: number;
+  currencyCode?: string;
+  effectiveStartDate?: string; // YYYY-MM-DD
+  effectiveEndDate?: string; // YYYY-MM-DD
+  remark?: string;
+};
+
+export type EmployeeCommuteAccommodation = EmployeeArchiveRecordBase & {
+  recordType?: string;
+  routeOrAddress?: string;
+  effectiveStartDate?: string; // YYYY-MM-DD
+  effectiveEndDate?: string; // YYYY-MM-DD
+  remark?: string;
+};
+
+export type EmployeeAttachment = EmployeeArchiveRecordBase & {
+  attachmentType?: string;
+  originalFilename?: string;
+  storageKey?: string;
+  uploadedAt?: string; // ISO-8601
+};
+
+export type EmployeeEducation = EmployeeArchiveRecordBase & {
+  degree?: string;
+  educationLevel?: string;
+  isHighest?: boolean;
+  countryRegion?: string;
+  schoolName?: string;
+  major?: string;
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  diplomaNo?: string;
+  degreeNo?: string;
+  attachmentId?: string;
+};
+
+export type EmployeeWorkExperience = EmployeeArchiveRecordBase & {
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  employerName?: string;
+  department?: string;
+  position?: string;
+  leaveReason?: string;
+  lastSalary?: number;
+  referee?: string;
+  refereePhone?: string;
+  payFrequency?: string;
+  currencyCode?: string;
+  description?: string;
+};
+
+export type EmployeeQualification = EmployeeArchiveRecordBase & {
+  titleName?: string;
+  titleLevel?: string;
+  approvalDate?: string; // YYYY-MM-DD
+  expiryDate?: string; // YYYY-MM-DD
+  certificateNo?: string;
+  issuingOrg?: string;
+  attachmentId?: string;
+};
+
+export type EmployeeReward = EmployeeArchiveRecordBase & {
+  effectiveDate?: string; // YYYY-MM-DD
+  archiveDate?: string; // YYYY-MM-DD
+  type?: string;
+  level?: string;
+  witness?: string;
+  amount?: number;
+  paymentMethod?: string;
+  issuingOrg?: string;
+  documentNo?: string;
+  description?: string;
+};
+
+export type EmployeePenalty = EmployeeArchiveRecordBase & {
+  effectiveDate?: string; // YYYY-MM-DD
+  archiveDate?: string; // YYYY-MM-DD
+  type?: string;
+  level?: string;
+  witness?: string;
+  amount?: number;
+  paymentMethod?: string;
+  issuingOrg?: string;
+  documentNo?: string;
+  description?: string;
+};
+
+export type EmployeeTrainingRecord = EmployeeArchiveRecordBase & {
+  trainingName?: string;
+  trainingType?: string;
+  provider?: string;
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  hours?: number;
+  result?: string;
+  certificateNo?: string;
+  attachmentId?: string;
+  remark?: string;
+};
+
+export type EmployeePerformanceRecord = EmployeeArchiveRecordBase & {
+  period?: string;
+  rating?: string;
+  ratingLabel?: string;
+  score?: number;
+  reviewerName?: string;
+  reviewDate?: string; // YYYY-MM-DD
+  sourceType?: string;
+  remark?: string;
+};
+
+export type EmployeeValuesAssessment = EmployeeArchiveRecordBase & {
+  period?: string;
+  dimension?: string;
+  score?: number;
+  level?: string;
+  assessorName?: string;
+  assessDate?: string; // YYYY-MM-DD
+  remark?: string;
+};
+
+export type EmployeeTalentReview = EmployeeArchiveRecordBase & {
+  reviewCycle?: string;
+  gridPosition?: string;
+  potentialLevel?: string;
+  performanceLevel?: string;
+  reviewerName?: string;
+  reviewDate?: string; // YYYY-MM-DD
+  remark?: string;
+};
+
+export type EmployeeProject = EmployeeArchiveRecordBase & {
+  projectName?: string;
+  projectCode?: string;
+  role?: string;
+  startDate?: string; // YYYY-MM-DD
+  endDate?: string; // YYYY-MM-DD
+  contribution?: string;
+  remark?: string;
+};
+
+export type EmployeeAgentAssignment = EmployeeArchiveRecordBase & {
+  agentId?: string;
+  agentName?: string;
+  assignmentType?: string;
+  effectiveStartDate?: string; // YYYY-MM-DD
+  effectiveEndDate?: string; // YYYY-MM-DD
+  remark?: string;
+};
+
+export type EmployeeArchive = {
+  familyMembers: EmployeeFamilyMember[];
+  internalRelatives: EmployeeInternalRelative[];
+  idDocuments: EmployeeIdDocument[];
+  costCenterAllocations: EmployeeCostCenterAllocation[];
+  contracts: EmployeeContract[];
+  agreements: EmployeeAgreement[];
+  attendanceCards: EmployeeAttendanceCard[];
+  bankAccounts: EmployeeBankAccount[];
+  socialInsurances: EmployeeSocialInsurance[];
+  specialBenefits: EmployeeSpecialBenefit[];
+  commuteAccommodations: EmployeeCommuteAccommodation[];
+  attachments: EmployeeAttachment[];
+  educations: EmployeeEducation[];
+  workExperiences: EmployeeWorkExperience[];
+  qualifications: EmployeeQualification[];
+  rewards: EmployeeReward[];
+  penalties: EmployeePenalty[];
+  trainingRecords: EmployeeTrainingRecord[];
+  performanceRecords: EmployeePerformanceRecord[];
+  valuesAssessments: EmployeeValuesAssessment[];
+  talentReviews: EmployeeTalentReview[];
+  projects: EmployeeProject[];
+  agentAssignments: EmployeeAgentAssignment[];
+};
+
+export type EmployeeArchiveResourcePath =
+  | "family-members"
+  | "internal-relatives"
+  | "id-documents"
+  | "cost-center-allocations"
+  | "contracts"
+  | "agreements"
+  | "attendance-cards"
+  | "bank-accounts"
+  | "social-insurances"
+  | "special-benefits"
+  | "commute-accommodations"
+  | "attachments"
+  | "educations"
+  | "work-experiences"
+  | "qualifications"
+  | "rewards"
+  | "penalties"
+  | "training-records"
+  | "performance-records"
+  | "values-assessments"
+  | "talent-reviews"
+  | "projects"
+  | "agent-assignments";
+
+export type EmployeeArchiveResourceByPath = {
+  "family-members": EmployeeFamilyMember;
+  "internal-relatives": EmployeeInternalRelative;
+  "id-documents": EmployeeIdDocument;
+  "cost-center-allocations": EmployeeCostCenterAllocation;
+  contracts: EmployeeContract;
+  agreements: EmployeeAgreement;
+  "attendance-cards": EmployeeAttendanceCard;
+  "bank-accounts": EmployeeBankAccount;
+  "social-insurances": EmployeeSocialInsurance;
+  "special-benefits": EmployeeSpecialBenefit;
+  "commute-accommodations": EmployeeCommuteAccommodation;
+  attachments: EmployeeAttachment;
+  educations: EmployeeEducation;
+  "work-experiences": EmployeeWorkExperience;
+  qualifications: EmployeeQualification;
+  rewards: EmployeeReward;
+  penalties: EmployeePenalty;
+  "training-records": EmployeeTrainingRecord;
+  "performance-records": EmployeePerformanceRecord;
+  "values-assessments": EmployeeValuesAssessment;
+  "talent-reviews": EmployeeTalentReview;
+  projects: EmployeeProject;
+  "agent-assignments": EmployeeAgentAssignment;
+};
+
+type EmployeeArchiveManagedFields =
+  | "id"
+  | "employeeId"
+  | "createdAt"
+  | "updatedAt"
+  | "createdBy"
+  | "updatedBy";
+
+export type EmployeeArchiveCreateRequest<T> = Omit<T, EmployeeArchiveManagedFields>;
+export type EmployeeArchiveUpdateRequest<T> = Partial<
+  Omit<T, EmployeeArchiveManagedFields>
+>;
+
+export type EmployeeImportErrorReportRequest = {
+  errors: EmployeeImportRowError[];
+};
+
+export type EmployeeApi = {
+  /** GET /api/v1/employees?page=&pageSize=&keyword=&status=&organizationId= */
+  listEmployees: (query: EmployeeListQuery) => Promise<ApiResponse<PageResult<Employee>>>;
+  /** GET /api/v1/employees/{id} */
+  getEmployee: (id: string) => Promise<ApiResponse<Employee>>;
+  /** POST /api/v1/employees */
+  createEmployee: (req: EmployeeCreateRequest) => Promise<ApiResponse<Employee>>;
+  /** PUT /api/v1/employees/{id} */
+  updateEmployee: (id: string, req: EmployeeUpdateRequest) => Promise<ApiResponse<Employee>>;
+  /** GET /api/v1/employees/{id}/id-documents */
+  listEmployeeIdDocuments: (employeeId: string) => Promise<ApiResponse<EmployeeIdDocument[]>>;
+  /** GET /api/v1/employees/{id}/assignments */
+  listEmployeeAssignments: (employeeId: string) => Promise<ApiResponse<EmployeeAssignment[]>>;
+  /** POST /api/v1/employees/{id}/assignments */
+  createEmployeeAssignment: (
+    employeeId: string,
+    req: EmployeeAssignmentCreateRequest,
+  ) => Promise<ApiResponse<EmployeeAssignment>>;
+  /** PUT /api/v1/employees/{employeeId}/assignments/{assignmentId} */
+  updateEmployeeAssignment: (
+    employeeId: string,
+    assignmentId: string,
+    req: EmployeeAssignmentUpdateRequest,
+  ) => Promise<ApiResponse<EmployeeAssignment>>;
+  /** GET /api/v1/employees/{id}/movements */
+  listEmployeeMovements: (employeeId: string) => Promise<ApiResponse<EmployeeMovement[]>>;
+  /** GET /api/v1/employees/import-template */
+  downloadEmployeeImportTemplate: () => Promise<Blob>;
+  /** POST /api/v1/employees/import (multipart) */
+  importEmployees: (file: File) => Promise<ApiResponse<EmployeeImportResult>>;
+  /** POST /api/v1/employees/import-error-report */
+  downloadEmployeeImportErrorReport: (
+    req: EmployeeImportErrorReportRequest,
+  ) => Promise<Blob>;
+  /** GET /api/v1/employees/export */
+  exportEmployees: (query?: Pick<EmployeeListQuery, "keyword" | "status" | "organizationId">) => Promise<Blob>;
+  /** GET /api/v1/employees/{id}/archive */
+  getEmployeeArchive: (employeeId: string) => Promise<ApiResponse<EmployeeArchive>>;
+  /**
+   * 资源路径：
+   * family-members | internal-relatives | id-documents | cost-center-allocations
+   * contracts | agreements | attendance-cards | bank-accounts | social-insurances
+   * special-benefits | commute-accommodations | attachments | educations
+   * work-experiences | qualifications | rewards | penalties | training-records
+   * performance-records | values-assessments | talent-reviews | projects | agent-assignments
+   */
+  listEmployeeArchiveResource: <TPath extends EmployeeArchiveResourcePath>(
+    employeeId: string,
+    resourcePath: TPath,
+  ) => Promise<ApiResponse<EmployeeArchiveResourceByPath[TPath][]>>;
+  createEmployeeArchiveResource: <TPath extends EmployeeArchiveResourcePath>(
+    employeeId: string,
+    resourcePath: TPath,
+    req: EmployeeArchiveCreateRequest<EmployeeArchiveResourceByPath[TPath]>,
+  ) => Promise<ApiResponse<EmployeeArchiveResourceByPath[TPath]>>;
+  updateEmployeeArchiveResource: <TPath extends EmployeeArchiveResourcePath>(
+    employeeId: string,
+    resourcePath: TPath,
+    id: string,
+    req: EmployeeArchiveUpdateRequest<EmployeeArchiveResourceByPath[TPath]>,
+  ) => Promise<ApiResponse<EmployeeArchiveResourceByPath[TPath]>>;
+  deleteEmployeeArchiveResource: (
+    employeeId: string,
+    resourcePath: EmployeeArchiveResourcePath,
+    id: string,
+  ) => Promise<ApiResponse<{ id: string; employeeId: string }>>;
+
+  /** GET /api/v1/reporting-lines?page=&pageSize=&keyword=&asOfDate=&lineType= */
+  listReportingLines: (query: ReportingLineListQuery) => Promise<ApiResponse<PageResult<ReportingLine>>>;
+  /** POST /api/v1/reporting-lines */
+  createReportingLine: (req: ReportingLineCreateRequest) => Promise<ApiResponse<ReportingLine>>;
+  /** PUT /api/v1/reporting-lines/{id} */
+  updateReportingLine: (id: string, req: ReportingLineUpdateRequest) => Promise<ApiResponse<ReportingLine>>;
+  /** DELETE /api/v1/reporting-lines/{id} */
+  deleteReportingLine: (id: string) => Promise<ApiResponse<{ id: string }>>;
+};
+

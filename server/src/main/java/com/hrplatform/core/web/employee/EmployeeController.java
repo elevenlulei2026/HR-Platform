@@ -1,0 +1,571 @@
+package com.hrplatform.core.web.employee;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hrplatform.core.employee.EmployeeAssignmentEntity;
+import com.hrplatform.core.employee.EmployeeEntity;
+import com.hrplatform.core.employee.EmployeeImportService;
+import com.hrplatform.core.employee.EmployeeMovementEntity;
+import com.hrplatform.core.employee.EmployeeMovementService;
+import com.hrplatform.core.employee.EmployeeService;
+import com.hrplatform.core.organization.OrganizationEntity;
+import com.hrplatform.core.organization.PositionEntity;
+import com.hrplatform.platform.audit.AuditLogEntity;
+import com.hrplatform.platform.audit.AuditLogService;
+import com.hrplatform.platform.auth.AuthContext;
+import com.hrplatform.platform.rbac.RbacService;
+import com.hrplatform.platform.web.ApiResponse;
+import com.hrplatform.platform.web.TraceId;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import java.beans.Introspector;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/v1")
+public class EmployeeController {
+  private final EmployeeService employeeService;
+  private final EmployeeMovementService movementService;
+  private final EmployeeImportService importService;
+  private final RbacService rbacService;
+  private final AuditLogService auditLogService;
+  private final ObjectMapper objectMapper;
+
+  public EmployeeController(
+      EmployeeService employeeService,
+      EmployeeMovementService movementService,
+      EmployeeImportService importService,
+      RbacService rbacService,
+      AuditLogService auditLogService,
+      ObjectMapper objectMapper
+  ) {
+    this.employeeService = employeeService;
+    this.movementService = movementService;
+    this.importService = importService;
+    this.rbacService = rbacService;
+    this.auditLogService = auditLogService;
+    this.objectMapper = objectMapper;
+  }
+
+  @GetMapping("/employees")
+  public ApiResponse<Map<String, Object>> listEmployees(
+      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) String status,
+      @RequestParam(required = false) Long organizationId,
+      @RequestParam @Min(1) long page,
+      @RequestParam @Min(1) @Max(200) long pageSize
+  ) {
+    requireRosterView();
+    var p = employeeService.page(keyword, status, organizationId, page, pageSize);
+    boolean reveal = employeeService.canViewSensitive();
+    List<Long> empIds = p.records().stream().map(EmployeeEntity::getId).toList();
+    Map<Long, EmployeeAssignmentEntity> primaryMap = employeeService.primaryAssignmentMap(empIds);
+    List<Long> orgIds = primaryMap.values().stream().map(EmployeeAssignmentEntity::getOrganizationId).distinct().toList();
+    List<Long> posIds = primaryMap.values().stream().map(EmployeeAssignmentEntity::getPositionId).distinct().toList();
+    Map<Long, OrganizationEntity> orgMap = employeeService.organizationMap(orgIds);
+    Map<Long, PositionEntity> posMap = employeeService.positionMap(posIds);
+
+    List<Map<String, Object>> items = p.records().stream().map(e -> {
+      EmployeeAssignmentEntity pa = primaryMap.get(e.getId());
+      OrganizationEntity org = pa == null ? null : orgMap.get(pa.getOrganizationId());
+      PositionEntity pos = pa == null ? null : posMap.get(pa.getPositionId());
+      return toEmployeeDto(e, org, pos, pa, reveal);
+    }).toList();
+
+    Map<String, Object> result = new HashMap<>();
+    result.put("items", items);
+    result.put("total", p.total());
+    result.put("page", page);
+    result.put("pageSize", pageSize);
+    return ApiResponse.ok(result);
+  }
+
+  @GetMapping("/employees/{id}")
+  public ApiResponse<Map<String, Object>> getEmployee(@PathVariable("id") long id) {
+    requireRosterView();
+    EmployeeEntity e = employeeService.require(id);
+    boolean reveal = employeeService.canViewSensitive();
+    if (reveal) logSensitiveView(id, "employee");
+    EmployeeAssignmentEntity pa = employeeService.findCurrentPrimaryAssignment(id);
+    OrganizationEntity org = pa == null ? null : employeeService.organizationMap(List.of(pa.getOrganizationId())).get(pa.getOrganizationId());
+    PositionEntity pos = pa == null ? null : employeeService.positionMap(List.of(pa.getPositionId())).get(pa.getPositionId());
+    return ApiResponse.ok(toEmployeeDto(e, org, pos, pa, reveal));
+  }
+
+  @PostMapping("/employees")
+  public ApiResponse<Map<String, Object>> createEmployee(@Valid @RequestBody EmployeeCreateRequest req) {
+    requireEdit();
+    EmployeeEntity created = employeeService.create(new EmployeeService.CreateCommand(
+        req.fullName(),
+        req.gender(),
+        req.mobile(),
+        req.companyEmail(),
+        req.personalEmail(),
+        req.adAccount(),
+        req.maritalStatus(),
+        req.politicalAffiliation(),
+        req.highestEducation(),
+        req.highestEducationGradDate(),
+        req.fertilityStatus(),
+        req.ethnicity(),
+        req.hobbies(),
+        req.nationality(),
+        req.householdType(),
+        req.householdLocation(),
+        req.partyOrgTransferred(),
+        req.workStartDate(),
+        req.wechat(),
+        req.officePhone(),
+        req.officeExtension(),
+        req.homePhone(),
+        req.idCardAddress(),
+        req.residenceAddress(),
+        req.emergencyContactName(),
+        req.emergencyContactPhone(),
+        req.emergencyContactRelation(),
+        req.recruitmentChannel(),
+        req.recruitmentChannelDetail(),
+        req.groupSeniorityStartDate(),
+        req.hireDate(),
+        req.status(),
+        req.organizationId(),
+        req.positionId(),
+        req.employmentType(),
+        req.assignmentEffectiveStartDate()
+    ));
+    boolean reveal = employeeService.canViewSensitive();
+    EmployeeAssignmentEntity pa = employeeService.findCurrentPrimaryAssignment(created.getId());
+    OrganizationEntity org = pa == null ? null : employeeService.organizationMap(List.of(pa.getOrganizationId())).get(pa.getOrganizationId());
+    PositionEntity pos = pa == null ? null : employeeService.positionMap(List.of(pa.getPositionId())).get(pa.getPositionId());
+    return ApiResponse.ok(toEmployeeDto(created, org, pos, pa, reveal));
+  }
+
+  @PutMapping("/employees/{id}")
+  public ApiResponse<Map<String, Object>> updateEmployee(
+      @PathVariable("id") long id,
+      @Valid @RequestBody EmployeeUpdateRequest req
+  ) {
+    requireEdit();
+    EmployeeEntity updated = employeeService.update(id, new EmployeeService.UpdateCommand(
+        req.fullName(),
+        req.gender(),
+        req.mobile(),
+        req.companyEmail(),
+        req.personalEmail(),
+        req.adAccount(),
+        req.maritalStatus(),
+        req.politicalAffiliation(),
+        req.highestEducation(),
+        req.highestEducationGradDate(),
+        req.fertilityStatus(),
+        req.ethnicity(),
+        req.hobbies(),
+        req.nationality(),
+        req.householdType(),
+        req.householdLocation(),
+        req.partyOrgTransferred(),
+        req.workStartDate(),
+        req.wechat(),
+        req.officePhone(),
+        req.officeExtension(),
+        req.homePhone(),
+        req.idCardAddress(),
+        req.residenceAddress(),
+        req.emergencyContactName(),
+        req.emergencyContactPhone(),
+        req.emergencyContactRelation(),
+        req.recruitmentChannel(),
+        req.recruitmentChannelDetail(),
+        req.groupSeniorityStartDate(),
+        req.hireDate(),
+        req.status()
+    ));
+    boolean reveal = employeeService.canViewSensitive();
+    EmployeeAssignmentEntity pa = employeeService.findCurrentPrimaryAssignment(id);
+    OrganizationEntity org = pa == null ? null : employeeService.organizationMap(List.of(pa.getOrganizationId())).get(pa.getOrganizationId());
+    PositionEntity pos = pa == null ? null : employeeService.positionMap(List.of(pa.getPositionId())).get(pa.getPositionId());
+    return ApiResponse.ok(toEmployeeDto(updated, org, pos, pa, reveal));
+  }
+
+  @GetMapping("/employees/{id}/assignments")
+  public ApiResponse<List<Map<String, Object>>> listAssignments(@PathVariable("id") long id) {
+    requireRosterView();
+    List<EmployeeAssignmentEntity> list = employeeService.listAssignments(id);
+    Map<Long, OrganizationEntity> orgMap = employeeService.organizationMap(
+        list.stream().map(EmployeeAssignmentEntity::getOrganizationId).distinct().toList()
+    );
+    Map<Long, PositionEntity> posMap = employeeService.positionMap(
+        list.stream().map(EmployeeAssignmentEntity::getPositionId).distinct().toList()
+    );
+    return ApiResponse.ok(list.stream().map(a -> toAssignmentDto(a, orgMap, posMap)).toList());
+  }
+
+  @PostMapping("/employees/{id}/assignments")
+  public ApiResponse<Map<String, Object>> createAssignment(
+      @PathVariable("id") long id,
+      @RequestBody EmployeeAssignmentEntity body
+  ) {
+    requireEdit();
+    EmployeeAssignmentEntity created = employeeService.createAssignmentFromBody(id, body);
+    Map<Long, OrganizationEntity> orgMap = employeeService.organizationMap(List.of(created.getOrganizationId()));
+    Map<Long, PositionEntity> posMap = employeeService.positionMap(List.of(created.getPositionId()));
+    return ApiResponse.ok(toAssignmentDto(created, orgMap, posMap));
+  }
+
+  @PutMapping("/employees/{employeeId}/assignments/{assignmentId}")
+  public ApiResponse<Map<String, Object>> updateAssignment(
+      @PathVariable long employeeId,
+      @PathVariable long assignmentId,
+      @RequestBody EmployeeAssignmentEntity body
+  ) {
+    requireEdit();
+    EmployeeAssignmentEntity updated = employeeService.updateAssignmentFromBody(employeeId, assignmentId, body);
+    Map<Long, OrganizationEntity> orgMap = employeeService.organizationMap(List.of(updated.getOrganizationId()));
+    Map<Long, PositionEntity> posMap = employeeService.positionMap(List.of(updated.getPositionId()));
+    return ApiResponse.ok(toAssignmentDto(updated, orgMap, posMap));
+  }
+
+  @GetMapping("/employees/{id}/movements")
+  public ApiResponse<List<Map<String, Object>>> listMovements(@PathVariable("id") long id) {
+    requireRosterView();
+    employeeService.require(id);
+    return ApiResponse.ok(movementService.listByEmployee(id).stream().map(this::toMovementDto).toList());
+  }
+
+  @GetMapping("/employees/import-template")
+  public ResponseEntity<byte[]> downloadTemplate() {
+    requireEdit();
+    byte[] bytes = importService.buildTemplate();
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=employee-import-template.xlsx")
+        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(bytes);
+  }
+
+  @PostMapping(value = "/employees/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ApiResponse<Map<String, Object>> importEmployees(@RequestParam("file") MultipartFile file) {
+    requireEdit();
+    EmployeeImportService.ImportResult r = importService.importExcel(file);
+    Map<String, Object> dto = new HashMap<>();
+    dto.put("totalRows", r.totalRows());
+    dto.put("successCount", r.successCount());
+    dto.put("failureCount", r.failureCount());
+    dto.put("errors", r.errors().stream().map(e -> Map.of(
+        "rowNumber", e.rowNumber(),
+        "field", e.field() == null ? "" : e.field(),
+        "message", e.message()
+    )).toList());
+    return ApiResponse.ok(dto);
+  }
+
+  @PostMapping({"/employees/import-error-report", "/employees/import-errors-report"})
+  public ResponseEntity<byte[]> importErrorReport(@Valid @RequestBody ImportErrorReportRequest req) {
+    requireEdit();
+    List<EmployeeImportService.RowError> errors = req.errors().stream()
+        .map(e -> new EmployeeImportService.RowError(e.rowNumber(), e.field(), e.message()))
+        .toList();
+    byte[] bytes = importService.buildErrorReport(errors);
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=employee-import-errors.xlsx")
+        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(bytes);
+  }
+
+  @GetMapping("/employees/export")
+  public ResponseEntity<byte[]> exportEmployees(
+      HttpServletRequest request,
+      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) String status,
+      @RequestParam(required = false) Long organizationId
+  ) {
+    requireExport();
+    boolean reveal = employeeService.canViewSensitive();
+    List<EmployeeEntity> list = employeeService.listForExport(keyword, status, organizationId);
+    byte[] bytes = importService.exportExcel(list, reveal);
+    logExport(request, list.size());
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=employee-roster.xlsx")
+        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(bytes);
+  }
+
+  private void requireRosterView() { rbacService.requirePermission("employee:roster:view"); }
+  private void requireEdit() { rbacService.requirePermission("employee:edit"); }
+  private void requireExport() { rbacService.requirePermission("employee:export"); }
+
+  private Map<String, Object> toEmployeeDto(
+      EmployeeEntity e,
+      OrganizationEntity org,
+      PositionEntity pos,
+      EmployeeAssignmentEntity pa,
+      boolean revealSensitive
+  ) {
+    String mobileDisplay = employeeService.displayMobile(e, revealSensitive);
+    Map<String, Object> dto = new HashMap<>();
+    dto.put("id", String.valueOf(e.getId()));
+    dto.put("employeeNo", e.getEmployeeNo());
+    dto.put("fullName", e.getFullName());
+    dto.put("gender", e.getGender());
+    dto.put("genderLabel", employeeService.dictLabel("GENDER", e.getGender()));
+    dto.put("mobile", mobileDisplay);
+    dto.put("mobileMasked", !revealSensitive);
+    dto.put("companyEmail", e.getCompanyEmail());
+    dto.put("personalEmail", e.getPersonalEmail());
+    dto.put("adAccount", e.getAdAccount());
+    dto.put("maritalStatus", e.getMaritalStatus());
+    dto.put("politicalAffiliation", e.getPoliticalAffiliation());
+    dto.put("highestEducation", e.getHighestEducation());
+    dto.put("highestEducationGradDate", e.getHighestEducationGradDate() == null ? null : e.getHighestEducationGradDate().toString());
+    dto.put("fertilityStatus", e.getFertilityStatus());
+    dto.put("ethnicity", e.getEthnicity());
+    dto.put("hobbies", e.getHobbies());
+    dto.put("nationality", e.getNationality());
+    dto.put("householdType", e.getHouseholdType());
+    dto.put("householdLocation", e.getHouseholdLocation());
+    dto.put("partyOrgTransferred", e.getPartyOrgTransferred());
+    dto.put("workStartDate", e.getWorkStartDate() == null ? null : e.getWorkStartDate().toString());
+    dto.put("wechat", e.getWechat());
+    dto.put("officePhone", e.getOfficePhone());
+    dto.put("officeExtension", e.getOfficeExtension());
+    dto.put("homePhone", e.getHomePhone());
+    dto.put("idCardAddress", e.getIdCardAddress());
+    dto.put("residenceAddress", e.getResidenceAddress());
+    dto.put("emergencyContactName", e.getEmergencyContactName());
+    dto.put("emergencyContactPhone", e.getEmergencyContactPhone());
+    dto.put("emergencyContactRelation", e.getEmergencyContactRelation());
+    dto.put("recruitmentChannel", e.getRecruitmentChannel());
+    dto.put("recruitmentChannelDetail", e.getRecruitmentChannelDetail());
+    dto.put("groupSeniorityStartDate", e.getGroupSeniorityStartDate() == null ? null : e.getGroupSeniorityStartDate().toString());
+    dto.put("hireDate", e.getHireDate() == null ? null : e.getHireDate().toString());
+    dto.put("status", e.getStatus());
+    dto.put("statusLabel", employeeService.dictLabel("EMPLOYEE_STATUS", e.getStatus()));
+    if (pa != null) {
+      dto.put("primaryOrganizationId", String.valueOf(pa.getOrganizationId()));
+      dto.put("primaryPositionId", String.valueOf(pa.getPositionId()));
+    }
+    if (org != null) {
+      dto.put("primaryOrganizationName", org.getName());
+    }
+    if (pos != null) {
+      dto.put("primaryPositionName", pos.getName());
+    }
+    dto.put("createdAt", e.getCreatedAt() == null ? null : e.getCreatedAt().toString());
+    dto.put("updatedAt", e.getUpdatedAt() == null ? null : e.getUpdatedAt().toString());
+    return dto;
+  }
+
+  private Map<String, Object> toAssignmentDto(
+      EmployeeAssignmentEntity a,
+      Map<Long, OrganizationEntity> orgMap,
+      Map<Long, PositionEntity> posMap
+  ) {
+    OrganizationEntity org = orgMap.get(a.getOrganizationId());
+    PositionEntity pos = posMap.get(a.getPositionId());
+    Map<String, Object> dto = entityToMap(a);
+    dto.put("organizationName", org == null ? null : org.getName());
+    dto.put("organizationCode", org == null ? null : org.getCode());
+    dto.put("positionName", pos == null ? null : pos.getName());
+    dto.put("positionCode", pos == null ? null : pos.getCode());
+    dto.put("employmentTypeLabel", employeeService.dictLabel("EMPLOYMENT_TYPE", a.getEmploymentType()));
+    return dto;
+  }
+
+  private Map<String, Object> entityToMap(Object bean) {
+    try {
+      Map<String, Object> dto = new HashMap<>();
+      var beanInfo = Introspector.getBeanInfo(bean.getClass(), Object.class);
+      for (var pd : beanInfo.getPropertyDescriptors()) {
+        if (pd.getReadMethod() == null) continue;
+        Object value = pd.getReadMethod().invoke(bean);
+        String key = pd.getName();
+        if (value instanceof LocalDate date) {
+          dto.put(key, date.toString());
+        } else if (value instanceof LocalDateTime dateTime) {
+          dto.put(key, dateTime.toString());
+        } else if (value instanceof Long longValue && ("id".equals(key) || key.endsWith("Id"))) {
+          dto.put(key, String.valueOf(longValue));
+        } else {
+          dto.put(key, value);
+        }
+      }
+      return dto;
+    } catch (Exception e) {
+      throw new IllegalStateException("组装响应失败", e);
+    }
+  }
+
+  private Map<String, Object> toMovementDto(EmployeeMovementEntity m) {
+    Map<String, Object> dto = new HashMap<>();
+    dto.put("id", String.valueOf(m.getId()));
+    dto.put("employeeId", String.valueOf(m.getEmployeeId()));
+    dto.put("movementType", m.getMovementType());
+    dto.put("movementTypeName", m.getMovementTypeName());
+    dto.put("reasonCode", m.getReasonCode());
+    dto.put("reasonDescription", m.getReasonDescription());
+    dto.put("reasonSubCode", m.getReasonSubCode());
+    dto.put("reasonSubDescription", m.getReasonSubDescription());
+    dto.put("effectiveDate", m.getEffectiveDate().toString());
+    dto.put("fromAssignmentId", m.getFromAssignmentId() == null ? null : String.valueOf(m.getFromAssignmentId()));
+    dto.put("toAssignmentId", m.getToAssignmentId() == null ? null : String.valueOf(m.getToAssignmentId()));
+    dto.put("sourceRequestType", m.getSourceRequestType());
+    dto.put("sourceRequestId", m.getSourceRequestId() == null ? null : String.valueOf(m.getSourceRequestId()));
+    dto.put("remark", m.getRemark());
+    dto.put("createdAt", m.getCreatedAt() == null ? null : m.getCreatedAt().toString());
+    dto.put("createdBy", m.getCreatedBy() == null ? null : String.valueOf(m.getCreatedBy()));
+    return dto;
+  }
+
+  private void logSensitiveView(long employeeId, String resourceType) {
+    try {
+      AuditLogEntity log = new AuditLogEntity();
+      log.setAction("VIEW");
+      log.setResourceType(resourceType);
+      log.setResourceId(String.valueOf(employeeId));
+      var user = AuthContext.current();
+      if (user != null) {
+        log.setOperatorUserId(user.id());
+        log.setOperatorUsername(user.username());
+      }
+      log.setTraceId(TraceId.current());
+      log.setCreatedAt(LocalDateTime.now());
+      log.setDetailJson(objectMapper.writeValueAsString(Map.of("sensitive", true)));
+      auditLogService.append(log);
+    } catch (Exception ignored) {
+      // 审计失败不阻断业务
+    }
+  }
+
+  private void logExport(HttpServletRequest request, int count) {
+    try {
+      AuditLogEntity log = new AuditLogEntity();
+      log.setAction("EXPORT");
+      log.setResourceType("employees");
+      var user = AuthContext.current();
+      if (user != null) {
+        log.setOperatorUserId(user.id());
+        log.setOperatorUsername(user.username());
+      }
+      log.setIpAddress(request.getRemoteAddr());
+      log.setTraceId(TraceId.current());
+      log.setCreatedAt(LocalDateTime.now());
+      log.setDetailJson(objectMapper.writeValueAsString(Map.of("count", count)));
+      auditLogService.append(log);
+    } catch (Exception ignored) {
+      // 审计失败不阻断业务
+    }
+  }
+
+  public record EmployeeCreateRequest(
+      @NotBlank String fullName,
+      @NotBlank String gender,
+      @NotBlank String mobile,
+      String companyEmail,
+      String personalEmail,
+      String adAccount,
+      String maritalStatus,
+      String politicalAffiliation,
+      String highestEducation,
+      LocalDate highestEducationGradDate,
+      String fertilityStatus,
+      String ethnicity,
+      String hobbies,
+      String nationality,
+      String householdType,
+      String householdLocation,
+      Boolean partyOrgTransferred,
+      LocalDate workStartDate,
+      String wechat,
+      String officePhone,
+      String officeExtension,
+      String homePhone,
+      String idCardAddress,
+      String residenceAddress,
+      String emergencyContactName,
+      String emergencyContactPhone,
+      String emergencyContactRelation,
+      String recruitmentChannel,
+      String recruitmentChannelDetail,
+      LocalDate groupSeniorityStartDate,
+      @NotNull LocalDate hireDate,
+      String status,
+      Long organizationId,
+      Long positionId,
+      String employmentType,
+      LocalDate assignmentEffectiveStartDate
+  ) {}
+
+  public record EmployeeUpdateRequest(
+      String fullName,
+      String gender,
+      String mobile,
+      String companyEmail,
+      String personalEmail,
+      String adAccount,
+      String maritalStatus,
+      String politicalAffiliation,
+      String highestEducation,
+      LocalDate highestEducationGradDate,
+      String fertilityStatus,
+      String ethnicity,
+      String hobbies,
+      String nationality,
+      String householdType,
+      String householdLocation,
+      Boolean partyOrgTransferred,
+      LocalDate workStartDate,
+      String wechat,
+      String officePhone,
+      String officeExtension,
+      String homePhone,
+      String idCardAddress,
+      String residenceAddress,
+      String emergencyContactName,
+      String emergencyContactPhone,
+      String emergencyContactRelation,
+      String recruitmentChannel,
+      String recruitmentChannelDetail,
+      LocalDate groupSeniorityStartDate,
+      LocalDate hireDate,
+      String status
+  ) {}
+
+  public record ImportErrorReportRequest(@NotNull List<ImportErrorItem> errors) {}
+
+  public record ImportErrorItem(
+      @NotNull Integer rowNumber,
+      String field,
+      @NotBlank String message
+  ) {}
+
+  public record AssignmentCreateRequest(
+      @NotNull Long organizationId,
+      @NotNull Long positionId,
+      String employmentType,
+      Boolean isPrimary,
+      @NotNull LocalDate effectiveStartDate,
+      LocalDate effectiveEndDate
+  ) {}
+
+  public record AssignmentUpdateRequest(
+      Long organizationId,
+      Long positionId,
+      String employmentType,
+      Boolean isPrimary,
+      LocalDate effectiveStartDate,
+      LocalDate effectiveEndDate,
+      String status
+  ) {}
+}

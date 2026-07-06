@@ -1,0 +1,194 @@
+import type {
+  Employee,
+  EmployeeAssignment,
+  EmployeeAssignmentCreateRequest,
+  EmployeeAssignmentUpdateRequest,
+  EmployeeCreateRequest,
+  EmployeeImportResult,
+  EmployeeListQuery,
+  EmployeeMovement,
+  EmployeeUpdateRequest,
+  PageResult,
+  ReportingLine,
+  ReportingLineCreateRequest,
+  ReportingLineListQuery,
+  ReportingLineUpdateRequest,
+} from "@shared/api.interface";
+
+import { deleteJson, getBlob, getJson, postJson, postMultipart, putJson } from "@/api/http";
+
+function pageQuery(params: Record<string, string | number | undefined>): string {
+  const qs = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== "") qs.set(k, String(v));
+  }
+  return qs.toString();
+}
+
+export async function listEmployees(query: EmployeeListQuery) {
+  return getJson<PageResult<Employee>>(`/api/v1/employees?${pageQuery(query)}`);
+}
+
+export async function getEmployee(id: string) {
+  return getJson<Employee>(`/api/v1/employees/${id}`);
+}
+
+export async function createEmployee(req: EmployeeCreateRequest) {
+  const body = {
+    ...req,
+    organizationId: req.organizationId ? Number(req.organizationId) : undefined,
+    positionId: req.positionId ? Number(req.positionId) : undefined,
+  };
+  return postJson<Employee, typeof body>("/api/v1/employees", body);
+}
+
+export async function updateEmployee(id: string, req: EmployeeUpdateRequest) {
+  return putJson<Employee, EmployeeUpdateRequest>(`/api/v1/employees/${id}`, req);
+}
+
+export async function listEmployeeAssignments(employeeId: string) {
+  return getJson<EmployeeAssignment[]>(`/api/v1/employees/${employeeId}/assignments`);
+}
+
+export async function createEmployeeAssignment(
+  employeeId: string,
+  req: EmployeeAssignmentCreateRequest,
+) {
+  return postJson<EmployeeAssignment, Record<string, unknown>>(
+    `/api/v1/employees/${employeeId}/assignments`,
+    normalizeAssignmentBody(req as Record<string, unknown>),
+  );
+}
+
+export async function updateEmployeeAssignment(
+  employeeId: string,
+  assignmentId: string,
+  req: EmployeeAssignmentUpdateRequest,
+) {
+  return putJson<EmployeeAssignment, Record<string, unknown>>(
+    `/api/v1/employees/${employeeId}/assignments/${assignmentId}`,
+    normalizeAssignmentBody(req as Record<string, unknown>),
+  );
+}
+
+export async function listEmployeeMovements(employeeId: string) {
+  return getJson<EmployeeMovement[]>(`/api/v1/employees/${employeeId}/movements`);
+}
+
+export async function downloadEmployeeImportTemplate() {
+  return getBlob("/api/v1/employees/import-template");
+}
+
+export async function importEmployees(file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+  return postMultipart<EmployeeImportResult>("/api/v1/employees/import", fd);
+}
+
+export async function exportEmployees(
+  query?: Pick<EmployeeListQuery, "keyword" | "status" | "organizationId">,
+) {
+  const qs = pageQuery({
+    keyword: query?.keyword,
+    status: query?.status,
+    organizationId: query?.organizationId,
+  });
+  return getBlob(`/api/v1/employees/export${qs ? `?${qs}` : ""}`);
+}
+
+export async function listReportingLines(query: ReportingLineListQuery) {
+  return getJson<PageResult<ReportingLine>>(`/api/v1/reporting-lines?${pageQuery(query)}`);
+}
+
+export async function createReportingLine(req: ReportingLineCreateRequest) {
+  const body = {
+    ...req,
+    employeeId: Number(req.employeeId),
+    managerEmployeeId: Number(req.managerEmployeeId),
+  };
+  return postJson<ReportingLine, typeof body>("/api/v1/reporting-lines", body);
+}
+
+export async function updateReportingLine(id: string, req: ReportingLineUpdateRequest) {
+  const body = {
+    ...req,
+    managerEmployeeId: req.managerEmployeeId ? Number(req.managerEmployeeId) : undefined,
+  };
+  return putJson<ReportingLine, typeof body>(`/api/v1/reporting-lines/${id}`, body);
+}
+
+export async function deleteReportingLine(id: string) {
+  return deleteJson<{ id: string }>(`/api/v1/reporting-lines/${id}`);
+}
+
+export const EMPLOYEE_STATUS_OPTIONS = [
+  { id: "CANDIDATE" as const, label: "待入职" },
+  { id: "PROBATION" as const, label: "试用" },
+  { id: "ACTIVE" as const, label: "在职" },
+  { id: "TERMINATED" as const, label: "离职" },
+];
+
+export const GENDER_OPTIONS = [
+  { id: "MALE" as const, label: "男" },
+  { id: "FEMALE" as const, label: "女" },
+];
+
+export const EMPLOYMENT_TYPE_OPTIONS = [
+  { id: "FULL_TIME" as const, label: "正式工" },
+  { id: "INTERN" as const, label: "实习生" },
+  { id: "CONTRACT" as const, label: "合同工" },
+];
+
+export const ASSIGNMENT_STATUS_OPTIONS = [
+  { id: "ACTIVE" as const, label: "有效" },
+  { id: "ENDED" as const, label: "已结束" },
+];
+
+const ASSIGNMENT_ID_FIELDS = [
+  "organizationId",
+  "positionId",
+  "jobId",
+  "payrollCompanyId",
+  "costLegalEntityId",
+  "legalEntityId",
+] as const;
+
+function normalizeAssignmentBody<T extends Record<string, unknown>>(req: T) {
+  const body: Record<string, unknown> = { ...req };
+  for (const key of ASSIGNMENT_ID_FIELDS) {
+    const value = body[key];
+    if (value === undefined || value === "") continue;
+    body[key] = Number(value);
+  }
+  return body as T;
+}
+
+export const LINE_TYPE_OPTIONS = [
+  { id: "DIRECT" as const, label: "实线" },
+  { id: "DOTTED" as const, label: "虚线" },
+];
+
+function statusBadgeClass(status: string) {
+  switch (status) {
+    case "ACTIVE":
+      return "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+    case "PROBATION":
+      return "border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400";
+    case "CANDIDATE":
+      return "border-blue-500/30 bg-blue-500/10 text-blue-700 dark:text-blue-400";
+    case "TERMINATED":
+      return "border-destructive/30 bg-destructive/10 text-destructive";
+    default:
+      return "";
+  }
+}
+
+export function employeeStatusLabel(status: string) {
+  return EMPLOYEE_STATUS_OPTIONS.find((o) => o.id === status)?.label ?? status;
+}
+
+export function assignmentStatusLabel(status: string) {
+  return ASSIGNMENT_STATUS_OPTIONS.find((o) => o.id === status)?.label ?? status;
+}
+
+export { statusBadgeClass };

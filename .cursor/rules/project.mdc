@@ -12,6 +12,10 @@ alwaysApply: true
 3. 更新 `shared/api.interface.ts` → Flyway → Java → React 页面
 4. 垂直切片交付，禁止一次生成全部模块
 
+## Slice 7 员工档案范围（共识）
+
+MVP **Slice 7 须覆盖 27 项档案二级模块**（个人信息 5 + 工作信息 6 + 员工服务 6 + 背景 4 + 人才发展 6），详见领域模型 §4.1。培训/绩效/盘点等只做 **档案记录**，不做独立业务模块。合同/协议 **档案 CRUD 在 7.2**，Slice 11 仅做续签流程与提醒。
+
 ## 契约与类型
 
 - 接口变更**先**改 `shared/api.interface.ts`

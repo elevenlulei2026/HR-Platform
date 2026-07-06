@@ -26,6 +26,13 @@ mybatis-plus:
   configuration:
     map-underscore-to-camel-case: true
 
+hr:
+  crypto:
+    # 生产环境必须通过环境变量 HR_CRYPTO_KEY 注入 32 字节密钥（Base64）
+    key: ${HR_CRYPTO_KEY:MDEyMzQ1Njc4OUFCQ0RFRjAxMjM0NTY3ODlBQkNERUY=}
+  storage:
+    path: ${HR_STORAGE_PATH:./data/files}
+
 logging:
   pattern:
     level: "%5p [traceId:%X{traceId}]"

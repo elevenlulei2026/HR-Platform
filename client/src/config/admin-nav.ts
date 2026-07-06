@@ -71,7 +71,7 @@ export const adminTopNav: AdminNavTopItem[] = [
         links: [
           {
             title: "员工花名册",
-            description: "列表 + 右侧抽屉档案（后续切片完善）",
+            description: "列表 + 6 Tab 档案抽屉（27 项二级模块，Slice 7）",
             to: "/admin/employees/roster",
             group: "员工主数据",
             permission: "employee:roster:view",
