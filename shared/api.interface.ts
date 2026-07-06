@@ -565,37 +565,6 @@ export type LegalEntityListQuery = {
   pageSize: number;
 };
 
-export type CostCenter = {
-  id: string;
-  code: string;
-  name: string;
-  legalEntityId: string;
-  legalEntityName?: string;
-  status: OrgStatus;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-export type CostCenterCreateRequest = {
-  code: string;
-  name: string;
-  legalEntityId: string;
-  status?: OrgStatus;
-};
-
-export type CostCenterUpdateRequest = {
-  name?: string;
-  legalEntityId?: string;
-  status?: OrgStatus;
-};
-
-export type CostCenterListQuery = {
-  keyword?: string;
-  legalEntityId?: string;
-  page: number;
-  pageSize: number;
-};
-
 export type DictOption = {
   value: string;
   label: string;
@@ -812,15 +781,6 @@ export type OrganizationApi = {
   updateLegalEntity: (id: string, req: LegalEntityUpdateRequest) => Promise<ApiResponse<LegalEntity>>;
   /** DELETE /api/v1/legal-entities/{id} */
   deleteLegalEntity: (id: string) => Promise<ApiResponse<{ id: string }>>;
-
-  /** GET /api/v1/cost-centers?page=&pageSize=&keyword=&legalEntityId= */
-  listCostCenters: (query: CostCenterListQuery) => Promise<ApiResponse<PageResult<CostCenter>>>;
-  /** POST /api/v1/cost-centers */
-  createCostCenter: (req: CostCenterCreateRequest) => Promise<ApiResponse<CostCenter>>;
-  /** PUT /api/v1/cost-centers/{id} */
-  updateCostCenter: (id: string, req: CostCenterUpdateRequest) => Promise<ApiResponse<CostCenter>>;
-  /** DELETE /api/v1/cost-centers/{id} */
-  deleteCostCenter: (id: string) => Promise<ApiResponse<{ id: string }>>;
 
   /** GET /api/v1/organizations/tree?asOfDate= */
   getOrganizationTree: (query?: OrganizationTreeQuery) => Promise<ApiResponse<OrganizationTreeNode[]>>;

@@ -47,18 +47,32 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | id | BIGINT PK | |
-| code | VARCHAR(64) | 组织编码 |
+| code | VARCHAR(64) | 八位部门编号 |
 | name | VARCHAR(128) | |
+| parent_code | VARCHAR(64) NULL | 上级部门编号 |
 | parent_id | BIGINT NULL | 根节点 NULL |
 | org_type | VARCHAR(32) | COMPANY / DIVISION / DEPARTMENT / TEAM |
-| legal_entity_id | BIGINT | |
-| cost_center_id | BIGINT NULL | |
-| manager_employee_id | BIGINT NULL | 负责人 |
+| department_type | VARCHAR(64) NULL | 部门类型（字典） |
+| location | VARCHAR(64) NULL | 地点（字典） |
+| legal_company | VARCHAR(64) NULL | 法人公司（字典） |
+| department_level | VARCHAR(64) NULL | 部门层级（字典） |
+| cost_center | VARCHAR(128) NULL | 成本中心（自由文本，非主数据关联） |
+| org_leader_no | VARCHAR(64) NULL | 组织负责人工号 |
+| supervising_leader_no | VARCHAR(64) NULL | 分管领导工号 |
+| org_attribute | VARCHAR(16) NULL | PHYSICAL / VIRTUAL |
+| org_function | VARCHAR(32) NULL | RND / MANUFACTURING / MARKET / FUNCTION |
+| org_tags | VARCHAR(255) NULL | 组织标签 |
+| financial_code | VARCHAR(64) NULL | 财务编码 |
+| hr_coordinator_no | VARCHAR(64) NULL | 人资协调员工号 |
+| hrbp_no | VARCHAR(64) NULL | HRBP 工号 |
+| ssc_no | VARCHAR(64) NULL | SSC 工号 |
 | effective_start_date | DATE | **生效开始** |
 | effective_end_date | DATE NULL | **生效结束，NULL=当前** |
 | status | VARCHAR(32) | ACTIVE / INACTIVE |
 
 索引：`(parent_id, effective_start_date)`, `(code, effective_end_date)`。
+
+> **说明**：`cost_center` 主数据表 MVP 不做；组织上仅保留文本字段供部门属性填写。
 
 ### position
 
@@ -77,10 +91,6 @@
 ### legal_entity
 
 法人实体：名称、统一社会信用代码、地区。
-
-### cost_center
-
-成本中心编码、名称、所属法人。
 
 ### headcount_plan
 

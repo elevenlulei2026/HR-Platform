@@ -21,7 +21,6 @@ import java.util.Map;
 @RequestMapping("/api/v1")
 public class OrganizationController {
   private final LegalEntityService legalEntityService;
-  private final CostCenterService costCenterService;
   private final OrganizationService organizationService;
   private final PositionService positionService;
   private final RbacService rbacService;
@@ -29,14 +28,12 @@ public class OrganizationController {
 
   public OrganizationController(
       LegalEntityService legalEntityService,
-      CostCenterService costCenterService,
       OrganizationService organizationService,
       PositionService positionService,
       RbacService rbacService,
       DictService dictService
   ) {
     this.legalEntityService = legalEntityService;
-    this.costCenterService = costCenterService;
     this.organizationService = organizationService;
     this.positionService = positionService;
     this.rbacService = rbacService;
@@ -86,59 +83,6 @@ public class OrganizationController {
   public ApiResponse<Map<String, Object>> deleteLegalEntity(@PathVariable("id") long id) {
     requireOrgEdit();
     legalEntityService.delete(id);
-    return ApiResponse.ok(Map.of("id", String.valueOf(id)));
-  }
-
-  // ----- Cost Center -----
-
-  @GetMapping("/cost-centers")
-  public ApiResponse<Map<String, Object>> listCostCenters(
-      @RequestParam(required = false) String keyword,
-      @RequestParam(required = false) Long legalEntityId,
-      @RequestParam @Min(1) long page,
-      @RequestParam @Min(1) @Max(200) long pageSize
-  ) {
-    requireOrgView();
-    var p = costCenterService.page(keyword, legalEntityId, page, pageSize);
-    Map<Long, String> leNames = costCenterService.legalEntityNames(p.records());
-    return ApiResponse.ok(pageOf(
-        p.records().stream().map(e -> toCostCenterDto(e, leNames.get(e.getLegalEntityId()))).toList(),
-        p.total(), page, pageSize
-    ));
-  }
-
-  @PostMapping("/cost-centers")
-  public ApiResponse<Map<String, Object>> createCostCenter(@Valid @RequestBody CostCenterCreateRequest req) {
-    requireOrgEdit();
-    CostCenterEntity entity = new CostCenterEntity();
-    entity.setCode(req.code());
-    entity.setName(req.name());
-    entity.setLegalEntityId(req.legalEntityId());
-    entity.setStatus(req.status());
-    CostCenterEntity created = costCenterService.create(entity);
-    LegalEntityEntity le = legalEntityService.require(created.getLegalEntityId());
-    return ApiResponse.ok(toCostCenterDto(created, le.getName()));
-  }
-
-  @PutMapping("/cost-centers/{id}")
-  public ApiResponse<Map<String, Object>> updateCostCenter(
-      @PathVariable("id") long id,
-      @Valid @RequestBody CostCenterUpdateRequest req
-  ) {
-    requireOrgEdit();
-    CostCenterEntity patch = new CostCenterEntity();
-    patch.setName(req.name());
-    patch.setLegalEntityId(req.legalEntityId());
-    patch.setStatus(req.status());
-    CostCenterEntity updated = costCenterService.update(id, patch);
-    LegalEntityEntity le = legalEntityService.require(updated.getLegalEntityId());
-    return ApiResponse.ok(toCostCenterDto(updated, le.getName()));
-  }
-
-  @DeleteMapping("/cost-centers/{id}")
-  public ApiResponse<Map<String, Object>> deleteCostCenter(@PathVariable("id") long id) {
-    requireOrgEdit();
-    costCenterService.delete(id);
     return ApiResponse.ok(Map.of("id", String.valueOf(id)));
   }
 
@@ -438,19 +382,6 @@ public class OrganizationController {
     return dto;
   }
 
-  private Map<String, Object> toCostCenterDto(CostCenterEntity e, String legalEntityName) {
-    Map<String, Object> dto = new HashMap<>();
-    dto.put("id", String.valueOf(e.getId()));
-    dto.put("code", e.getCode());
-    dto.put("name", e.getName());
-    dto.put("legalEntityId", String.valueOf(e.getLegalEntityId()));
-    dto.put("legalEntityName", legalEntityName);
-    dto.put("status", e.getStatus());
-    dto.put("createdAt", e.getCreatedAt() == null ? null : e.getCreatedAt().toString());
-    dto.put("updatedAt", e.getUpdatedAt() == null ? null : e.getUpdatedAt().toString());
-    return dto;
-  }
-
   private Map<String, Object> toVersionDto(OrganizationEntity e, LocalDate today) {
     Map<String, Object> dto = new HashMap<>();
     dto.put("id", String.valueOf(e.getId()));
@@ -650,15 +581,6 @@ public class OrganizationController {
   ) {}
 
   public record LegalEntityUpdateRequest(String name, String creditCode, String region, String status) {}
-
-  public record CostCenterCreateRequest(
-      @NotBlank String code,
-      @NotBlank String name,
-      @NotNull Long legalEntityId,
-      String status
-  ) {}
-
-  public record CostCenterUpdateRequest(String name, Long legalEntityId, String status) {}
 
   public record OrganizationCreateRequest(
       @NotBlank String name,

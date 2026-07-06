@@ -58,7 +58,7 @@
 | --- | --- |
 | `organization` 树 + `effective_date` | 支持未来生效组织调整 |
 | `position` / `job` / `job_grade` | 岗位与职级 |
-| `legal_entity` / `cost_center` | 法人、成本中心 |
+| `legal_entity` | 法人主数据 |
 | 组织管理页面 | 树形展示、拖拽（可选）、历史查询 |
 
 ### Slice 6：编制
@@ -187,7 +187,7 @@
 ## MVP 完成定义（DoD）
 
 1. **Admin 端**可独立完成全部 MVP 演示（无 MSS/ESS 页面）
-2. 组织、岗位、职级、法人、成本中心可维护，支持生效日期
+2. 组织、岗位、职级、法人可维护，支持生效日期；组织部门可填写成本中心文本字段
 3. 员工档案、任职、汇报、异动完整
 4. 入职 → 转正 → 调岗 → 离职全流程可跑通（均在 Admin）
 5. RBAC + 数据范围 + 敏感字段脱敏 + 审计
@@ -410,11 +410,11 @@ flowchart TD
 
 ### Slice 5：组织岗位
 
-- **5.1.1**：shared 增加 `LegalEntity/CostCenter` 契约
+- **5.1.1**：shared 增加 `LegalEntity` 契约
   - 验收：DTO 对齐
-- **5.1.2**：Flyway 创建 `legal_entity`、`cost_center`
+- **5.1.2**：Flyway 创建 `legal_entity`
   - 验收：迁移成功
-- **5.1.3**：后端法人/成本中心 CRUD
+- **5.1.3**：后端法人 CRUD
   - 验收：鉴权生效
 - **5.2.1**：shared 增加 `Organization`（含 `effectiveStartDate/effectiveEndDate`、支持 `asOfDate`）
   - 验收：类型明确

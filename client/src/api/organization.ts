@@ -1,8 +1,4 @@
 import type {
-  CostCenter,
-  CostCenterCreateRequest,
-  CostCenterListQuery,
-  CostCenterUpdateRequest,
   LegalEntity,
   LegalEntityCreateRequest,
   LegalEntityListQuery,
@@ -47,27 +43,6 @@ export async function updateLegalEntity(id: string, req: LegalEntityUpdateReques
 
 export async function deleteLegalEntity(id: string) {
   return deleteJson<{ id: string }>(`/api/v1/legal-entities/${id}`);
-}
-
-export async function listCostCenters(query: CostCenterListQuery) {
-  return getJson<PageResult<CostCenter>>(`/api/v1/cost-centers?${pageQuery(query)}`);
-}
-
-export async function createCostCenter(req: CostCenterCreateRequest) {
-  const body = { ...req, legalEntityId: Number(req.legalEntityId) };
-  return postJson<CostCenter, typeof body>("/api/v1/cost-centers", body);
-}
-
-export async function updateCostCenter(id: string, req: CostCenterUpdateRequest) {
-  const body = {
-    ...req,
-    legalEntityId: req.legalEntityId ? Number(req.legalEntityId) : undefined,
-  };
-  return putJson<CostCenter, typeof body>(`/api/v1/cost-centers/${id}`, body);
-}
-
-export async function deleteCostCenter(id: string) {
-  return deleteJson<{ id: string }>(`/api/v1/cost-centers/${id}`);
 }
 
 export async function getOrganizationTree(query?: OrganizationTreeQuery) {
