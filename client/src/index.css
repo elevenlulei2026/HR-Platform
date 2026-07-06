@@ -40,8 +40,9 @@
     --muted-foreground: 215 20.2% 65.1%;
     --accent: 217.2 32.6% 17.5%;
     --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
+    /* 暗色背景下需更高亮度，供 text-destructive / 软底按钮使用 */
+    --destructive: 0 72% 58%;
+    --destructive-foreground: 0 0% 100%;
     --border: 217.2 32.6% 17.5%;
     --input: 217.2 32.6% 17.5%;
     --ring: 221.2 83.2% 53.3%;
@@ -54,5 +55,17 @@
   }
   html {
     font-family: "Noto Sans SC", "Inter", "Segoe UI", "PingFang SC", "Microsoft YaHei UI", sans-serif;
+  }
+}
+
+@layer utilities {
+  .dark .border-destructive\/30 {
+    border-color: hsl(var(--destructive) / 0.45);
+  }
+  .dark .bg-destructive\/5 {
+    background-color: hsl(var(--destructive) / 0.12);
+  }
+  .dark .bg-destructive\/10 {
+    background-color: hsl(var(--destructive) / 0.18);
   }
 }

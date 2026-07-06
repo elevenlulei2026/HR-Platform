@@ -36,9 +36,17 @@ import {
   PanelEmpty,
   PanelError,
   PanelLoading,
+  SearchInput,
 } from "@/components/admin/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import {
   Sheet,
@@ -48,6 +56,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { usePermission } from "@/hooks/usePermission";
 import { cn } from "@/lib/utils";
 import {
@@ -55,8 +64,11 @@ import {
   CalendarClock,
   ChevronDown,
   ChevronRight,
+  ChevronsDownUp,
+  ChevronsUpDown,
   GitBranchPlus,
   History,
+  MoreHorizontal,
   Pencil,
   Plus,
   RefreshCw,
@@ -71,6 +83,7 @@ type LoadState =
 
 type SheetMode =
   | { type: "closed" }
+  | { type: "view"; org: Organization }
   | { type: "create"; parentCode?: string }
   | { type: "edit"; org: Organization };
 
@@ -253,6 +266,67 @@ function dictOptions(options: Array<{ value: string; label: string }>): Searchab
   }));
 }
 
+function nodeMatchesKeyword(node: OrganizationTreeNode, keyword: string) {
+  const q = keyword.toLowerCase();
+  return (
+    node.name.toLowerCase().includes(q) ||
+    node.code.toLowerCase().includes(q) ||
+    (node.orgLeaderNo?.toLowerCase().includes(q) ?? false) ||
+    (node.departmentTypeLabel?.toLowerCase().includes(q) ?? false) ||
+    (node.departmentLevelLabel?.toLowerCase().includes(q) ?? false) ||
+    (node.orgAttributeLabel?.toLowerCase().includes(q) ?? false)
+  );
+}
+
+function filterOrgTree(nodes: OrganizationTreeNode[], keyword: string): OrganizationTreeNode[] {
+  const q = keyword.trim();
+  if (!q) return nodes;
+
+  function walk(node: OrganizationTreeNode): OrganizationTreeNode | null {
+    const filteredChildren = node.children
+      .map(walk)
+      .filter((n): n is OrganizationTreeNode => n !== null);
+    if (nodeMatchesKeyword(node, q) || filteredChildren.length > 0) {
+      return { ...node, children: filteredChildren };
+    }
+    return null;
+  }
+
+  return nodes.map(walk).filter((n): n is OrganizationTreeNode => n !== null);
+}
+
+function collectExpandCodesForSearch(nodes: OrganizationTreeNode[], keyword: string): Set<string> {
+  const codes = new Set<string>();
+  const q = keyword.trim();
+  if (!q) return codes;
+
+  function walk(node: OrganizationTreeNode, ancestors: string[]): boolean {
+    let childMatch = false;
+    for (const child of node.children) {
+      if (walk(child, [...ancestors, node.code])) childMatch = true;
+    }
+    const selfMatch = nodeMatchesKeyword(node, q);
+    if (selfMatch || childMatch) {
+      for (const c of ancestors) codes.add(c);
+      if (childMatch) codes.add(node.code);
+      return true;
+    }
+    return false;
+  }
+
+  for (const n of nodes) walk(n, []);
+  return codes;
+}
+
+function collectAllCodes(nodes: OrganizationTreeNode[]): string[] {
+  const codes: string[] = [];
+  for (const n of nodes) {
+    codes.push(n.code);
+    if (n.children.length) codes.push(...collectAllCodes(n.children));
+  }
+  return codes;
+}
+
 function VersionTimeline({
   versions,
   activeId,
@@ -314,20 +388,96 @@ function VersionTimeline({
   );
 }
 
+function OrgDetailContent({
+  org,
+  versions,
+  versionsLoading,
+  onSelectVersion,
+}: {
+  org: Organization;
+  versions: OrganizationVersion[];
+  versionsLoading: boolean;
+  onSelectVersion: (version: OrganizationVersion) => void;
+}) {
+  return (
+    <div className="space-y-5">
+      {versionsLoading ? (
+        <div className="h-16 animate-pulse rounded-lg bg-muted/30" />
+      ) : (
+        <VersionTimeline versions={versions} activeId={org.id} onSelect={onSelectVersion} />
+      )}
+
+      <div className="flex items-start justify-between gap-3 border-b border-border/50 pb-4">
+        <div className="min-w-0 space-y-1">
+          <div className="text-lg font-semibold tracking-tight">{org.name}</div>
+          <div className="font-mono text-xs text-muted-foreground">{org.code}</div>
+        </div>
+        <Badge variant={org.status === "ACTIVE" ? "default" : "secondary"}>
+          {org.statusLabel ?? (org.status === "ACTIVE" ? "有效" : "无效")}
+        </Badge>
+      </div>
+
+      <DetailSection title="基本信息">
+        <DetailCell label="上级组织" value={displayParent(org)} />
+        <DetailCell label="生效日期" value={org.effectiveStartDate} />
+        <DetailCell
+          label="地点"
+          value={displayCodeName(org.location, org.locationLabel)}
+        />
+        <DetailCell
+          label="法人公司"
+          value={displayCodeName(org.legalCompany, org.legalCompanyLabel)}
+        />
+        <DetailCell
+          label="部门类型"
+          value={displayCodeName(org.departmentType, org.departmentTypeLabel)}
+        />
+        <DetailCell
+          label="部门层级"
+          value={displayCodeName(org.departmentLevel, org.departmentLevelLabel)}
+        />
+        <DetailCell label="成本中心" value={org.costCenter} />
+        <DetailCell label="组织属性" value={org.orgAttributeLabel} />
+        <DetailCell label="组织职能" value={org.orgFunctionLabel} />
+        <DetailCell label="财务编码" value={org.financialCode} />
+        <DetailCell label="组织标签" value={org.orgTags} />
+      </DetailSection>
+
+      <DetailSection title="负责人与 HR">
+        <DetailCell label="组织负责人" value={org.orgLeaderNo} />
+        <DetailCell label="分管领导" value={org.supervisingLeaderNo} />
+        <DetailCell label="人资协调员" value={org.hrCoordinatorNo} />
+        <DetailCell label="HRBP" value={org.hrbpNo} />
+        <DetailCell label="SSC" value={org.sscNo} />
+      </DetailSection>
+    </div>
+  );
+}
+
 function OrgTreeItem({
   node,
   depth,
   selectedId,
   expanded,
+  canEdit,
   onToggle,
   onSelect,
+  onAddChild,
+  onAddSibling,
+  onEdit,
+  onNewVersion,
 }: {
   node: OrganizationTreeNode;
   depth: number;
   selectedId?: string;
   expanded: Set<string>;
+  canEdit: boolean;
   onToggle: (code: string) => void;
   onSelect: (org: Organization) => void;
+  onAddChild: (org: Organization) => void;
+  onAddSibling: (org: Organization) => void;
+  onEdit: (org: Organization) => void;
+  onNewVersion: (org: Organization) => void;
 }) {
   const hasChildren = node.children.length > 0;
   const isExpanded = expanded.has(node.code);
@@ -336,54 +486,126 @@ function OrgTreeItem({
 
   return (
     <div>
-      <button
-        type="button"
+      <div
         className={cn(
-          "group flex w-full rounded-lg border border-transparent px-2 py-2 text-left transition-all",
+          "group/node relative flex items-center rounded-lg border border-transparent transition-all",
           "hover:border-border/60 hover:bg-muted/40",
           selected && "border-primary/30 bg-primary/8 shadow-sm",
           inactive && "opacity-55",
         )}
         style={{ marginLeft: `${depth * 14}px`, width: `calc(100% - ${depth * 14}px)` }}
-        onClick={() => onSelect(node)}
       >
-        <div className="flex min-w-0 items-center gap-1.5">
-          {hasChildren ? (
-            <span
-              className="inline-flex size-5 shrink-0 items-center justify-center rounded hover:bg-muted"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggle(node.code);
-              }}
-            >
-              {isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
-            </span>
-          ) : (
-            <span className="inline-block size-5 shrink-0" />
-          )}
+        {hasChildren ? (
+          <button
+            type="button"
+            className="inline-flex size-7 shrink-0 items-center justify-center rounded-md hover:bg-muted"
+            onClick={() => onToggle(node.code)}
+            aria-label={isExpanded ? "收起" : "展开"}
+          >
+            {isExpanded ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
+          </button>
+        ) : (
+          <span className="inline-block size-7 shrink-0" />
+        )}
+
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-center gap-2 px-1 py-1.5 text-left"
+          onClick={() => onSelect(node)}
+        >
           <Building2 className="size-3.5 shrink-0 text-primary/70" />
-          <span className="shrink-0 text-sm font-semibold tracking-tight">{node.name}</span>
-          <div className="flex min-w-0 flex-wrap items-center gap-1">
-            {node.departmentTypeLabel ? (
-              <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-normal">
-                {node.departmentTypeLabel}
-              </Badge>
-            ) : null}
-            {node.departmentLevelLabel ? (
-              <Badge variant="outline" className="h-4 px-1.5 text-[10px] font-normal">
-                {node.departmentLevelLabel}
-              </Badge>
-            ) : null}
-            {node.orgLeaderNo ? (
-              <Badge variant="outline" className="h-4 gap-0.5 px-1.5 text-[10px] font-normal">
-                <UserRound className="size-2.5" />
-                {node.orgLeaderNo}
-              </Badge>
-            ) : null}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1">
+            <div className="flex min-w-0 items-baseline gap-1.5">
+              <span className="shrink-0 text-sm font-semibold tracking-tight">{node.name}</span>
+              <span className="shrink-0 font-mono text-[10px] tabular-nums text-muted-foreground">
+                {node.code}
+              </span>
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-1">
+              {node.departmentLevelLabel ? (
+                <Badge variant="outline" className="h-4 px-1.5 text-[10px] font-normal">
+                  {node.departmentLevelLabel}
+                </Badge>
+              ) : null}
+              {node.departmentTypeLabel ? (
+                <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-normal">
+                  {node.departmentTypeLabel}
+                </Badge>
+              ) : null}
+              {node.orgAttributeLabel ? (
+                <Badge variant="outline" className="h-4 border-dashed px-1.5 text-[10px] font-normal">
+                  {node.orgAttributeLabel}
+                </Badge>
+              ) : null}
+              {node.orgLeaderNo ? (
+                <Badge variant="outline" className="h-4 gap-0.5 px-1.5 text-[10px] font-normal">
+                  <UserRound className="size-2.5" />
+                  {node.orgLeaderNo}
+                </Badge>
+              ) : null}
+            </div>
           </div>
-          <span className="ml-auto shrink-0 font-mono text-[10px] text-muted-foreground">{node.code}</span>
+        </button>
+
+        <div
+          className={cn(
+            "ml-auto flex shrink-0 items-center gap-0.5 border-l border-transparent pl-2 pr-1 transition-opacity",
+            "group-hover/node:border-border/40",
+            "opacity-0 group-hover/node:opacity-100 group-focus-within/node:opacity-100",
+            selected && "border-border/40 opacity-100",
+          )}
+        >
+          {canEdit ? (
+            <>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                title="添加下级"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddChild(node);
+                }}
+              >
+                <GitBranchPlus />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                title="添加同级"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddSibling(node);
+                }}
+              >
+                <Plus />
+              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger
+                  className="inline-flex size-7 shrink-0 items-center justify-center rounded-[min(var(--radius-md),12px)] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  onClick={(e) => e.stopPropagation()}
+                  title="更多操作"
+                >
+                  <MoreHorizontal />
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-40">
+                  <DropdownMenuItem onClick={() => onEdit(node)}>
+                    <Pencil />
+                    编辑
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => onNewVersion(node)}>
+                    <History />
+                    新增版本
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => onSelect(node)}>查看详情</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : null}
         </div>
-      </button>
+      </div>
       {hasChildren && isExpanded
         ? node.children.map((child) => (
             <OrgTreeItem
@@ -392,8 +614,13 @@ function OrgTreeItem({
               depth={depth + 1}
               selectedId={selectedId}
               expanded={expanded}
+              canEdit={canEdit}
               onToggle={onToggle}
               onSelect={onSelect}
+              onAddChild={onAddChild}
+              onAddSibling={onAddSibling}
+              onEdit={onEdit}
+              onNewVersion={onNewVersion}
             />
           ))
         : null}
@@ -407,6 +634,8 @@ export function AdminOrgStructurePage() {
   const canEdit = perm.has("organization:edit");
 
   const [asOfDate, setAsOfDate] = useState(todayStr());
+  const [treeSearch, setTreeSearch] = useState("");
+  const debouncedSearch = useDebouncedValue(treeSearch, 280);
   const [state, setState] = useState<LoadState>({ type: "loading" });
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Organization | null>(null);
@@ -487,6 +716,18 @@ export function AdminOrgStructurePage() {
     [state],
   );
 
+  const filteredTree = useMemo(() => {
+    if (state.type !== "ok") return [];
+    return filterOrgTree(state.tree, debouncedSearch);
+  }, [state, debouncedSearch]);
+
+  useEffect(() => {
+    if (state.type !== "ok" || !debouncedSearch.trim()) return;
+    const codes = collectExpandCodesForSearch(state.tree, debouncedSearch);
+    if (codes.size === 0) return;
+    setExpanded((prev) => new Set([...prev, ...codes]));
+  }, [debouncedSearch, state]);
+
   const parentOrgOptions = useMemo((): SearchableSelectOption[] => {
     const excludeCode = sheet.type === "edit" ? sheet.org.code : undefined;
     return flatOrgs
@@ -499,10 +740,19 @@ export function AdminOrgStructurePage() {
       }));
   }, [flatOrgs, sheet]);
 
+  const openView = (org: Organization) => {
+    setSelected(org);
+    setSheet({ type: "view", org });
+  };
+
   const openCreate = (parentCode?: string) => {
     setForm(emptyForm(asOfDate || todayStr(), parentCode));
     setEditMode("CURRENT");
     setSheet({ type: "create", parentCode });
+  };
+
+  const openAddSibling = (org: Organization) => {
+    openCreate(org.parentCode);
   };
 
   const openEdit = (org: Organization) => {
@@ -511,10 +761,19 @@ export function AdminOrgStructurePage() {
     setSheet({ type: "edit", org });
   };
 
+  const openNewVersion = (org: Organization) => {
+    setForm(formFromOrg(org));
+    setEditMode("NEW_VERSION");
+    setSheet({ type: "edit", org });
+  };
+
+  const closeSheet = () => setSheet({ type: "closed" });
+
   const viewVersion = async (version: OrganizationVersion) => {
     try {
       const res = await getOrganization(version.id);
       setSelected(res.data);
+      setSheet((prev) => (prev.type === "view" ? { type: "view", org: res.data } : prev));
     } catch (e: unknown) {
       const err = e as ApiError;
       toast.error(err.message ?? "加载版本详情失败");
@@ -558,6 +817,7 @@ export function AdminOrgStructurePage() {
         await load();
         const detailRes = await getOrganization(res.data.id);
         setSelected(detailRes.data);
+        setSheet({ type: "view", org: detailRes.data });
         void loadVersions(sheet.org.code);
         return;
       }
@@ -606,182 +866,182 @@ export function AdminOrgStructurePage() {
         }
       />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)]">
-        <PanelCard
-          title="组织树"
-          toolbar={
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant={temporal.variant} className="gap-1">
-                <CalendarClock className="size-3" />
-                {temporal.label}
-              </Badge>
-              <Input
-                type="date"
-                value={asOfDate}
-                onChange={(e) => setAsOfDate(e.target.value)}
-                className="h-8 w-[150px]"
-              />
-              {!isViewingToday ? (
-                <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setAsOfDate(todayStr())}>
-                  回到今天
-                </Button>
-              ) : null}
-              <Button variant="outline" size="sm" onClick={() => void load()}>
-                <RefreshCw className="size-4" />
-                刷新
-              </Button>
-            </div>
-          }
-        >
-          {state.type === "loading" ? <PanelLoading message="正在加载组织树…" /> : null}
-          {state.type === "error" ? (
-            <PanelError error={state.error} onRetry={() => void load()} />
-          ) : null}
-          {state.type === "ok" && state.tree.length === 0 ? (
-            <PanelEmpty
-              title="暂无组织"
-              description="当前生效日期下没有有效部门，可调整日期或新建部门。"
-              action={
-                canEdit ? (
-                  <Button size="sm" onClick={() => openCreate()}>
-                    新建部门
-                  </Button>
-                ) : undefined
-              }
+      <PanelCard
+        title="组织树"
+        description={
+          state.type === "ok"
+            ? `共 ${flatOrgs.length} 个部门 · 点击节点查看详情，悬停可快捷操作`
+            : undefined
+        }
+        toolbar={
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchInput
+              value={treeSearch}
+              onChange={setTreeSearch}
+              placeholder="搜索部门名称、编号…"
+              className="sm:w-[200px]"
             />
-          ) : null}
-          {state.type === "ok" && state.tree.length > 0 ? (
-            <div className="max-h-[min(68vh,640px)] overflow-y-auto p-2">
-              {state.tree.map((node) => (
-                <OrgTreeItem
-                  key={node.id}
-                  node={node}
-                  depth={0}
-                  selectedId={selected?.id}
-                  expanded={expanded}
-                  onToggle={(code) =>
-                    setExpanded((prev) => {
-                      const next = new Set(prev);
-                      if (next.has(code)) next.delete(code);
-                      else next.add(code);
-                      return next;
-                    })
-                  }
-                  onSelect={setSelected}
-                />
-              ))}
-            </div>
-          ) : null}
-        </PanelCard>
+            <Badge variant={temporal.variant} className="gap-1">
+              <CalendarClock className="size-3" />
+              {temporal.label}
+            </Badge>
+            <Input
+              type="date"
+              value={asOfDate}
+              onChange={(e) => setAsOfDate(e.target.value)}
+              className="h-8 w-[150px]"
+            />
+            {!isViewingToday ? (
+              <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={() => setAsOfDate(todayStr())}>
+                回到今天
+              </Button>
+            ) : null}
+            {state.type === "ok" && state.tree.length > 0 ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  title="全部展开"
+                  onClick={() => setExpanded(new Set(collectAllCodes(state.tree)))}
+                >
+                  <ChevronsUpDown />
+                </Button>
+                <Button variant="outline" size="sm" title="全部收起" onClick={() => setExpanded(new Set())}>
+                  <ChevronsDownUp />
+                </Button>
+              </>
+            ) : null}
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              <RefreshCw />
+              刷新
+            </Button>
+          </div>
+        }
+      >
+        {state.type === "loading" ? <PanelLoading message="正在加载组织树…" /> : null}
+        {state.type === "error" ? (
+          <PanelError error={state.error} onRetry={() => void load()} />
+        ) : null}
+        {state.type === "ok" && state.tree.length === 0 ? (
+          <PanelEmpty
+            title="暂无组织"
+            description="当前生效日期下没有有效部门，可调整日期或新建部门。"
+            action={
+              canEdit ? (
+                <Button size="sm" onClick={() => openCreate()}>
+                  新建部门
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : null}
+        {state.type === "ok" && state.tree.length > 0 && filteredTree.length === 0 ? (
+          <PanelEmpty
+            title="无匹配部门"
+            description={`未找到与「${debouncedSearch}」相关的部门，请调整关键词。`}
+            action={
+              <Button size="sm" variant="outline" onClick={() => setTreeSearch("")}>
+                清除搜索
+              </Button>
+            }
+          />
+        ) : null}
+        {state.type === "ok" && filteredTree.length > 0 ? (
+          <div className="h-[calc(100dvh-280px)] min-h-[420px] overflow-y-auto p-2">
+            {filteredTree.map((node) => (
+              <OrgTreeItem
+                key={node.id}
+                node={node}
+                depth={0}
+                selectedId={selected?.id}
+                expanded={expanded}
+                canEdit={canEdit}
+                onToggle={(code) =>
+                  setExpanded((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(code)) next.delete(code);
+                    else next.add(code);
+                    return next;
+                  })
+                }
+                onSelect={openView}
+                onAddChild={(org) => openCreate(org.code)}
+                onAddSibling={openAddSibling}
+                onEdit={openEdit}
+                onNewVersion={openNewVersion}
+              />
+            ))}
+          </div>
+        ) : null}
+      </PanelCard>
 
-        <PanelCard title="组织详情">
-          {!selected ? (
-            <PanelEmpty title="未选择部门" description="点击左侧树节点查看完整部门信息。" />
-          ) : (
-            <div className="p-4">
-              {versionsLoading ? (
-                <div className="mb-4 h-16 animate-pulse rounded-lg bg-muted/30" />
-              ) : (
-                <VersionTimeline
-                  versions={versions}
-                  activeId={selected.id}
-                  onSelect={(v) => void viewVersion(v)}
-                />
-              )}
-
-              <div className="mb-4 flex items-start justify-between gap-3 border-b border-border/50 pb-4">
-                <div className="min-w-0 space-y-1">
-                  <div className="text-lg font-semibold tracking-tight">{selected.name}</div>
-                  <div className="font-mono text-xs text-muted-foreground">{selected.code}</div>
-                </div>
-                <div className="flex shrink-0 flex-col items-end gap-1.5">
-                  <Badge variant={selected.status === "ACTIVE" ? "default" : "secondary"}>
-                    {selected.statusLabel ?? (selected.status === "ACTIVE" ? "有效" : "无效")}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="space-y-5">
-                <DetailSection title="基本信息">
-                  <DetailCell label="上级组织" value={displayParent(selected)} />
-                  <DetailCell
-                    label="地点"
-                    value={displayCodeName(selected.location, selected.locationLabel)}
-                  />
-                  <DetailCell
-                    label="法人公司"
-                    value={displayCodeName(selected.legalCompany, selected.legalCompanyLabel)}
-                  />
-                  <DetailCell
-                    label="部门类型"
-                    value={displayCodeName(selected.departmentType, selected.departmentTypeLabel)}
-                  />
-                  <DetailCell
-                    label="部门层级"
-                    value={displayCodeName(selected.departmentLevel, selected.departmentLevelLabel)}
-                  />
-                  <DetailCell label="成本中心" value={selected.costCenter} />
-                  <DetailCell label="组织属性" value={selected.orgAttributeLabel} />
-                  <DetailCell label="组织职能" value={selected.orgFunctionLabel} />
-                  <DetailCell label="财务编码" value={selected.financialCode} />
-                  <DetailCell label="组织标签" value={selected.orgTags} />
-                </DetailSection>
-
-                <DetailSection title="负责人与 HR">
-                  <DetailCell label="组织负责人" value={selected.orgLeaderNo} />
-                  <DetailCell label="分管领导" value={selected.supervisingLeaderNo} />
-                  <DetailCell label="人资协调员" value={selected.hrCoordinatorNo} />
-                  <DetailCell label="HRBP" value={selected.hrbpNo} />
-                  <DetailCell label="SSC" value={selected.sscNo} />
-                </DetailSection>
-              </div>
-
-              {canEdit ? (
-                <div className="mt-5 flex flex-wrap gap-2 border-t border-border/50 pt-4">
-                  <Button size="sm" variant="outline" onClick={() => openEdit(selected)}>
-                    <Pencil className="size-3.5" />
-                    编辑
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setForm(formFromOrg(selected));
-                      setEditMode("NEW_VERSION");
-                      setSheet({ type: "edit", org: selected });
-                    }}
-                  >
-                    <History className="size-3.5" />
-                    新增版本
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => openCreate(selected.code)}>
-                    <GitBranchPlus className="size-3.5" />
-                    添加下级
-                  </Button>
-                </div>
-              ) : null}
-            </div>
+      <Sheet open={sheet.type !== "closed"} onOpenChange={(o) => !o && closeSheet()}>
+        <SheetContent
+          side="right"
+          className={cn(
+            "gap-0 p-0",
+            sheet.type === "view"
+              ? "data-[side=right]:max-w-[min(640px,100vw)]"
+              : "data-[side=right]:max-w-[min(840px,100vw)]",
           )}
-        </PanelCard>
-      </div>
-
-      <Sheet open={sheet.type !== "closed"} onOpenChange={(o) => !o && setSheet({ type: "closed" })}>
-        <SheetContent side="right" className="data-[side=right]:max-w-[min(840px,100vw)] gap-0 p-0">
-          <SheetHeader className="border-b px-6 py-4">
-            <SheetTitle>
-              {sheet.type === "create" ? "新建部门" : editMode === "NEW_VERSION" ? "新增生效版本" : "编辑部门"}
-            </SheetTitle>
-            <SheetDescription>
-              {sheet.type === "create" && sheet.parentCode
-                ? `上级编号：${sheet.parentCode}`
-                : sheet.type === "edit" && editMode === "CURRENT"
-                  ? `修改当前版本（${sheet.org.effectiveStartDate}）的数据，不改变生效日期。`
-                  : sheet.type === "edit"
-                    ? "指定新生效日期，将基于当前表单内容创建新版本并自动衔接时间轴。"
-                    : "填写部门信息并指定生效日期。"}
-            </SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
+        >
+          {sheet.type === "view" ? (
+            <>
+              <SheetHeader className="border-b px-6 py-4">
+                <SheetTitle>部门详情</SheetTitle>
+                <SheetDescription>
+                  {sheet.org.name}（{sheet.org.code}）· 生效日 {sheet.org.effectiveStartDate}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="flex-1 overflow-y-auto px-6 py-5">
+                <OrgDetailContent
+                  org={sheet.org}
+                  versions={versions}
+                  versionsLoading={versionsLoading}
+                  onSelectVersion={(v) => void viewVersion(v)}
+                />
+              </div>
+              <SheetFooter className="border-t px-6 py-4">
+                <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-between">
+                  <Button variant="outline" onClick={closeSheet}>
+                    关闭
+                  </Button>
+                  {canEdit ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button size="sm" variant="outline" onClick={() => openEdit(sheet.org)}>
+                        <Pencil />
+                        编辑
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => openNewVersion(sheet.org)}>
+                        <History />
+                        新增版本
+                      </Button>
+                      <Button size="sm" variant="outline" onClick={() => openCreate(sheet.org.code)}>
+                        <GitBranchPlus />
+                        添加下级
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
+              </SheetFooter>
+            </>
+          ) : (
+            <>
+              <SheetHeader className="border-b px-6 py-4">
+                <SheetTitle>
+                  {sheet.type === "create" ? "新建部门" : editMode === "NEW_VERSION" ? "新增生效版本" : "编辑部门"}
+                </SheetTitle>
+                <SheetDescription>
+                  {sheet.type === "create" && sheet.parentCode
+                    ? `上级编号：${sheet.parentCode}`
+                    : sheet.type === "edit" && editMode === "CURRENT"
+                      ? `修改当前版本（${sheet.org.effectiveStartDate}）的数据，不改变生效日期。`
+                      : sheet.type === "edit"
+                        ? "指定新生效日期，将基于当前表单内容创建新版本并自动衔接时间轴。"
+                        : "填写部门信息并指定生效日期。"}
+                </SheetDescription>
+              </SheetHeader>
+              <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">
             {sheet.type === "edit" ? (
               <FormSection title="版本">
                 <FormField label="编辑方式" required>
@@ -940,20 +1200,22 @@ export function AdminOrgStructurePage() {
               </FormGrid>
             </FormSection>
           </div>
-          <SheetFooter className="border-t px-6 py-4">
-            <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" onClick={() => setSheet({ type: "closed" })}>
-                取消
-              </Button>
-              <Button disabled={saving} onClick={() => void handleSave()}>
-                {saving
-                  ? "保存中…"
-                  : sheet.type === "edit" && editMode === "NEW_VERSION"
-                    ? "创建新版本"
-                    : "保存"}
-              </Button>
-            </div>
-          </SheetFooter>
+              <SheetFooter className="border-t px-6 py-4">
+                <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                  <Button variant="outline" onClick={closeSheet}>
+                    取消
+                  </Button>
+                  <Button disabled={saving} onClick={() => void handleSave()}>
+                    {saving
+                      ? "保存中…"
+                      : sheet.type === "edit" && editMode === "NEW_VERSION"
+                        ? "创建新版本"
+                        : "保存"}
+                  </Button>
+                </div>
+              </SheetFooter>
+            </>
+          )}
         </SheetContent>
       </Sheet>
     </div>
