@@ -120,3 +120,8 @@ export function flattenOrgTree(nodes: OrganizationTreeNode[]): OrganizationTreeN
   }
   return out;
 }
+
+/** 新建任职/员工时默认部门 */
+export function defaultDepartmentId(departments: OrganizationTreeNode[]): string {
+  return departments[0]?.id ?? "";
+}

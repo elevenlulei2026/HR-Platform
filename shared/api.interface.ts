@@ -197,7 +197,7 @@ export type CodeRule = {
   id: string;
   code: string; // e.g. EMPLOYEE_NO / ORG_CODE
   name: string;
-  pattern: string; // e.g. EMP-{yyyy}{MM}{dd}-{seq}
+  pattern: string; // e.g. {yy}{MM}{seq}（工号）或 EMP-{yyyy}{MM}{dd}-{seq}
   seqReset: CodeRuleSeqReset;
   seqStart: number;
   seqLength: number;

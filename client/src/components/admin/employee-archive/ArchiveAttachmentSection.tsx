@@ -153,7 +153,8 @@ export function ArchiveAttachmentSection({
       >
         {items.length === 0 ? (
           <PanelEmpty
-            icon={<Paperclip className="size-5 text-muted-foreground" />}
+            compact
+            icon={<Paperclip className="size-4 text-muted-foreground" />}
             title="暂无附件"
             description={canEdit ? "选择类型后点击上传，文件将受控存储" : "暂无附件记录"}
           />

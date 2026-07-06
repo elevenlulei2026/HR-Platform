@@ -92,7 +92,7 @@ public class OrganizationController {
   public ApiResponse<List<Map<String, Object>>> getOrganizationTree(
       @RequestParam(required = false) String asOfDate
   ) {
-    requireOrgView();
+    requireOrgReferenceView();
     LocalDate date = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate);
     List<OrganizationService.TreeNode> tree = organizationService.getTree(date);
     DictLabels labels = loadDictLabels();
@@ -176,7 +176,7 @@ public class OrganizationController {
       @RequestParam @Min(1) long page,
       @RequestParam @Min(1) @Max(200) long pageSize
   ) {
-    requirePositionView();
+    requirePositionReferenceView();
     LocalDate date = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate);
     var p = positionService.page(keyword, organizationId, date, page, pageSize);
     Map<Long, OrganizationEntity> orgMap = positionService.orgMap(p.records());
@@ -245,6 +245,16 @@ public class OrganizationController {
   private void requireOrgEdit() { rbacService.requirePermission("organization:edit"); }
   private void requirePositionView() { rbacService.requirePermission("position:view"); }
   private void requirePositionEdit() { rbacService.requirePermission("position:edit"); }
+
+  /** 组织架构树：组织管理员或花名册维护者可读（任职选择部门） */
+  private void requireOrgReferenceView() {
+    rbacService.requireAnyPermission("organization:view", "employee:roster:view", "employee:edit");
+  }
+
+  /** 岗位列表：岗位管理员或花名册维护者可读（任职选择岗位） */
+  private void requirePositionReferenceView() {
+    rbacService.requireAnyPermission("position:view", "employee:roster:view", "employee:edit");
+  }
 
   private Map<String, Object> pageOf(List<?> items, long total, long page, long pageSize) {
     Map<String, Object> m = new HashMap<>();

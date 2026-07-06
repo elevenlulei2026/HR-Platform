@@ -4,7 +4,6 @@ import type {
   EmployeeAssignmentCreateRequest,
   EmployeeAssignmentUpdateRequest,
   OrganizationTreeNode,
-  Position,
 } from "@shared/api.interface";
 import { useState, type Dispatch, type SetStateAction } from "react";
 import { Edit, Plus } from "lucide-react";
@@ -18,21 +17,15 @@ import {
   createEmployeeAssignment,
   updateEmployeeAssignment,
 } from "@/api/employee";
-import { flattenOrgTree } from "@/api/organization";
+import { defaultDepartmentId, flattenOrgTree } from "@/api/organization";
+import { ArchiveFormDialog } from "@/components/admin/employee-archive/ArchiveFormDialog";
+import { DepartmentPositionFields } from "@/components/admin/employee-archive/DepartmentPositionFields";
 import { FormField } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
 import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
 const BOOLEAN_OPTIONS = [
@@ -96,7 +89,6 @@ type AssignmentSectionProps = {
   employeeId: string;
   assignments: EmployeeAssignment[];
   orgs: OrganizationTreeNode[];
-  positions: Position[];
   canEdit: boolean;
   onChanged: () => Promise<void> | void;
 };
@@ -304,13 +296,11 @@ function AssignmentFormFields({
   form,
   setForm,
   flatOrgs,
-  positions,
   isNew,
 }: {
   form: AssignmentForm;
   setForm: Dispatch<SetStateAction<AssignmentForm>>;
   flatOrgs: ReturnType<typeof flattenOrgTree>;
-  positions: Position[];
   isNew: boolean;
 }) {
   const set = (key: keyof AssignmentForm, value: string) =>
@@ -320,56 +310,50 @@ function AssignmentFormFields({
     <div className="space-y-6">
       <div className="space-y-4">
         <SectionTitle>岗位与组织</SectionTitle>
-        <FormField label="组织" required>
-          <OptionSelect
-            value={form.organizationId}
-            onValueChange={(value) => set("organizationId", value)}
-            options={flatOrgs.map((org) => ({ value: org.id, label: `${org.code} ${org.name}` }))}
-            className="w-full"
+        <div className="grid gap-4 md:grid-cols-2">
+          <DepartmentPositionFields
+            organizationId={form.organizationId}
+            positionId={form.positionId}
+            departments={flatOrgs}
+            organizationRequired
+            positionRequired
+            onOrganizationChange={(organizationId, positionId) => {
+              setForm((prev) => ({ ...prev, organizationId, positionId }));
+            }}
+            onPositionChange={(positionId) => set("positionId", positionId)}
           />
-        </FormField>
-        <FormField label="岗位" required>
-          <OptionSelect
-            value={form.positionId}
-            onValueChange={(value) => set("positionId", value)}
-            options={positions.map((position) => ({
-              value: position.id,
-              label: `${position.code} ${position.name}`,
-            }))}
-            className="w-full"
-          />
-        </FormField>
-        <FormField label="职务 ID">
-          <Input value={form.jobId} onChange={(e) => set("jobId", e.target.value)} />
-        </FormField>
-        <FormField label="职级编码">
-          <Input value={form.jobGradeCode} onChange={(e) => set("jobGradeCode", e.target.value)} />
-        </FormField>
-        <FormField label="职位序列">
-          <Input value={form.jobSequence} onChange={(e) => set("jobSequence", e.target.value)} />
-        </FormField>
-        <FormField label="雇佣类型">
-          <OptionSelect
-            value={form.employmentType}
-            onValueChange={(value) => set("employmentType", value)}
-            options={EMPLOYMENT_TYPE_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
-            className="w-full"
-          />
-        </FormField>
-        <FormField label="员工子类">
-          <Input value={form.employmentSubType} onChange={(e) => set("employmentSubType", e.target.value)} />
-        </FormField>
-        <FormField label="员工性质">
-          <Input value={form.employeeNature} onChange={(e) => set("employeeNature", e.target.value)} />
-        </FormField>
-        <FormField label="主任职">
-          <OptionSelect
-            value={form.isPrimary}
-            onValueChange={(value) => set("isPrimary", value)}
-            options={BOOLEAN_OPTIONS}
-            className="w-full"
-          />
-        </FormField>
+          <FormField label="职务 ID">
+            <Input value={form.jobId} onChange={(e) => set("jobId", e.target.value)} />
+          </FormField>
+          <FormField label="职级编码">
+            <Input value={form.jobGradeCode} onChange={(e) => set("jobGradeCode", e.target.value)} />
+          </FormField>
+          <FormField label="职位序列">
+            <Input value={form.jobSequence} onChange={(e) => set("jobSequence", e.target.value)} />
+          </FormField>
+          <FormField label="雇佣类型">
+            <OptionSelect
+              value={form.employmentType}
+              onValueChange={(value) => set("employmentType", value)}
+              options={EMPLOYMENT_TYPE_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
+              className="w-full"
+            />
+          </FormField>
+          <FormField label="员工子类">
+            <Input value={form.employmentSubType} onChange={(e) => set("employmentSubType", e.target.value)} />
+          </FormField>
+          <FormField label="员工性质">
+            <Input value={form.employeeNature} onChange={(e) => set("employeeNature", e.target.value)} />
+          </FormField>
+          <FormField label="主任职">
+            <OptionSelect
+              value={form.isPrimary}
+              onValueChange={(value) => set("isPrimary", value)}
+              options={BOOLEAN_OPTIONS}
+              className="w-full"
+            />
+          </FormField>
+        </div>
       </div>
 
       <div className="space-y-4">
@@ -584,7 +568,6 @@ export function AssignmentSection({
   employeeId,
   assignments,
   orgs,
-  positions,
   canEdit,
   onChanged,
 }: AssignmentSectionProps) {
@@ -595,8 +578,7 @@ export function AssignmentSection({
 
   const openCreate = () => {
     const next = emptyAssignmentForm();
-    if (flatOrgs[0]) next.organizationId = flatOrgs[0].id;
-    if (positions[0]) next.positionId = positions[0].id;
+    next.organizationId = defaultDepartmentId(flatOrgs);
     setForm(next);
     setSheet({ type: "new" });
   };
@@ -657,7 +639,7 @@ export function AssignmentSection({
         }
       >
         {assignments.length === 0 ? (
-          <PanelEmpty title="暂无任职记录" description="可通过新增任职维护岗位与组织信息" />
+          <PanelEmpty compact title="暂无任职记录" description="可通过新增任职维护岗位与组织信息" />
         ) : (
           <div className="divide-y">
             {assignments.map((assignment) => (
@@ -714,33 +696,22 @@ export function AssignmentSection({
         )}
       </PanelCard>
 
-      <Sheet open={sheet.type !== "closed"} onOpenChange={(o) => !o && setSheet({ type: "closed" })}>
-        <SheetContent side="right" className="gap-0 p-0 sm:max-w-lg">
-          <SheetHeader className="border-b px-6 py-4 text-left">
-            <SheetTitle>{sheet.type === "new" ? "新增任职" : "编辑任职"}</SheetTitle>
-            <SheetDescription>维护岗位、组织层级、雇工属性与工作关系</SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 overflow-y-auto px-6 py-5">
-            <AssignmentFormFields
-              form={form}
-              setForm={setForm}
-              flatOrgs={flatOrgs}
-              positions={positions}
-              isNew={sheet.type === "new"}
-            />
-          </div>
-          <SheetFooter className="border-t px-6 py-4">
-            <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" onClick={() => setSheet({ type: "closed" })}>
-                取消
-              </Button>
-              <Button disabled={saving} onClick={() => void save()}>
-                保存
-              </Button>
-            </div>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      <ArchiveFormDialog
+        open={sheet.type !== "closed"}
+        onOpenChange={(open) => !open && setSheet({ type: "closed" })}
+        title={sheet.type === "new" ? "新增任职" : "编辑任职"}
+        description="维护岗位、组织层级、雇工属性与工作关系"
+        wide
+        saving={saving}
+        onSave={() => void save()}
+      >
+        <AssignmentFormFields
+          form={form}
+          setForm={setForm}
+          flatOrgs={flatOrgs}
+          isNew={sheet.type === "new"}
+        />
+      </ArchiveFormDialog>
     </>
   );
 }

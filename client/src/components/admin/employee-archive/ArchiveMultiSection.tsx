@@ -12,6 +12,7 @@ import {
   deleteEmployeeArchiveResource,
   updateEmployeeArchiveResource,
 } from "@/api/employee-archive";
+import { ArchiveFormDialog } from "@/components/admin/employee-archive/ArchiveFormDialog";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { FormField } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
@@ -19,14 +20,6 @@ import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 
 type ArchiveFormPrimitive = string | number | boolean | null | undefined;
 type ArchiveItem = { id: string } & Record<string, ArchiveFormPrimitive>;
@@ -216,7 +209,7 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
         }
       >
         {archiveItems.length === 0 ? (
-          <PanelEmpty title={`暂无${title}`} description="可通过新增按钮维护档案信息" />
+          <PanelEmpty compact title={`暂无${title}`} description="可通过新增按钮维护档案信息" />
         ) : (
           <div className="divide-y">
             {archiveItems.map((item) => (
@@ -264,55 +257,37 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
         )}
       </PanelCard>
 
-      <Sheet open={sheet.type !== "closed"} onOpenChange={(o) => !o && setSheet({ type: "closed" })}>
-        <SheetContent side="right" className="gap-0 p-0">
-          <SheetHeader className="border-b px-6 py-4 text-left">
-            <SheetTitle>{sheet.type === "new" ? `新增${title}` : `编辑${title}`}</SheetTitle>
-            <SheetDescription>保存后立即写入员工档案</SheetDescription>
-          </SheetHeader>
-          <div className="flex-1 space-y-4 overflow-y-auto px-6 py-5">
-            {fieldDefs.map((field) => (
-              <FormField key={field.key} label={field.label} required={field.required}>
-                {field.options ? (
-                  <OptionSelect
-                    value={form[field.key] ?? ""}
-                    onValueChange={(value) => setForm((prev) => ({ ...prev, [field.key]: value }))}
-                    options={field.options}
-                    allowEmpty={!field.required}
-                    emptyLabel="不填写"
-                    className="w-full"
-                  />
-                ) : (
-                  <Input
-                    type={
-                      field.type === "date"
-                        ? "date"
-                        : field.type === "number"
-                          ? "number"
-                          : "text"
-                    }
-                    value={form[field.key] ?? ""}
-                    placeholder={field.placeholder}
-                    onChange={(e) =>
-                      setForm((prev) => ({ ...prev, [field.key]: e.target.value }))
-                    }
-                  />
-                )}
-              </FormField>
-            ))}
-          </div>
-          <SheetFooter className="border-t px-6 py-4">
-            <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="outline" onClick={() => setSheet({ type: "closed" })}>
-                取消
-              </Button>
-              <Button disabled={saving} onClick={() => void save()}>
-                保存
-              </Button>
-            </div>
-          </SheetFooter>
-        </SheetContent>
-      </Sheet>
+      <ArchiveFormDialog
+        open={sheet.type !== "closed"}
+        onOpenChange={(open) => !open && setSheet({ type: "closed" })}
+        title={sheet.type === "new" ? `新增${title}` : `编辑${title}`}
+        saving={saving}
+        onSave={() => void save()}
+      >
+        {fieldDefs.map((field) => (
+          <FormField key={field.key} label={field.label} required={field.required}>
+            {field.options ? (
+              <OptionSelect
+                value={form[field.key] ?? ""}
+                onValueChange={(value) => setForm((prev) => ({ ...prev, [field.key]: value }))}
+                options={field.options}
+                allowEmpty={!field.required}
+                emptyLabel="不填写"
+                className="w-full"
+              />
+            ) : (
+              <Input
+                type={
+                  field.type === "date" ? "date" : field.type === "number" ? "number" : "text"
+                }
+                value={form[field.key] ?? ""}
+                placeholder={field.placeholder}
+                onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+              />
+            )}
+          </FormField>
+        ))}
+      </ArchiveFormDialog>
 
       <ConfirmDialog
         open={Boolean(deleteTarget)}

@@ -1165,6 +1165,7 @@ export function AdminOrgStructurePage() {
                       options={parentOrgOptions}
                       placeholder="无（根节点）"
                       emptyLabel="无（根节点）"
+                      entityEmptyHint="作为顶层部门，不挂载上级"
                       searchPlaceholder="搜索上级部门编号或名称…"
                       allowEmpty
                       formatOption={(opt) => `${opt.code ?? opt.value} — ${opt.label}`}

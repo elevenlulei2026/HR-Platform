@@ -1,6 +1,11 @@
 cd "D:\文档\HR Platform\server"
 ./mvnw spring-boot:run
 
+# 查占用 8087 的进程
+netstat -ano | findstr :8087
+# 结束对应 PID（把 8812 换成实际 PID）
+taskkill /PID 8812 /F
+
 
 
 cd "D:\文档\HR Platform\client"

@@ -55,6 +55,22 @@ public class RbacService {
     }
   }
 
+  /** 满足任一权限点即可（花名册引用组织/岗位等场景） */
+  public void requireAnyPermission(String... permissionCodes) {
+    if (permissionCodes == null || permissionCodes.length == 0) {
+      throw new IllegalArgumentException("permissionCodes 不能为空");
+    }
+    AuthUser u = AuthContext.current();
+    if (u == null) throw new UnauthorizedException("未登录或登录已过期");
+    Set<String> granted = u.permissions() == null ? Set.of() : u.permissions();
+    for (String code : permissionCodes) {
+      if (code != null && !code.isBlank() && granted.contains(code)) {
+        return;
+      }
+    }
+    throw new ForbiddenException("无权限");
+  }
+
   public void requireLoggedIn() {
     if (AuthContext.current() == null) throw new UnauthorizedException("未登录或登录已过期");
   }

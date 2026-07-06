@@ -1,0 +1,37 @@
+import type { EmployeeStatus } from "@shared/api.interface";
+
+export type EmployeeForm = {
+  fullName: string;
+  gender: string;
+  mobile: string;
+  mobileMasked: boolean;
+  companyEmail: string;
+  personalEmail: string;
+  adAccount: string;
+  maritalStatus: string;
+  politicalAffiliation: string;
+  highestEducation: string;
+  highestEducationGradDate: string;
+  fertilityStatus: string;
+  ethnicity: string;
+  hobbies: string;
+  nationality: string;
+  householdType: string;
+  wechat: string;
+  officePhone: string;
+  officeExtension: string;
+  homePhone: string;
+  emergencyContactName: string;
+  emergencyContactPhone: string;
+  emergencyContactRelation: string;
+  householdLocation: string;
+  idCardAddress: string;
+  residenceAddress: string;
+  recruitmentChannel: string;
+  recruitmentChannelDetail: string;
+  workStartDate: string;
+  groupSeniorityStartDate: string;
+  hireDate: string;
+  status: EmployeeStatus;
+  partyOrgTransferred: string;
+};

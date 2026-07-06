@@ -138,20 +138,33 @@ export function PanelEmpty({
   description,
   action,
   icon,
+  compact = false,
 }: {
   title: string;
   description: string;
   action?: ReactNode;
   icon?: ReactNode;
+  /** 嵌套卡片内空状态，垂直占位约为默认的一半 */
+  compact?: boolean;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center px-6 py-16 text-center">
-      <div className="mb-3 flex size-12 items-center justify-center rounded-full bg-muted">
-        {icon ?? <Inbox className="size-5 text-muted-foreground" />}
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center text-center",
+        compact ? "px-4 py-8" : "px-6 py-16",
+      )}
+    >
+      <div
+        className={cn(
+          "flex items-center justify-center rounded-full bg-muted",
+          compact ? "mb-2 size-8" : "mb-3 size-12",
+        )}
+      >
+        {icon ?? <Inbox className={cn("text-muted-foreground", compact ? "size-4" : "size-5")} />}
       </div>
       <div className="text-sm font-medium text-foreground">{title}</div>
       <div className="mt-1 max-w-sm text-sm text-muted-foreground">{description}</div>
-      {action ? <div className="mt-4">{action}</div> : null}
+      {action ? <div className={compact ? "mt-2" : "mt-4"}>{action}</div> : null}
     </div>
   );
 }

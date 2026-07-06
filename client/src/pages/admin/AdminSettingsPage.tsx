@@ -1175,7 +1175,9 @@ function CodeRuleSheet(props: { mode: CodeRuleSheetMode; onClose: () => void; on
       <SheetContent className="gap-0 p-0">
         <SheetHeader>
           <SheetTitle>{title}</SheetTitle>
-          <SheetDescription>pattern 支持占位符：{"{yyyy}"} {"{MM}"} {"{dd}"} {"{seq}"}。</SheetDescription>
+          <SheetDescription>
+            pattern 支持占位符：{"{yyyy}"} {"{yy}"} {"{MM}"} {"{dd}"} {"{seq}"}。工号示例：{"{yy}{MM}{seq}"} → 25060031。
+          </SheetDescription>
         </SheetHeader>
 
         <div className="flex-1 space-y-5 overflow-y-auto px-6 py-5">

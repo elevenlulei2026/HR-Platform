@@ -129,7 +129,7 @@ public class EmployeeService {
     if (cmd.hireDate() == null) throw new IllegalArgumentException("入职日期不能为空");
 
     EmployeeEntity entity = new EmployeeEntity();
-    entity.setEmployeeNo(codeGeneratorService.generate("EMPLOYEE_NO").code());
+    entity.setEmployeeNo(codeGeneratorService.generate("EMPLOYEE_NO", cmd.hireDate()).code());
     entity.setFullName(cmd.fullName().trim());
     entity.setGender(cmd.gender());
     entity.setMobile(fieldCryptoService.encrypt(cmd.mobile().trim()));

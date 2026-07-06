@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
-import { Building2, ChevronsUpDown, GitBranchPlus, X } from "lucide-react";
+import { Briefcase, Building2, ChevronsUpDown, GitBranchPlus, Loader2, X } from "lucide-react";
 
 import {
   Command,
@@ -21,6 +21,8 @@ export type SearchableSelectOption = {
   keywords?: string;
 };
 
+export type SearchableEntityIcon = "building" | "briefcase";
+
 type SearchableSelectProps = {
   value: string;
   onChange: (value: string) => void;
@@ -35,6 +37,20 @@ type SearchableSelectProps = {
   variant?: "default" | "entity";
   /** 选中项与下拉项的展示格式 */
   formatOption?: (option: SearchableSelectOption) => string;
+  /** entity 模式：图标类型 */
+  entityIcon?: SearchableEntityIcon;
+  /** entity 模式：未选中主文案 */
+  entityEmptyTitle?: string;
+  /** entity 模式：未选中辅助说明 */
+  entityEmptyHint?: string;
+  /** entity 模式：已选中辅助说明 */
+  entitySelectedHint?: string;
+  /** 服务端搜索时关闭 cmdk 本地过滤 */
+  shouldFilter?: boolean;
+  /** 搜索词变化（配合 shouldFilter=false 做远程搜索） */
+  onSearchChange?: (query: string) => void;
+  /** 远程加载中 */
+  loading?: boolean;
 };
 
 const EMPTY_VALUE = "__none__";
@@ -54,12 +70,19 @@ function OptionCodeBadge({ code }: { code: string }) {
   );
 }
 
-function EntityOptionRow({ option }: { option: SearchableSelectOption }) {
+function EntityOptionRow({
+  option,
+  icon = "building",
+}: {
+  option: SearchableSelectOption;
+  icon?: SearchableEntityIcon;
+}) {
   const code = option.code ?? option.value;
+  const Icon = icon === "briefcase" ? Briefcase : Building2;
   return (
     <div className="flex min-w-0 items-center gap-2.5">
       <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted/60 text-muted-foreground">
-        <Building2 className="size-3.5" />
+        <Icon className="size-3.5" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
@@ -67,6 +90,28 @@ function EntityOptionRow({ option }: { option: SearchableSelectOption }) {
           <span className="truncate text-sm font-medium text-foreground">{option.label}</span>
         </div>
       </div>
+    </div>
+  );
+}
+
+function EntityIconBadge({
+  icon = "building",
+  selected,
+}: {
+  icon?: SearchableEntityIcon;
+  selected?: boolean;
+}) {
+  const Icon = icon === "briefcase" ? Briefcase : Building2;
+  if (selected) {
+    return (
+      <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary ring-1 ring-primary/15">
+        <Icon className="size-4" />
+      </div>
+    );
+  }
+  return (
+    <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 bg-muted/30 text-muted-foreground">
+      <Icon className="size-4" />
     </div>
   );
 }
@@ -83,12 +128,24 @@ export function SearchableSelect({
   className,
   variant = "default",
   formatOption = formatCodeName,
+  entityIcon = "building",
+  entityEmptyTitle,
+  entityEmptyHint,
+  entitySelectedHint,
+  shouldFilter = true,
+  onSearchChange,
+  loading = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const containerRef = useRef<HTMLDivElement>(null);
   const listId = useId();
 
-  const close = useCallback(() => setOpen(false), []);
+  const close = useCallback(() => {
+    setOpen(false);
+    setSearchQuery("");
+    onSearchChange?.("");
+  }, [onSearchChange]);
 
   useClickOutside(containerRef, close, open);
 
@@ -116,6 +173,17 @@ export function SearchableSelect({
     onChange(next === EMPTY_VALUE ? "" : next);
     close();
   };
+
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    onSearchChange?.(query);
+  };
+
+  const resolvedEntityEmptyTitle = entityEmptyTitle ?? emptyLabel;
+  const resolvedEntityEmptyHint =
+    entityEmptyHint ?? "点击打开搜索面板，按编码或名称筛选";
+  const resolvedEntitySelectedHint =
+    entitySelectedHint ?? "已选择，点击可重新搜索";
 
   const handleClear = (e: { preventDefault: () => void; stopPropagation: () => void }) => {
     e.preventDefault();
@@ -151,9 +219,7 @@ export function SearchableSelect({
         >
           {selected ? (
             <>
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary ring-1 ring-primary/15">
-                <Building2 className="size-4" />
-              </div>
+              <EntityIconBadge icon={entityIcon} selected />
               <div className="min-w-0 flex-1 space-y-1">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <OptionCodeBadge code={selected.code ?? selected.value} />
@@ -161,17 +227,15 @@ export function SearchableSelect({
                     {selected.label}
                   </span>
                 </div>
-                <p className="text-[11px] text-muted-foreground">已选择上级部门，点击可重新搜索</p>
+                <p className="text-[11px] text-muted-foreground">{resolvedEntitySelectedHint}</p>
               </div>
             </>
           ) : (
             <>
-              <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-dashed border-muted-foreground/25 bg-muted/30 text-muted-foreground">
-                <GitBranchPlus className="size-4" />
-              </div>
+              <EntityIconBadge icon={entityIcon} />
               <div className="min-w-0 flex-1 space-y-0.5">
-                <span className="text-sm font-medium text-foreground">{emptyLabel}</span>
-                <p className="text-[11px] text-muted-foreground">点击打开搜索面板，按部门编号或名称筛选</p>
+                <span className="text-sm font-medium text-foreground">{resolvedEntityEmptyTitle}</span>
+                <p className="text-[11px] text-muted-foreground">{resolvedEntityEmptyHint}</p>
               </div>
             </>
           )}
@@ -185,7 +249,7 @@ export function SearchableSelect({
                 onKeyDown={(e) => {
                   if (e.key === "Enter" || e.key === " ") handleClear(e);
                 }}
-                aria-label="清除上级组织"
+                aria-label="清除选择"
               >
                 <X className="size-3.5" />
               </span>
@@ -237,12 +301,24 @@ export function SearchableSelect({
         <div
           id={listId}
           role="listbox"
-          className="absolute top-[calc(100%+6px)] z-50 w-full overflow-hidden rounded-xl border border-border/60 bg-popover shadow-md"
+          className="absolute top-[calc(100%+6px)] z-[100] w-full overflow-hidden rounded-xl border border-border/60 bg-popover shadow-lg ring-1 ring-foreground/5"
         >
-          <Command shouldFilter className="gap-0 p-0">
-            <CommandInput variant="soft" placeholder={searchPlaceholder} />
-            <CommandList className="max-h-64 scroll-py-0.5">
-              <CommandEmpty className="py-8 text-muted-foreground">未找到匹配项</CommandEmpty>
+          <Command shouldFilter={shouldFilter} className="gap-0 p-0">
+            <CommandInput
+              variant="soft"
+              placeholder={searchPlaceholder}
+              value={shouldFilter ? undefined : searchQuery}
+              onValueChange={handleSearchChange}
+            />
+            <CommandList className="max-h-72 scroll-py-0.5">
+              {loading ? (
+                <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted-foreground">
+                  <Loader2 className="size-4 animate-spin" />
+                  加载中…
+                </div>
+              ) : (
+                <CommandEmpty className="py-8 text-muted-foreground">未找到匹配项</CommandEmpty>
+              )}
               <CommandGroup className="gap-0.5 p-2">
                 {allowEmpty ? (
                   <CommandItem
@@ -283,7 +359,11 @@ export function SearchableSelect({
                         variant === "entity" ? "rounded-lg px-2.5 py-2" : "rounded-md px-2.5 py-1.5",
                       )}
                     >
-                      {variant === "entity" ? <EntityOptionRow option={opt} /> : <span className="min-w-0 truncate">{text}</span>}
+                      {variant === "entity" ? (
+                        <EntityOptionRow option={opt} icon={entityIcon} />
+                      ) : (
+                        <span className="min-w-0 truncate">{text}</span>
+                      )}
                     </CommandItem>
                   );
                 })}
