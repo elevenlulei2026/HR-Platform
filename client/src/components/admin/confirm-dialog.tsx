@@ -2,7 +2,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -31,12 +30,12 @@ export function ConfirmDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={!loading} className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent showCloseButton={!loading} className="gap-5 sm:max-w-md">
+        <DialogHeader className="pr-8">
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <DialogFooter className="border-t-0 bg-transparent p-0 pt-2">
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Button variant="outline" disabled={loading} onClick={() => onOpenChange(false)}>
             {cancelLabel}
           </Button>
@@ -47,7 +46,7 @@ export function ConfirmDialog({
           >
             {loading ? "处理中…" : confirmLabel}
           </Button>
-        </DialogFooter>
+        </div>
       </DialogContent>
     </Dialog>
   );

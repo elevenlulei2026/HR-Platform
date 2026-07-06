@@ -59,10 +59,8 @@ import { cn } from "@/lib/utils";
 import {
   BriefcaseBusiness,
   CalendarClock,
-  ChevronRight,
   History,
   Inbox,
-  Pencil,
   Plus,
   RefreshCw,
   Shield,
@@ -168,9 +166,63 @@ function displayValue(value?: string | null) {
   return value?.trim() ? value : "—";
 }
 
+function displayLabelOnly(label?: string | null) {
+  return label?.trim() ? label : "—";
+}
+
 function displayCodeName(code?: string | null, label?: string | null) {
   if (!code?.trim() && !label?.trim()) return "—";
   return formatCodeName({ value: code ?? "", label: label ?? "", code: code ?? undefined });
+}
+
+function NameCodeCell({ name, code }: { name?: string | null; code?: string | null }) {
+  const displayName = name?.trim();
+  const displayCode = code?.trim();
+  if (!displayName && !displayCode) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  return (
+    <div className="min-w-0">
+      {displayName ? (
+        <div className="truncate text-sm font-medium text-foreground">{displayName}</div>
+      ) : null}
+      {displayCode ? (
+        <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">{displayCode}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function SequenceBadge({ sequence }: { sequence?: PositionSequence }) {
+  if (!sequence) return <span className="text-xs text-muted-foreground">—</span>;
+  const tone: Record<PositionSequence, string> = {
+    P: "border-sky-500/35 bg-sky-500/10 text-sky-800 dark:text-sky-300",
+    M: "border-violet-500/35 bg-violet-500/10 text-violet-800 dark:text-violet-300",
+    T: "border-teal-500/35 bg-teal-500/10 text-teal-800 dark:text-teal-300",
+  };
+  return (
+    <Badge variant="outline" className={cn("font-mono text-[10px] font-semibold", tone[sequence])}>
+      {sequence}
+    </Badge>
+  );
+}
+
+function KindBadge({ kind }: { kind?: PositionKind }) {
+  if (!kind) return <span className="text-xs text-muted-foreground">—</span>;
+  const isOffice = kind === "OFFICE";
+  return (
+    <Badge
+      variant="outline"
+      className={cn(
+        "text-[10px] font-medium",
+        isOffice
+          ? "border-indigo-500/30 bg-indigo-500/10 text-indigo-800 dark:text-indigo-300"
+          : "border-orange-500/30 bg-orange-500/10 text-orange-800 dark:text-orange-300",
+      )}
+    >
+      {positionKindLabel(kind)}
+    </Badge>
+  );
 }
 
 function yesNoLabel(value?: YesNo) {
@@ -185,10 +237,60 @@ function positionKindLabel(kind?: PositionKind) {
   return "—";
 }
 
+function DataTable({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={cn("overflow-x-auto", className)}>
+      <table className="w-full min-w-[1080px] border-collapse text-sm">{children}</table>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: Position["status"] }) {
+  const active = status === "ACTIVE";
+  return (
+    <Badge
+      variant={active ? "secondary" : "outline"}
+      className={cn(
+        active &&
+          "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+      )}
+    >
+      {active ? "有效" : "无效"}
+    </Badge>
+  );
+}
+
+function PositionFlags({ item }: { item: Position }) {
+  if (item.keyPosition !== "YES" && item.occupationalDisease !== "YES") {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  return (
+    <div className="flex flex-wrap gap-1">
+      {item.keyPosition === "YES" ? (
+        <Badge variant="outline" className="border-amber-500/40 text-[10px] text-amber-700 dark:text-amber-300">
+          <Sparkles className="size-2.5" />
+          关键
+        </Badge>
+      ) : null}
+      {item.occupationalDisease === "YES" ? (
+        <Badge variant="outline" className="text-[10px]">
+          职业病
+        </Badge>
+      ) : null}
+    </div>
+  );
+}
+
 function DetailSection({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <section className="space-y-2">
-      <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">{title}</p>
+    <section className="space-y-3">
+      <p className="text-xs font-semibold tracking-wide text-foreground">{title}</p>
       <div className="grid grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-2">{children}</div>
     </section>
   );
@@ -196,9 +298,9 @@ function DetailSection({ title, children }: { title: string; children: ReactNode
 
 function DetailCell({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="min-w-0 rounded-md border border-border/40 bg-muted/10 px-3 py-2.5">
+    <div className="min-w-0 rounded-lg border border-border/50 bg-muted/15 px-3.5 py-3">
       <dt className="text-[11px] text-muted-foreground">{label}</dt>
-      <dd className="mt-0.5 truncate text-sm font-medium text-foreground">{displayValue(value)}</dd>
+      <dd className="mt-1 truncate text-sm font-medium text-foreground">{displayValue(value)}</dd>
     </div>
   );
 }
@@ -379,6 +481,15 @@ export function AdminOrgPositionsPage() {
     }
   };
 
+  const openEditFromList = async (item: Position) => {
+    try {
+      const res = await getPosition(item.id);
+      openEdit(res.data, "CURRENT");
+    } catch (e: unknown) {
+      toast.error((e as ApiError).message ?? "加载岗位信息失败");
+    }
+  };
+
   const viewVersion = async (version: PositionVersion) => {
     try {
       const res = await getPosition(version.id);
@@ -490,18 +601,12 @@ export function AdminOrgPositionsPage() {
     <div className="space-y-5">
       <PageHeader
         title="岗位体系"
-        description="按生效日期查看岗位快照；点击列表项查看详情，可修改当前版本或新增生效版本。"
-        actions={
-          canEdit ? (
-            <Button size="sm" onClick={openNew}>
-              <Plus className="size-4" />
-              新建岗位
-            </Button>
-          ) : null
-        }
+        description="按生效日期查看岗位快照；支持在列表直接查看或编辑，详情中可管理生效版本。"
       />
 
       <PanelCard
+        title="岗位列表"
+        description={`共 ${state.type === "ok" ? state.total : "—"} 条 · 快照日期 ${asOfDate}`}
         toolbar={
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={temporal.variant} className="gap-1">
@@ -526,9 +631,15 @@ export function AdminOrgPositionsPage() {
               placeholder="搜索岗位编码或名称"
             />
             <Button variant="outline" size="sm" onClick={() => void loadPositions()}>
-              <RefreshCw className="size-4" />
+              <RefreshCw />
               刷新
             </Button>
+            {canEdit ? (
+              <Button size="sm" onClick={openNew}>
+                <Plus />
+                新建岗位
+              </Button>
+            ) : null}
           </div>
         }
       >
@@ -554,39 +665,105 @@ export function AdminOrgPositionsPage() {
 
         {state.type === "ok" && state.items.length > 0 ? (
           <>
-            <div className="divide-y">
-              {state.items.map((it) => (
-                <button
-                  key={it.id}
-                  type="button"
-                  onClick={() => void openView(it)}
-                  className="group flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/30"
-                >
-                  <BriefcaseBusiness className="size-4 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-medium">{it.name}</span>
-                      <span className="font-mono text-xs text-muted-foreground">{it.code}</span>
-                      <Badge variant={it.status === "ACTIVE" ? "secondary" : "outline"}>
-                        {it.status === "ACTIVE" ? "有效" : "无效"}
-                      </Badge>
-                      {it.keyPosition === "YES" ? (
-                        <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300">
-                          <Sparkles className="mr-1 size-3" />
-                          关键
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <div className="mt-0.5 text-xs text-muted-foreground">
-                      生效 {it.effectiveStartDate}
-                      {it.organizationName ? ` · ${it.organizationName}` : ""}
-                      {it.positionSequence ? ` · ${it.positionSequence}` : ""}
-                    </div>
-                  </div>
-                  <ChevronRight className="size-4 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
-                </button>
-              ))}
-            </div>
+            <DataTable>
+              <thead>
+                <tr className="border-b bg-muted/40">
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                    岗位名称
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                    状态
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                    生效日期
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                    直属部门
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                    序列
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                    类别
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                    分类 / 身份
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                    职级
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                    标识
+                  </th>
+                  <th className="sticky right-0 z-10 bg-muted/40 px-4 py-2.5 text-right text-xs font-semibold tracking-wide text-muted-foreground shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.15)]">
+                    操作
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.items.map((it) => (
+                  <tr
+                    key={it.id}
+                    className="group border-b transition-colors last:border-b-0 hover:bg-muted/25"
+                  >
+                    <td className="max-w-[200px] px-4 py-3">
+                      <div className="flex items-start gap-2">
+                        <BriefcaseBusiness className="mt-0.5 size-3.5 shrink-0 text-muted-foreground" />
+                        <div className="min-w-0">
+                          <div className="truncate font-medium text-foreground">{it.name}</div>
+                          <div className="mt-0.5 truncate font-mono text-[11px] text-muted-foreground">
+                            {it.code}
+                          </div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusBadge status={it.status} />
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs tabular-nums text-muted-foreground">
+                      {it.effectiveStartDate}
+                    </td>
+                    <td className="max-w-[160px] px-4 py-3">
+                      <NameCodeCell name={it.organizationName} code={it.organizationCode} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <SequenceBadge sequence={it.positionSequence} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <KindBadge kind={it.positionKind} />
+                    </td>
+                    <td className="max-w-[140px] px-4 py-3">
+                      <div className="truncate text-sm text-foreground">
+                        {displayLabelOnly(it.positionCategoryLabel)}
+                      </div>
+                      <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {displayLabelOnly(it.identityCategoryLabel)}
+                      </div>
+                    </td>
+                    <td className="max-w-[100px] px-4 py-3">
+                      <span className="text-sm text-foreground">
+                        {displayLabelOnly(it.positionLevelLabel)}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <PositionFlags item={it} />
+                    </td>
+                    <td className="sticky right-0 z-10 bg-card px-4 py-3 text-right shadow-[-8px_0_12px_-8px_rgba(0,0,0,0.08)] group-hover:bg-muted/25">
+                      <div className="flex items-center justify-end gap-0.5">
+                        <Button size="sm" variant="ghost" onClick={() => void openView(it)}>
+                          查看
+                        </Button>
+                        {canEdit ? (
+                          <Button size="sm" variant="ghost" onClick={() => void openEditFromList(it)}>
+                            编辑
+                          </Button>
+                        ) : null}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </DataTable>
             <PaginationBar
               page={page}
               pageSize={pageSize}
@@ -608,14 +785,49 @@ export function AdminOrgPositionsPage() {
           {viewPosition ? (
             <>
               <SheetHeader className="border-b px-6 py-4">
-                <SheetTitle>岗位详情</SheetTitle>
-                <SheetDescription>
-                  {viewPosition.code} · 生效 {viewPosition.effectiveStartDate}
-                </SheetDescription>
+                <div className="flex flex-wrap items-start justify-between gap-3 pr-8">
+                  <div className="min-w-0 space-y-1">
+                    <SheetTitle className="text-left">岗位详情</SheetTitle>
+                    <SheetDescription className="text-left">
+                      {viewPosition.code} · 生效 {viewPosition.effectiveStartDate}
+                      {viewPosition.effectiveEndDate ? ` 至 ${viewPosition.effectiveEndDate}` : " · 至今"}
+                    </SheetDescription>
+                  </div>
+                  {canEdit ? (
+                    <div className="flex shrink-0 flex-wrap gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => void openEditFromList(viewPosition)}
+                      >
+                        编辑
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openEdit(viewPosition, "NEW_VERSION")}
+                      >
+                        <History />
+                        新增版本
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() =>
+                          setDeleteTarget({ id: viewPosition.id, name: viewPosition.name })
+                        }
+                      >
+                        <Trash2 />
+                        设为无效
+                      </Button>
+                    </div>
+                  ) : null}
+                </div>
               </SheetHeader>
               <div className="flex-1 overflow-y-auto px-6 py-5">
                 {versionsLoading ? (
-                  <div className="mb-4 h-16 animate-pulse rounded-lg bg-muted/30" />
+                  <div className="mb-5 h-16 animate-pulse rounded-lg bg-muted/30" />
                 ) : (
                   <VersionTimeline
                     versions={versions}
@@ -624,17 +836,23 @@ export function AdminOrgPositionsPage() {
                   />
                 )}
 
-                <div className="mb-4 flex items-start justify-between gap-3 border-b border-border/50 pb-4">
-                  <div className="min-w-0 space-y-1">
-                    <div className="text-lg font-semibold tracking-tight">{viewPosition.name}</div>
+                <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-muted/15 p-4">
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-lg font-semibold tracking-tight">{viewPosition.name}</span>
+                      <StatusBadge status={viewPosition.status} />
+                      {viewPosition.keyPosition === "YES" ? (
+                        <Badge variant="outline" className="border-amber-500/40 text-amber-700 dark:text-amber-300">
+                          <Sparkles />
+                          关键岗位
+                        </Badge>
+                      ) : null}
+                    </div>
                     <div className="font-mono text-xs text-muted-foreground">{viewPosition.code}</div>
                   </div>
-                  <Badge variant={viewPosition.status === "ACTIVE" ? "default" : "secondary"}>
-                    {viewPosition.status === "ACTIVE" ? "有效" : "无效"}
-                  </Badge>
                 </div>
 
-                <div className="space-y-5">
+                <div className="space-y-6">
                   <DetailSection title="基本信息">
                     <DetailCell label="生效日期" value={viewPosition.effectiveStartDate} />
                     <DetailCell
@@ -669,29 +887,6 @@ export function AdminOrgPositionsPage() {
                     <DetailCell label="关键岗位" value={yesNoLabel(viewPosition.keyPosition)} />
                   </DetailSection>
                 </div>
-
-                {canEdit ? (
-                  <div className="mt-6 flex flex-wrap gap-2 border-t border-border/50 pt-4">
-                    <Button size="sm" variant="outline" onClick={() => openEdit(viewPosition, "CURRENT")}>
-                      <Pencil className="size-3.5" />
-                      编辑
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => openEdit(viewPosition, "NEW_VERSION")}>
-                      <History className="size-3.5" />
-                      新增版本
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() =>
-                        setDeleteTarget({ id: viewPosition.id, name: viewPosition.name })
-                      }
-                    >
-                      <Trash2 className="size-3.5" />
-                      设为无效
-                    </Button>
-                  </div>
-                ) : null}
               </div>
             </>
           ) : null}
@@ -814,6 +1009,11 @@ export function AdminOrgPositionsPage() {
                     placeholder="选择岗位类别"
                     allowEmpty
                     options={POSITION_KIND_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
+                    renderOption={(opt) => (
+                      <div className="py-0.5">
+                        <KindBadge kind={opt.value as PositionKind} />
+                      </div>
+                    )}
                   />
                 </FormField>
                 <FormField label="岗位序列">
@@ -823,6 +1023,11 @@ export function AdminOrgPositionsPage() {
                     placeholder="选择 P / M / T"
                     allowEmpty
                     options={POSITION_SEQUENCE_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
+                    renderOption={(opt) => (
+                      <div className="py-0.5">
+                        <SequenceBadge sequence={opt.value as PositionSequence} />
+                      </div>
+                    )}
                   />
                 </FormField>
                 <FormField label="岗位职级">
@@ -873,20 +1078,8 @@ export function AdminOrgPositionsPage() {
           </div>
 
           <SheetFooter className="border-t px-6 py-4">
-            <div className="flex w-full justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => {
-                  if (sheet.type === "edit") {
-                    void (async () => {
-                      const res = await getPosition(sheet.item.id);
-                      setSheet({ type: "view", position: res.data });
-                    })();
-                  } else {
-                    setSheet({ type: "closed" });
-                  }
-                }}
-              >
+            <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <Button variant="outline" onClick={() => setSheet({ type: "closed" })}>
                 取消
               </Button>
               <Button disabled={saving} onClick={() => void savePosition()}>
@@ -902,6 +1095,7 @@ export function AdminOrgPositionsPage() {
         title="确认停用"
         description={deleteTarget ? `确定将「${deleteTarget.name}」当前版本设为无效？` : ""}
         confirmLabel="设为无效"
+        destructive
         onConfirm={() => void confirmDelete()}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
       />

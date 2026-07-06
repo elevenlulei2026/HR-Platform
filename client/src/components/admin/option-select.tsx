@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
+import { CircleDashed } from "lucide-react";
 
 import {
   Select,
@@ -12,6 +13,7 @@ import { cn } from "@/lib/utils";
 export type OptionSelectItem = {
   value: string;
   label: string;
+  description?: string;
 };
 
 type OptionSelectProps = {
@@ -25,7 +27,34 @@ type OptionSelectProps = {
   emptyValue?: string;
   disabled?: boolean;
   className?: string;
+  /** 自定义下拉项渲染；未提供时使用默认文本行 */
+  renderOption?: (option: OptionSelectItem) => ReactNode;
 };
+
+function DefaultOptionRow({ option }: { option: OptionSelectItem }) {
+  return (
+    <div className="min-w-0 py-0.5">
+      <div className="truncate text-sm font-medium text-foreground">{option.label}</div>
+      {option.description ? (
+        <div className="truncate text-[11px] text-muted-foreground">{option.description}</div>
+      ) : null}
+    </div>
+  );
+}
+
+function EmptyOptionRow({ label }: { label: string }) {
+  return (
+    <div className="flex items-center gap-2.5 py-0.5">
+      <div className="flex size-7 shrink-0 items-center justify-center rounded-md border border-dashed border-muted-foreground/25 bg-muted/30 text-muted-foreground">
+        <CircleDashed className="size-3.5" />
+      </div>
+      <div>
+        <div className="text-sm font-medium text-muted-foreground">{label}</div>
+        <div className="text-[11px] text-muted-foreground/80">留空表示不指定</div>
+      </div>
+    </div>
+  );
+}
 
 /**
  * 带 label 映射的下拉选择。向 Base UI Select 传入 items，确保收起时显示名称而非 value/code。
@@ -40,6 +69,7 @@ export function OptionSelect({
   emptyValue = "__none__",
   disabled,
   className,
+  renderOption,
 }: OptionSelectProps) {
   const items = useMemo(() => {
     const list = options.map((opt) => ({ value: opt.value, label: opt.label }));
@@ -48,6 +78,10 @@ export function OptionSelect({
   }, [allowEmpty, emptyLabel, emptyValue, options]);
 
   const selectValue = allowEmpty ? value || emptyValue : value;
+  const hasSelection = allowEmpty ? Boolean(value) : Boolean(value?.trim());
+
+  const renderRow = (option: OptionSelectItem) =>
+    renderOption ? renderOption(option) : <DefaultOptionRow option={option} />;
 
   return (
     <Select
@@ -59,18 +93,37 @@ export function OptionSelect({
       items={items}
       disabled={disabled}
     >
-      <SelectTrigger className={cn("w-full", className)}>
-        <SelectValue placeholder={placeholder} />
+      <SelectTrigger
+        className={cn(
+          "h-auto min-h-9 w-full justify-between gap-2 rounded-xl border-border/55 px-3 py-2",
+          "bg-gradient-to-br from-muted/20 via-background to-muted/5",
+          "hover:border-border hover:bg-muted/10",
+          "focus-visible:border-primary/25 focus-visible:ring-2 focus-visible:ring-primary/10",
+          "data-placeholder:text-muted-foreground",
+          !hasSelection && allowEmpty && "border-dashed border-border/70",
+          className,
+        )}
+      >
+        <SelectValue placeholder={placeholder} className="text-sm font-medium" />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="rounded-xl border-border/60 shadow-lg">
         {allowEmpty ? (
-          <SelectItem value={emptyValue} label={emptyLabel}>
-            {emptyLabel}
+          <SelectItem
+            value={emptyValue}
+            label={emptyLabel}
+            className="mb-1 rounded-lg border border-dashed border-border/50 bg-muted/10 px-2.5 py-2 data-highlighted:border-border/60"
+          >
+            <EmptyOptionRow label={emptyLabel} />
           </SelectItem>
         ) : null}
         {options.map((opt) => (
-          <SelectItem key={opt.value} value={opt.value} label={opt.label}>
-            {opt.label}
+          <SelectItem
+            key={opt.value}
+            value={opt.value}
+            label={opt.label}
+            className="rounded-lg px-2.5 py-2 data-highlighted:bg-primary/5"
+          >
+            {renderRow(opt)}
           </SelectItem>
         ))}
       </SelectContent>
