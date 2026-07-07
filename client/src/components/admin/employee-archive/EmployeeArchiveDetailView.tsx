@@ -32,7 +32,6 @@ import {
   Smartphone,
   Sparkles,
   User,
-  UserRound,
   Users,
 } from "lucide-react";
 import type { ReactNode } from "react";
@@ -73,7 +72,7 @@ import { ArchiveSectionAnchor } from "@/components/admin/employee-archive/Archiv
 import { AssignmentSection } from "@/components/admin/employee-archive/AssignmentSection";
 import { PanelCard, PanelLoading } from "@/components/admin/page-shell";
 import { employeeStatusLabel, statusBadgeClass } from "@/api/employee";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { EmployeeAvatar } from "@/components/admin/employee-archive/EmployeeAvatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SheetFooter, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
@@ -259,11 +258,13 @@ export function EmployeeArchiveDetailView({
     <>
       <SheetHeader className="shrink-0 border-b px-5 py-3 text-left">
         <div className="flex items-start gap-3 pr-8">
-          <Avatar className="size-12 ring-2 ring-primary/15">
-            <AvatarFallback className="bg-primary/10 text-base font-semibold text-primary">
-              {employee.fullName.slice(0, 1) || <UserRound className="size-5" />}
-            </AvatarFallback>
-          </Avatar>
+          <EmployeeAvatar
+            employeeId={employee.id}
+            fullName={employee.fullName}
+            attachments={archive?.attachments}
+            className="size-12 ring-2 ring-primary/15"
+            fallbackClassName="bg-primary/10 text-base font-semibold text-primary"
+          />
           <div className="min-w-0 flex-1">
             <SheetTitle className="text-lg tracking-tight">{employee.fullName}</SheetTitle>
             <SheetDescription className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-xs">
