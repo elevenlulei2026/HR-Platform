@@ -589,7 +589,38 @@ public class EmployeeArchiveController {
   }
 
   private Map<String, Object> toMap(Object bean, boolean revealSensitive) {
-    return EmployeeArchiveResponseMapper.toMap(bean, fieldCryptoService, revealSensitive);
+    Map<String, Object> dto = EmployeeArchiveResponseMapper.toMap(bean, fieldCryptoService, revealSensitive);
+    enrichArchiveLabels(bean, dto);
+    return dto;
+  }
+
+  private void enrichArchiveLabels(Object bean, Map<String, Object> dto) {
+    if (bean instanceof EmployeeIdDocumentEntity doc) {
+      putDictLabel(dto, "countryRegion", "COUNTRY_REGION", doc.getCountryRegion());
+      putDictLabel(dto, "idType", "ID_TYPE", doc.getIdType());
+      return;
+    }
+    if (bean instanceof EmployeeFamilyMemberEntity member) {
+      putDictLabel(dto, "relation", "EMPLOYEE_RELATION", member.getRelation());
+      return;
+    }
+    if (bean instanceof EmployeeInternalRelativeEntity relative) {
+      putDictLabel(dto, "relation", "EMPLOYEE_RELATION", relative.getRelation());
+      putDictLabel(dto, "employmentStatus", "EMPLOYEE_STATUS", relative.getEmploymentStatus());
+      if (relative.getRelativeEmployeeId() != null) {
+        try {
+          EmployeeEntity emp = employeeService.require(relative.getRelativeEmployeeId());
+          dto.put("relativeEmployeeNo", emp.getEmployeeNo());
+          dto.put("relativeEmployeeName", emp.getFullName());
+        } catch (Exception ignored) {
+          // 关联员工可能已删除，保留 ID 即可
+        }
+      }
+    }
+  }
+
+  private void putDictLabel(Map<String, Object> dto, String field, String dictType, String value) {
+    dto.put(field + "Label", employeeService.dictLabel(dictType, value));
   }
 
   private void logSensitiveView(long employeeId, String resourceType) {

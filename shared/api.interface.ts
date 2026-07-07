@@ -919,14 +919,21 @@ export type Employee = {
   companyEmail?: string;
   personalEmail?: string;
   maritalStatus?: string;
+  maritalStatusLabel?: string;
   politicalAffiliation?: string;
+  politicalAffiliationLabel?: string;
   highestEducation?: string;
+  highestEducationLabel?: string;
   highestEducationGradDate?: string; // YYYY-MM-DD
   fertilityStatus?: string;
+  fertilityStatusLabel?: string;
   ethnicity?: string;
+  ethnicityLabel?: string;
   hobbies?: string;
   nationality?: string;
+  nationalityLabel?: string;
   householdType?: string;
+  householdTypeLabel?: string;
   householdLocation?: string;
   partyOrgTransferred?: boolean;
   workStartDate?: string; // YYYY-MM-DD
@@ -939,7 +946,9 @@ export type Employee = {
   emergencyContactName?: string;
   emergencyContactPhone?: string;
   emergencyContactRelation?: string;
+  emergencyContactRelationLabel?: string;
   recruitmentChannel?: string;
+  recruitmentChannelLabel?: string;
   recruitmentChannelDetail?: string;
   groupSeniorityStartDate?: string; // YYYY-MM-DD
   hireDate: string; // YYYY-MM-DD
@@ -954,10 +963,25 @@ export type Employee = {
   updatedAt?: string;
 };
 
+export type EmployeeFormOptions = {
+  maritalStatuses: DictOption[];
+  politicalAffiliations: DictOption[];
+  highestEducations: DictOption[];
+  fertilityStatuses: DictOption[];
+  ethnicities: DictOption[];
+  nationalities: DictOption[];
+  householdTypes: DictOption[];
+  employeeRelations: DictOption[];
+  recruitmentChannels: DictOption[];
+  countryRegions: DictOption[];
+  idTypes: DictOption[];
+};
+
 export type EmployeeIdDocument = {
   id: string;
   employeeId: string;
   countryRegion?: string;
+  countryRegionLabel?: string;
   idType?: string;
   idTypeLabel?: string;
   idNumber: string;
@@ -1245,6 +1269,7 @@ export type EmployeeArchiveRecordBase = {
 export type EmployeeFamilyMember = EmployeeArchiveRecordBase & {
   name?: string;
   relation?: string;
+  relationLabel?: string;
   isInternalEmployee?: boolean;
   phone?: string;
   employer?: string;
@@ -1255,12 +1280,16 @@ export type EmployeeFamilyMember = EmployeeArchiveRecordBase & {
 
 export type EmployeeInternalRelative = EmployeeArchiveRecordBase & {
   relativeEmployeeId?: string;
+  relativeEmployeeNo?: string;
+  relativeEmployeeName?: string;
   relation?: string;
+  relationLabel?: string;
   departmentName?: string;
   positionName?: string;
   jobGradeName?: string;
   hireDate?: string; // YYYY-MM-DD
   employmentStatus?: string;
+  employmentStatusLabel?: string;
   lastWorkDay?: string; // YYYY-MM-DD
   remark?: string;
 };
@@ -1582,6 +1611,8 @@ export type EmployeeImportErrorReportRequest = {
 export type EmployeeApi = {
   /** GET /api/v1/employees?page=&pageSize=&keyword=&status=&organizationId= */
   listEmployees: (query: EmployeeListQuery) => Promise<ApiResponse<PageResult<Employee>>>;
+  /** GET /api/v1/employees/form-options */
+  getEmployeeFormOptions: () => Promise<ApiResponse<EmployeeFormOptions>>;
   /** GET /api/v1/employees/{id} */
   getEmployee: (id: string) => Promise<ApiResponse<Employee>>;
   /** POST /api/v1/employees */

@@ -93,6 +93,24 @@ public class EmployeeController {
     return ApiResponse.ok(result);
   }
 
+  @GetMapping("/employees/form-options")
+  public ApiResponse<Map<String, Object>> getEmployeeFormOptions() {
+    requireRosterView();
+    Map<String, Object> out = new HashMap<>();
+    out.put("maritalStatuses", toDictOptions(employeeService.dictLabels("MARITAL_STATUS")));
+    out.put("politicalAffiliations", toDictOptions(employeeService.dictLabels("POLITICAL_AFFILIATION")));
+    out.put("highestEducations", toDictOptions(employeeService.dictLabels("HIGHEST_EDUCATION")));
+    out.put("fertilityStatuses", toDictOptions(employeeService.dictLabels("FERTILITY_STATUS")));
+    out.put("ethnicities", toDictOptions(employeeService.dictLabels("ETHNICITY")));
+    out.put("nationalities", toDictOptions(employeeService.dictLabels("NATIONALITY")));
+    out.put("householdTypes", toDictOptions(employeeService.dictLabels("HOUSEHOLD_TYPE")));
+    out.put("employeeRelations", toDictOptions(employeeService.dictLabels("EMPLOYEE_RELATION")));
+    out.put("recruitmentChannels", toDictOptions(employeeService.dictLabels("RECRUITMENT_CHANNEL")));
+    out.put("countryRegions", toDictOptions(employeeService.dictLabels("COUNTRY_REGION")));
+    out.put("idTypes", toDictOptions(employeeService.dictLabels("ID_TYPE")));
+    return ApiResponse.ok(out);
+  }
+
   @GetMapping("/employees/{id}")
   public ApiResponse<Map<String, Object>> getEmployee(@PathVariable("id") long id) {
     requireRosterView();
@@ -306,6 +324,12 @@ public class EmployeeController {
   private void requireEdit() { rbacService.requirePermission("employee:edit"); }
   private void requireExport() { rbacService.requirePermission("employee:export"); }
 
+  private List<Map<String, Object>> toDictOptions(Map<String, String> labels) {
+    return labels.entrySet().stream()
+        .map(e -> Map.<String, Object>of("value", e.getKey(), "label", e.getValue()))
+        .toList();
+  }
+
   private Map<String, Object> toEmployeeDto(
       EmployeeEntity e,
       OrganizationEntity org,
@@ -326,14 +350,21 @@ public class EmployeeController {
     dto.put("personalEmail", e.getPersonalEmail());
     dto.put("adAccount", e.getAdAccount());
     dto.put("maritalStatus", e.getMaritalStatus());
+    dto.put("maritalStatusLabel", employeeService.dictLabel("MARITAL_STATUS", e.getMaritalStatus()));
     dto.put("politicalAffiliation", e.getPoliticalAffiliation());
+    dto.put("politicalAffiliationLabel", employeeService.dictLabel("POLITICAL_AFFILIATION", e.getPoliticalAffiliation()));
     dto.put("highestEducation", e.getHighestEducation());
+    dto.put("highestEducationLabel", employeeService.dictLabel("HIGHEST_EDUCATION", e.getHighestEducation()));
     dto.put("highestEducationGradDate", e.getHighestEducationGradDate() == null ? null : e.getHighestEducationGradDate().toString());
     dto.put("fertilityStatus", e.getFertilityStatus());
+    dto.put("fertilityStatusLabel", employeeService.dictLabel("FERTILITY_STATUS", e.getFertilityStatus()));
     dto.put("ethnicity", e.getEthnicity());
+    dto.put("ethnicityLabel", employeeService.dictLabel("ETHNICITY", e.getEthnicity()));
     dto.put("hobbies", e.getHobbies());
     dto.put("nationality", e.getNationality());
+    dto.put("nationalityLabel", employeeService.dictLabel("NATIONALITY", e.getNationality()));
     dto.put("householdType", e.getHouseholdType());
+    dto.put("householdTypeLabel", employeeService.dictLabel("HOUSEHOLD_TYPE", e.getHouseholdType()));
     dto.put("householdLocation", e.getHouseholdLocation());
     dto.put("partyOrgTransferred", e.getPartyOrgTransferred());
     dto.put("workStartDate", e.getWorkStartDate() == null ? null : e.getWorkStartDate().toString());
@@ -346,7 +377,9 @@ public class EmployeeController {
     dto.put("emergencyContactName", e.getEmergencyContactName());
     dto.put("emergencyContactPhone", e.getEmergencyContactPhone());
     dto.put("emergencyContactRelation", e.getEmergencyContactRelation());
+    dto.put("emergencyContactRelationLabel", employeeService.dictLabel("EMPLOYEE_RELATION", e.getEmergencyContactRelation()));
     dto.put("recruitmentChannel", e.getRecruitmentChannel());
+    dto.put("recruitmentChannelLabel", employeeService.dictLabel("RECRUITMENT_CHANNEL", e.getRecruitmentChannel()));
     dto.put("recruitmentChannelDetail", e.getRecruitmentChannelDetail());
     dto.put("groupSeniorityStartDate", e.getGroupSeniorityStartDate() == null ? null : e.getGroupSeniorityStartDate().toString());
     dto.put("hireDate", e.getHireDate() == null ? null : e.getHireDate().toString());

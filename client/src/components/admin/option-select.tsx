@@ -8,6 +8,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  adminFormControlShellClassName,
+} from "@/components/admin/form-control-styles";
 import { cn } from "@/lib/utils";
 
 export type OptionSelectItem = {
@@ -95,12 +98,8 @@ export function OptionSelect({
     >
       <SelectTrigger
         className={cn(
-          "h-auto min-h-9 w-full justify-between gap-2 rounded-xl border-border/55 px-3 py-2",
-          "bg-gradient-to-br from-muted/20 via-background to-muted/5",
-          "hover:border-border hover:bg-muted/10",
-          "focus-visible:border-primary/25 focus-visible:ring-2 focus-visible:ring-primary/10",
-          "data-placeholder:text-muted-foreground",
-          !hasSelection && allowEmpty && "border-dashed border-border/70",
+          adminFormControlShellClassName({ empty: !hasSelection && allowEmpty }),
+          "h-auto justify-between gap-2",
           className,
         )}
       >

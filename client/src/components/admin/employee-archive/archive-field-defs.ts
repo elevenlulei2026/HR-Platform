@@ -11,8 +11,8 @@ export const RECORD_TYPE_OPTIONS = [
 ];
 
 export const PERSONAL_ID_DOCUMENT_FIELDS: ArchiveFieldDef[] = [
-  { key: "countryRegion", label: "国家/地区" },
-  { key: "idType", label: "证件类型" },
+  { key: "countryRegion", label: "国家/地区", dictKey: "countryRegions" },
+  { key: "idType", label: "证件类型", dictKey: "idTypes" },
   { key: "idNumber", label: "证件号码", required: true, sensitive: true },
   { key: "validFrom", label: "生效日期", type: "date" },
   { key: "validTo", label: "失效日期", type: "date" },
@@ -21,7 +21,7 @@ export const PERSONAL_ID_DOCUMENT_FIELDS: ArchiveFieldDef[] = [
 
 export const PERSONAL_FAMILY_FIELDS: ArchiveFieldDef[] = [
   { key: "name", label: "姓名", required: true },
-  { key: "relation", label: "与员工关系" },
+  { key: "relation", label: "与员工关系", dictKey: "employeeRelations" },
   { key: "isInternalEmployee", label: "本公司员工", type: "boolean", options: BOOLEAN_OPTIONS },
   { key: "phone", label: "电话" },
   { key: "employer", label: "工作单位" },
@@ -31,14 +31,14 @@ export const PERSONAL_FAMILY_FIELDS: ArchiveFieldDef[] = [
 ];
 
 export const PERSONAL_INTERNAL_RELATIVE_FIELDS: ArchiveFieldDef[] = [
-  { key: "relativeEmployeeId", label: "关联员工ID" },
-  { key: "relation", label: "与员工关系" },
-  { key: "departmentName", label: "部门名称" },
-  { key: "positionName", label: "岗位名称" },
-  { key: "jobGradeName", label: "职级名称" },
-  { key: "hireDate", label: "入职日期", type: "date" },
-  { key: "employmentStatus", label: "在职状态" },
-  { key: "lastWorkDay", label: "最后工作日", type: "date" },
+  { key: "relativeEmployeeId", label: "关联员工", reference: "employee" },
+  { key: "relation", label: "与员工关系", dictKey: "employeeRelations" },
+  { key: "departmentName", label: "部门名称", readOnly: true },
+  { key: "positionName", label: "岗位名称", readOnly: true },
+  { key: "jobGradeName", label: "职级名称", readOnly: true },
+  { key: "hireDate", label: "入职日期", type: "date", readOnly: true },
+  { key: "employmentStatus", label: "在职状态", readOnly: true, displayKey: "employmentStatusLabel" },
+  { key: "lastWorkDay", label: "最后工作日", type: "date", readOnly: true },
   { key: "remark", label: "说明" },
 ];
 

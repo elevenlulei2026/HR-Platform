@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import type { Dispatch, SetStateAction } from "react";
-import type { Employee, EmployeeStatus } from "@shared/api.interface";
+import type { Employee, EmployeeFormOptions, EmployeeStatus } from "@shared/api.interface";
 import type { LucideIcon } from "lucide-react";
 import {
   BookOpen,
@@ -14,9 +14,11 @@ import {
 
 import {
   EMPLOYEE_STATUS_OPTIONS,
+  EMPTY_EMPLOYEE_FORM_OPTIONS,
   GENDER_OPTIONS,
 } from "@/api/employee";
 import { BOOLEAN_OPTIONS } from "@/components/admin/employee-archive/archive-field-defs";
+import { DictFieldSelect } from "@/components/admin/employee-archive/employee-master-dict-fields";
 import type { EmployeeForm } from "@/components/admin/employee-archive/employee-master-form";
 import { FormField, OptionToggle } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
@@ -38,6 +40,7 @@ type EmployeeMasterSheetFormProps = {
   onCancel: () => void;
   onSave: () => void;
   employee?: Employee;
+  dictOptions?: EmployeeFormOptions | null;
 };
 
 type SectionAccent = "primary" | "sky" | "violet" | "amber" | "emerald";
@@ -129,8 +132,11 @@ export function EmployeeMasterFormBody({
   form,
   setForm,
   employee,
-}: Pick<EmployeeMasterSheetFormProps, "mode" | "form" | "setForm" | "employee">) {
+  dictOptions = EMPTY_EMPLOYEE_FORM_OPTIONS,
+}: Pick<EmployeeMasterSheetFormProps, "mode" | "form" | "setForm" | "employee" | "dictOptions">) {
   const isCreate = mode === "create";
+  const dictLoading = dictOptions === null;
+  const opts = dictOptions ?? EMPTY_EMPLOYEE_FORM_OPTIONS;
   const patch = <K extends keyof EmployeeForm>(key: K, value: EmployeeForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
@@ -241,24 +247,27 @@ export function EmployeeMasterFormBody({
           description="学历、民族与社会属性"
           accent="violet"
         >
-          <FormField label="婚姻状态">
-            <Input
-              value={form.maritalStatus}
-              onChange={(e) => patch("maritalStatus", e.target.value)}
-            />
-          </FormField>
-          <FormField label="政治面貌">
-            <Input
-              value={form.politicalAffiliation}
-              onChange={(e) => patch("politicalAffiliation", e.target.value)}
-            />
-          </FormField>
-          <FormField label="最高学历">
-            <Input
-              value={form.highestEducation}
-              onChange={(e) => patch("highestEducation", e.target.value)}
-            />
-          </FormField>
+          <DictFieldSelect
+            label="婚育状况"
+            value={form.maritalStatus}
+            onChange={(value) => patch("maritalStatus", value)}
+            options={opts.maritalStatuses}
+            loading={dictLoading}
+          />
+          <DictFieldSelect
+            label="政治面貌"
+            value={form.politicalAffiliation}
+            onChange={(value) => patch("politicalAffiliation", value)}
+            options={opts.politicalAffiliations}
+            loading={dictLoading}
+          />
+          <DictFieldSelect
+            label="最高学历"
+            value={form.highestEducation}
+            onChange={(value) => patch("highestEducation", value)}
+            options={opts.highestEducations}
+            loading={dictLoading}
+          />
           <FormField label="最高学历毕业日期">
             <Input
               type="date"
@@ -266,27 +275,34 @@ export function EmployeeMasterFormBody({
               onChange={(e) => patch("highestEducationGradDate", e.target.value)}
             />
           </FormField>
-          <FormField label="生育状况">
-            <Input
-              value={form.fertilityStatus}
-              onChange={(e) => patch("fertilityStatus", e.target.value)}
-            />
-          </FormField>
-          <FormField label="民族">
-            <Input value={form.ethnicity} onChange={(e) => patch("ethnicity", e.target.value)} />
-          </FormField>
-          <FormField label="国籍">
-            <Input
-              value={form.nationality}
-              onChange={(e) => patch("nationality", e.target.value)}
-            />
-          </FormField>
-          <FormField label="户口性质">
-            <Input
-              value={form.householdType}
-              onChange={(e) => patch("householdType", e.target.value)}
-            />
-          </FormField>
+          <DictFieldSelect
+            label="生育状况"
+            value={form.fertilityStatus}
+            onChange={(value) => patch("fertilityStatus", value)}
+            options={opts.fertilityStatuses}
+            loading={dictLoading}
+          />
+          <DictFieldSelect
+            label="民族"
+            value={form.ethnicity}
+            onChange={(value) => patch("ethnicity", value)}
+            options={opts.ethnicities}
+            loading={dictLoading}
+          />
+          <DictFieldSelect
+            label="国籍"
+            value={form.nationality}
+            onChange={(value) => patch("nationality", value)}
+            options={opts.nationalities}
+            loading={dictLoading}
+          />
+          <DictFieldSelect
+            label="户口性质"
+            value={form.householdType}
+            onChange={(value) => patch("householdType", value)}
+            options={opts.householdTypes}
+            loading={dictLoading}
+          />
           <FormField label="兴趣爱好">
             <Input value={form.hobbies} onChange={(e) => patch("hobbies", e.target.value)} />
           </FormField>
@@ -338,12 +354,13 @@ export function EmployeeMasterFormBody({
               onChange={(e) => patch("emergencyContactPhone", e.target.value)}
             />
           </FormField>
-          <FormField label="紧急联系人关系">
-            <Input
-              value={form.emergencyContactRelation}
-              onChange={(e) => patch("emergencyContactRelation", e.target.value)}
-            />
-          </FormField>
+          <DictFieldSelect
+            label="与员工关系"
+            value={form.emergencyContactRelation}
+            onChange={(value) => patch("emergencyContactRelation", value)}
+            options={opts.employeeRelations}
+            loading={dictLoading}
+          />
         </FormSection>
 
         <FormSection
@@ -352,12 +369,13 @@ export function EmployeeMasterFormBody({
           description="入职渠道与推荐信息"
           accent="emerald"
         >
-          <FormField label="招聘渠道">
-            <Input
-              value={form.recruitmentChannel}
-              onChange={(e) => patch("recruitmentChannel", e.target.value)}
-            />
-          </FormField>
+          <DictFieldSelect
+            label="招聘渠道"
+            value={form.recruitmentChannel}
+            onChange={(value) => patch("recruitmentChannel", value)}
+            options={opts.recruitmentChannels}
+            loading={dictLoading}
+          />
           <FormField label="渠道明细">
             <Input
               value={form.recruitmentChannelDetail}
@@ -377,6 +395,7 @@ export function EmployeeMasterSheetForm({
   onCancel,
   onSave,
   employee,
+  dictOptions,
 }: EmployeeMasterSheetFormProps) {
   const isCreate = mode === "create";
 
@@ -399,7 +418,13 @@ export function EmployeeMasterSheetForm({
       </SheetHeader>
 
       <div className="flex-1 space-y-5 overflow-y-auto bg-muted/10 px-6 py-5">
-        <EmployeeMasterFormBody mode={mode} form={form} setForm={setForm} employee={employee} />
+        <EmployeeMasterFormBody
+          mode={mode}
+          form={form}
+          setForm={setForm}
+          employee={employee}
+          dictOptions={dictOptions}
+        />
       </div>
 
       <SheetFooter className="border-t bg-muted/15 px-6 py-4">

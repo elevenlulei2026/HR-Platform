@@ -4,6 +4,7 @@ import type {
   EmployeeAssignmentCreateRequest,
   EmployeeAssignmentUpdateRequest,
   EmployeeCreateRequest,
+  EmployeeFormOptions,
   EmployeeImportResult,
   EmployeeListQuery,
   EmployeeMovement,
@@ -27,6 +28,10 @@ function pageQuery(params: Record<string, string | number | undefined>): string 
 
 export async function listEmployees(query: EmployeeListQuery) {
   return getJson<PageResult<Employee>>(`/api/v1/employees?${pageQuery(query)}`);
+}
+
+export async function getEmployeeFormOptions() {
+  return getJson<EmployeeFormOptions>("/api/v1/employees/form-options");
 }
 
 export async function getEmployee(id: string) {
@@ -120,6 +125,20 @@ export async function updateReportingLine(id: string, req: ReportingLineUpdateRe
 export async function deleteReportingLine(id: string) {
   return deleteJson<{ id: string }>(`/api/v1/reporting-lines/${id}`);
 }
+
+export const EMPTY_EMPLOYEE_FORM_OPTIONS: EmployeeFormOptions = {
+  maritalStatuses: [],
+  politicalAffiliations: [],
+  highestEducations: [],
+  fertilityStatuses: [],
+  ethnicities: [],
+  nationalities: [],
+  householdTypes: [],
+  employeeRelations: [],
+  recruitmentChannels: [],
+  countryRegions: [],
+  idTypes: [],
+};
 
 export const EMPLOYEE_STATUS_OPTIONS = [
   { id: "CANDIDATE" as const, label: "待入职" },

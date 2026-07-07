@@ -18,6 +18,7 @@ docs/       # 执行层文档（AI 优先读这里）
 | P0 | `docs/MVP-AI开发路线图.md` | 确定当前 Slice、验收标准 |
 | P0 | `docs/领域模型与表设计-MVP.md` | 写 Entity / Migration / API 前 |
 | P0 | `shared/api.interface.ts` | 任何接口变更前后 |
+| P0 | `docs/生效日期功能规范.md` | **为任意实体/功能增加生效日期、版本时间轴、`asOfDate` 快照前**（参考组织、岗位已实现页面） |
 | P0 | `docs/前端UI与信息架构规范.md` | 做 Layout、菜单、任何 Admin 页面 / 交互前（愿景；**实现以 `client/` + `.cursor/rules/frontend.mdc` 为准**） |
 | P1 | `docs/产品与技术全面优化方案.md` | 架构决策、范围争议 |
 | P1 | `client/src/layouts/AdminLayout.tsx` 等已实现 Admin 页面 | 布局、菜单、页面模式对照 |
@@ -34,7 +35,7 @@ docs/       # 执行层文档（AI 优先读这里）
 
 1. **契约优先**：先改 `shared/api.interface.ts`，再写 Java DTO/Controller 和前端 API。
 2. **模块化单体**：`platform` ← `core` ← `modules`，禁止 `core` 依赖 `modules`，禁止跨模块直接改表。
-3. **生效日期**：组织、任职、汇报关系变更必须带 `effective_start_date` / `effective_end_date`。
+3. **生效日期**：组织、任职、汇报关系变更必须带 `effective_start_date` / `effective_end_date`；版本化主数据开发规范见 `docs/生效日期功能规范.md`（对照组织 `/admin/org/structure`、岗位 `/admin/org/positions`）。
 4. **状态机在 Domain 层**：流程引擎只管审批链，业务状态禁止写在 Controller。
 5. **权限后端强制**：功能点 + 数据范围；薪酬/证件/导出单独授权；禁止仅前端隐藏按钮。
 6. **禁止 mock 数据**：前端对接真实 API，页面须处理 loading / error / empty。

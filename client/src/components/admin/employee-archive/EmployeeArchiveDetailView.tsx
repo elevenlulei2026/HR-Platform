@@ -2,6 +2,7 @@ import type {
   Employee,
   EmployeeArchive,
   EmployeeAssignment,
+  EmployeeFormOptions,
   EmployeeMovement,
   OrganizationTreeNode,
 } from "@shared/api.interface";
@@ -22,6 +23,7 @@ import {
   IdCard,
   Mail,
   MapPin,
+  Megaphone,
   MessageCircle,
   PencilLine,
   Phone,
@@ -69,7 +71,7 @@ import { ArchiveDetailNav } from "@/components/admin/employee-archive/ArchiveDet
 import { ArchiveMultiSection } from "@/components/admin/employee-archive/ArchiveMultiSection";
 import { ArchiveSectionAnchor } from "@/components/admin/employee-archive/ArchiveSectionAnchor";
 import { AssignmentSection } from "@/components/admin/employee-archive/AssignmentSection";
-import { PanelCard, PanelEmpty, PanelLoading } from "@/components/admin/page-shell";
+import { PanelCard, PanelLoading } from "@/components/admin/page-shell";
 import { employeeStatusLabel, statusBadgeClass } from "@/api/employee";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -83,14 +85,14 @@ const FIELD_ICONS: Record<string, LucideIcon> = {
   工号: Hash,
   "AD 账号": AtSign,
   性别: Users,
-  婚姻状况: HeartHandshake,
+  婚育状况: HeartHandshake,
   政治面貌: Flag,
   最高学历: GraduationCap,
   最高学历毕业时间: Calendar,
   生育状况: Baby,
   民族: Users,
   国籍: Flag,
-  户口类别: IdCard,
+  户口性质: IdCard,
   户口所在地: MapPin,
   兴趣爱好: Sparkles,
   党组织关系转入: Building2,
@@ -108,6 +110,9 @@ const FIELD_ICONS: Record<string, LucideIcon> = {
   紧急联系人: User,
   紧急联系人电话: Smartphone,
   与员工关系: Users,
+  集团司龄起算日: CalendarDays,
+  招聘渠道: Megaphone,
+  渠道明细: Megaphone,
 };
 
 function InfoRow({
@@ -173,6 +178,7 @@ type EmployeeArchiveDetailViewProps = {
   detailLoading: boolean;
   canEdit: boolean;
   orgs: OrganizationTreeNode[];
+  archiveDictOptions?: EmployeeFormOptions | null;
   onClose: () => void;
   onEditMaster: () => void;
   onArchiveChanged: () => void;
@@ -187,6 +193,7 @@ export function EmployeeArchiveDetailView({
   detailLoading,
   canEdit,
   orgs,
+  archiveDictOptions,
   onClose,
   onEditMaster,
   onArchiveChanged,
@@ -198,6 +205,18 @@ export function EmployeeArchiveDetailView({
     scrollPadding: 8,
   });
   const activeCategoryId = findCategoryBySection(activeSectionId);
+
+  const sectionDictOptions = useMemo(
+    () =>
+      archiveDictOptions
+        ? {
+            countryRegions: archiveDictOptions.countryRegions,
+            idTypes: archiveDictOptions.idTypes,
+            employeeRelations: archiveDictOptions.employeeRelations,
+          }
+        : null,
+    [archiveDictOptions],
+  );
 
   const sectionCounts = useMemo(() => {
     if (!archive) return {} as Record<string, number>;
@@ -306,17 +325,32 @@ export function EmployeeArchiveDetailView({
                         <InfoRow label="工号" value={employee.employeeNo} mono />
                         <InfoRow label="AD 账号" value={employee.adAccount} mono />
                         <InfoRow label="性别" value={employee.genderLabel ?? employee.gender} />
-                        <InfoRow label="婚姻状况" value={employee.maritalStatus} />
-                        <InfoRow label="政治面貌" value={employee.politicalAffiliation} />
-                        <InfoRow label="最高学历" value={employee.highestEducation} />
+                        <InfoRow
+                          label="婚育状况"
+                          value={employee.maritalStatusLabel ?? employee.maritalStatus}
+                        />
+                        <InfoRow
+                          label="政治面貌"
+                          value={employee.politicalAffiliationLabel ?? employee.politicalAffiliation}
+                        />
+                        <InfoRow
+                          label="最高学历"
+                          value={employee.highestEducationLabel ?? employee.highestEducation}
+                        />
                         <InfoRow
                           label="最高学历毕业时间"
                           value={employee.highestEducationGradDate}
                         />
-                        <InfoRow label="生育状况" value={employee.fertilityStatus} />
-                        <InfoRow label="民族" value={employee.ethnicity} />
-                        <InfoRow label="国籍" value={employee.nationality} />
-                        <InfoRow label="户口类别" value={employee.householdType} />
+                        <InfoRow
+                          label="生育状况"
+                          value={employee.fertilityStatusLabel ?? employee.fertilityStatus}
+                        />
+                        <InfoRow label="民族" value={employee.ethnicityLabel ?? employee.ethnicity} />
+                        <InfoRow label="国籍" value={employee.nationalityLabel ?? employee.nationality} />
+                        <InfoRow
+                          label="户口性质"
+                          value={employee.householdTypeLabel ?? employee.householdType}
+                        />
                         <InfoRow label="户口所在地" value={employee.householdLocation} />
                         <InfoRow label="兴趣爱好" value={employee.hobbies} />
                         <InfoRow
@@ -331,6 +365,10 @@ export function EmployeeArchiveDetailView({
                         />
                         <InfoRow label="参加工作日期" value={employee.workStartDate} />
                         <InfoRow label="入职日期" value={employee.hireDate} />
+                        <InfoRow
+                          label="集团司龄起算日"
+                          value={employee.groupSeniorityStartDate}
+                        />
                     </MasterSubSection>
                     <MasterSubSection icon={Phone} title="联系方式">
                         <InfoRow
@@ -350,7 +388,19 @@ export function EmployeeArchiveDetailView({
                         <InfoRow label="居住地地址" value={employee.residenceAddress} />
                         <InfoRow label="紧急联系人" value={employee.emergencyContactName} />
                         <InfoRow label="紧急联系人电话" value={employee.emergencyContactPhone} />
-                        <InfoRow label="与员工关系" value={employee.emergencyContactRelation} />
+                        <InfoRow
+                          label="与员工关系"
+                          value={
+                            employee.emergencyContactRelationLabel ?? employee.emergencyContactRelation
+                          }
+                        />
+                    </MasterSubSection>
+                    <MasterSubSection icon={Megaphone} title="招聘来源">
+                        <InfoRow
+                          label="招聘渠道"
+                          value={employee.recruitmentChannelLabel ?? employee.recruitmentChannel}
+                        />
+                        <InfoRow label="渠道明细" value={employee.recruitmentChannelDetail} />
                     </MasterSubSection>
                   </div>
                 </PanelCard>
@@ -365,6 +415,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="id-documents"
                       items={archive.idDocuments}
                       fieldDefs={PERSONAL_ID_DOCUMENT_FIELDS}
+                      dictOptions={sectionDictOptions}
                       canEdit={canEdit}
                       onChanged={onArchiveChanged}
                     />
@@ -376,6 +427,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="family-members"
                       items={archive.familyMembers}
                       fieldDefs={PERSONAL_FAMILY_FIELDS}
+                      dictOptions={sectionDictOptions}
                       canEdit={canEdit}
                       onChanged={onArchiveChanged}
                     />
@@ -387,6 +439,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="internal-relatives"
                       items={archive.internalRelatives}
                       fieldDefs={PERSONAL_INTERNAL_RELATIVE_FIELDS}
+                      dictOptions={sectionDictOptions}
                       canEdit={canEdit}
                       onChanged={onArchiveChanged}
                     />

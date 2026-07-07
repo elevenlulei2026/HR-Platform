@@ -469,6 +469,11 @@ public class EmployeeService {
         .collect(Collectors.toMap(PositionEntity::getId, p -> p, (a, b) -> a));
   }
 
+  public Map<String, String> dictLabels(String typeCode) {
+    return dictService.listItemsByTypeCode(typeCode).stream()
+        .collect(Collectors.toMap(DictItemEntity::getValue, DictItemEntity::getLabel, (a, b) -> a));
+  }
+
   public String dictLabel(String typeCode, String value) {
     if (value == null || value.isBlank()) return null;
     return dictService.listItemsByTypeCode(typeCode).stream()

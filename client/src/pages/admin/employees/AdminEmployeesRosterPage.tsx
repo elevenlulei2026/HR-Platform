@@ -2,6 +2,7 @@ import type {
   Employee,
   EmployeeArchive,
   EmployeeAssignment,
+  EmployeeFormOptions,
   EmployeeImportResult,
   EmployeeMovement,
   EmployeeStatus,
@@ -23,6 +24,7 @@ import {
   employeeStatusLabel,
   exportEmployees,
   getEmployee,
+  getEmployeeFormOptions,
   importEmployees,
   listEmployeeAssignments,
   listEmployeeMovements,
@@ -43,7 +45,12 @@ import {
   EmployeeMasterFormBody,
   EmployeeMasterSheetForm,
 } from "@/components/admin/employee-archive/EmployeeMasterSheetForm";
-import type { EmployeeForm } from "@/components/admin/employee-archive/employee-master-form";
+import {
+  buildEmployeeCreatePayload,
+  buildEmployeeUpdatePayload,
+  employeeFormFromEmployee,
+  emptyEmployeeForm,
+} from "@/components/admin/employee-archive/employee-master-form";
 import { FormField } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
 import {
@@ -76,141 +83,6 @@ type SheetMode =
   | { type: "closed" }
   | { type: "view"; employee: Employee }
   | { type: "new" };
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function emptyForm(): EmployeeForm {
-  return {
-    fullName: "",
-    gender: "MALE",
-    mobile: "",
-    mobileMasked: false,
-    companyEmail: "",
-    personalEmail: "",
-    adAccount: "",
-    maritalStatus: "",
-    politicalAffiliation: "",
-    highestEducation: "",
-    highestEducationGradDate: "",
-    fertilityStatus: "",
-    ethnicity: "",
-    hobbies: "",
-    nationality: "",
-    householdType: "",
-    wechat: "",
-    officePhone: "",
-    officeExtension: "",
-    homePhone: "",
-    emergencyContactName: "",
-    emergencyContactPhone: "",
-    emergencyContactRelation: "",
-    householdLocation: "",
-    idCardAddress: "",
-    residenceAddress: "",
-    recruitmentChannel: "",
-    recruitmentChannelDetail: "",
-    workStartDate: "",
-    groupSeniorityStartDate: "",
-    hireDate: todayStr(),
-    status: "ACTIVE",
-    partyOrgTransferred: "",
-  };
-}
-
-function formFromEmployee(employee: Employee): EmployeeForm {
-  return {
-    fullName: employee.fullName,
-    gender: employee.gender ?? "MALE",
-    mobile: employee.mobile ?? "",
-    mobileMasked: employee.mobileMasked,
-    companyEmail: employee.companyEmail ?? "",
-    personalEmail: employee.personalEmail ?? "",
-    adAccount: employee.adAccount ?? "",
-    maritalStatus: employee.maritalStatus ?? "",
-    politicalAffiliation: employee.politicalAffiliation ?? "",
-    highestEducation: employee.highestEducation ?? "",
-    highestEducationGradDate: employee.highestEducationGradDate ?? "",
-    fertilityStatus: employee.fertilityStatus ?? "",
-    ethnicity: employee.ethnicity ?? "",
-    hobbies: employee.hobbies ?? "",
-    nationality: employee.nationality ?? "",
-    householdType: employee.householdType ?? "",
-    wechat: employee.wechat ?? "",
-    officePhone: employee.officePhone ?? "",
-    officeExtension: employee.officeExtension ?? "",
-    homePhone: employee.homePhone ?? "",
-    emergencyContactName: employee.emergencyContactName ?? "",
-    emergencyContactPhone: employee.emergencyContactPhone ?? "",
-    emergencyContactRelation: employee.emergencyContactRelation ?? "",
-    householdLocation: employee.householdLocation ?? "",
-    idCardAddress: employee.idCardAddress ?? "",
-    residenceAddress: employee.residenceAddress ?? "",
-    recruitmentChannel: employee.recruitmentChannel ?? "",
-    recruitmentChannelDetail: employee.recruitmentChannelDetail ?? "",
-    workStartDate: employee.workStartDate ?? "",
-    groupSeniorityStartDate: employee.groupSeniorityStartDate ?? "",
-    hireDate: employee.hireDate,
-    status: employee.status,
-    partyOrgTransferred:
-      employee.partyOrgTransferred === undefined
-        ? ""
-        : employee.partyOrgTransferred
-          ? "true"
-          : "false",
-  };
-}
-
-function buildEmployeeUpdatePayload(
-  form: EmployeeForm,
-  options?: { skipMaskedMobile?: boolean; originalMobile?: string },
-) {
-  const payload = {
-    fullName: form.fullName.trim(),
-    gender: form.gender,
-    companyEmail: form.companyEmail || undefined,
-    personalEmail: form.personalEmail || undefined,
-    adAccount: form.adAccount || undefined,
-    maritalStatus: form.maritalStatus || undefined,
-    politicalAffiliation: form.politicalAffiliation || undefined,
-    highestEducation: form.highestEducation || undefined,
-    highestEducationGradDate: form.highestEducationGradDate || undefined,
-    fertilityStatus: form.fertilityStatus || undefined,
-    ethnicity: form.ethnicity || undefined,
-    hobbies: form.hobbies || undefined,
-    nationality: form.nationality || undefined,
-    householdType: form.householdType || undefined,
-    householdLocation: form.householdLocation || undefined,
-    partyOrgTransferred:
-      form.partyOrgTransferred === ""
-        ? undefined
-        : form.partyOrgTransferred === "true",
-    workStartDate: form.workStartDate || undefined,
-    wechat: form.wechat || undefined,
-    officePhone: form.officePhone || undefined,
-    officeExtension: form.officeExtension || undefined,
-    homePhone: form.homePhone || undefined,
-    idCardAddress: form.idCardAddress || undefined,
-    residenceAddress: form.residenceAddress || undefined,
-    emergencyContactName: form.emergencyContactName || undefined,
-    emergencyContactPhone: form.emergencyContactPhone || undefined,
-    emergencyContactRelation: form.emergencyContactRelation || undefined,
-    recruitmentChannel: form.recruitmentChannel || undefined,
-    recruitmentChannelDetail: form.recruitmentChannelDetail || undefined,
-    groupSeniorityStartDate: form.groupSeniorityStartDate || undefined,
-    hireDate: form.hireDate,
-    status: form.status,
-  };
-
-  const mobile = form.mobile.trim();
-  const unchangedMaskedMobile =
-    options?.skipMaskedMobile && mobile === (options.originalMobile ?? "");
-  if (mobile && !unchangedMaskedMobile) {
-    return { ...payload, mobile };
-  }
-  return payload;
-}
 
 function toApiError(e: unknown): ApiError {
   if (
@@ -246,10 +118,11 @@ export function AdminEmployeesRosterPage() {
   const [page, setPage] = useState(1);
   const [state, setState] = useState<ListLoadState>({ type: "loading" });
   const [orgs, setOrgs] = useState<OrganizationTreeNode[]>([]);
+  const [formOptions, setFormOptions] = useState<EmployeeFormOptions | null>(null);
   const [sheet, setSheet] = useState<SheetMode>({ type: "closed" });
   const [masterEditOpen, setMasterEditOpen] = useState(false);
   const [masterEditEmployee, setMasterEditEmployee] = useState<Employee | null>(null);
-  const [form, setForm] = useState<EmployeeForm>(emptyForm());
+  const [form, setForm] = useState(emptyEmployeeForm());
   const [saving, setSaving] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [archive, setArchive] = useState<EmployeeArchive | null>(null);
@@ -276,13 +149,19 @@ export function AdminEmployeesRosterPage() {
 
   const loadRefs = useCallback(async () => {
     try {
-      const tree = await getOrganizationTree();
+      const [tree, optionsRes] = await Promise.all([
+        getOrganizationTree(),
+        canEdit ? getEmployeeFormOptions() : Promise.resolve(null),
+      ]);
       setOrgs(tree.data);
+      if (optionsRes) {
+        setFormOptions(optionsRes.data);
+      }
     } catch (e: unknown) {
       const err = toApiError(e);
       toast.error(err.traceId ? `部门数据加载失败：${err.message}（traceId: ${err.traceId}）` : `部门数据加载失败：${err.message}`);
     }
-  }, []);
+  }, [canEdit]);
 
   const load = useCallback(async () => {
     if (!canView) return;
@@ -357,7 +236,7 @@ export function AdminEmployeesRosterPage() {
   };
 
   const openNew = () => {
-    setForm(emptyForm());
+    setForm(emptyEmployeeForm());
     setSheet({ type: "new" });
   };
 
@@ -369,7 +248,7 @@ export function AdminEmployeesRosterPage() {
     } catch {
       // 列表数据兜底
     }
-    setForm(formFromEmployee(data));
+    setForm(employeeFormFromEmployee(data));
     setMasterEditEmployee(data);
     setMasterEditOpen(true);
   };
@@ -388,22 +267,7 @@ export function AdminEmployeesRosterPage() {
 
     setSaving(true);
     try {
-      const created = await createEmployee({
-        fullName: form.fullName.trim(),
-        gender: form.gender,
-        mobile: form.mobile.trim(),
-        companyEmail: form.companyEmail || undefined,
-        personalEmail: form.personalEmail || undefined,
-        adAccount: form.adAccount || undefined,
-        maritalStatus: form.maritalStatus || undefined,
-        wechat: form.wechat || undefined,
-        emergencyContactName: form.emergencyContactName || undefined,
-        emergencyContactPhone: form.emergencyContactPhone || undefined,
-        householdLocation: form.householdLocation || undefined,
-        workStartDate: form.workStartDate || undefined,
-        hireDate: form.hireDate,
-        status: form.status,
-      });
+      const created = await createEmployee(buildEmployeeCreatePayload(form));
       setSheet({ type: "view", employee: created.data });
       void loadDetailTabs(created.data.id);
       toast.success("员工已创建");
@@ -722,6 +586,7 @@ export function AdminEmployeesRosterPage() {
               detailLoading={detailLoading}
               canEdit={canEdit}
               orgs={orgs}
+              archiveDictOptions={formOptions}
               onClose={() => setSheet({ type: "closed" })}
               onEditMaster={() => void openMasterEdit(sheet.employee)}
               onArchiveChanged={() => void loadArchiveOnly(sheet.employee.id)}
@@ -738,6 +603,7 @@ export function AdminEmployeesRosterPage() {
               form={form}
               setForm={setForm}
               saving={saving}
+              dictOptions={formOptions}
               onCancel={() => setSheet({ type: "closed" })}
               onSave={() => void saveNewEmployee()}
             />
@@ -765,6 +631,7 @@ export function AdminEmployeesRosterPage() {
           form={form}
           setForm={setForm}
           employee={masterEditEmployee ?? undefined}
+          dictOptions={formOptions}
         />
       </ArchiveFormDialog>
 
