@@ -16,6 +16,9 @@ import java.util.UUID;
 
 @Service
 public class LocalFileStorageService {
+  private static final int MAX_FILENAME_CHARS = 120;
+  private static final int MAX_STORAGE_KEY_CHARS = 500;
+
   private final Path storageRoot;
 
   public LocalFileStorageService(@Value("${hr.storage.path:./data/files}") String storagePath) {
@@ -32,7 +35,7 @@ public class LocalFileStorageService {
       throw new IllegalArgumentException("请上传文件");
     }
     String original = sanitizeFilename(file.getOriginalFilename());
-    String storageKey = category + "/" + LocalDate.now() + "/" + UUID.randomUUID() + "_" + original;
+    String storageKey = buildStorageKey(category, original);
     Path target = resolve(storageKey);
     try {
       Files.createDirectories(target.getParent());
@@ -81,7 +84,22 @@ public class LocalFileStorageService {
   private String sanitizeFilename(String name) {
     if (name == null || name.isBlank()) return "file";
     String base = Path.of(name).getFileName().toString();
-    return base.replaceAll("[^a-zA-Z0-9._\\-()\\u4e00-\\u9fa5]", "_");
+    String cleaned = base.replaceAll("[^a-zA-Z0-9._\\-()\\u4e00-\\u9fa5]", "_");
+    if (cleaned.length() <= MAX_FILENAME_CHARS) return cleaned;
+    int dot = cleaned.lastIndexOf('.');
+    if (dot > 0 && dot < cleaned.length() - 1) {
+      String ext = cleaned.substring(dot);
+      int keep = Math.max(1, MAX_FILENAME_CHARS - ext.length());
+      return cleaned.substring(0, keep) + ext;
+    }
+    return cleaned.substring(0, MAX_FILENAME_CHARS);
+  }
+
+  private String buildStorageKey(String category, String original) {
+    String prefix = category + "/" + LocalDate.now() + "/" + UUID.randomUUID() + "_";
+    String key = prefix + original;
+    if (key.length() <= MAX_STORAGE_KEY_CHARS) return key;
+    return prefix + original.substring(0, Math.max(1, MAX_STORAGE_KEY_CHARS - prefix.length()));
   }
 
   public record StoredFile(String storageKey, String originalFilename, long size, String contentType) {}

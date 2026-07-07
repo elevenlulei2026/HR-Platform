@@ -6,7 +6,8 @@ import type {
   OrganizationTreeNode,
 } from "@shared/api.interface";
 import { useMemo, useRef, useState } from "react";
-import { Shield, UserRound } from "lucide-react";
+import { EmployeeMovementTimeline } from "@/components/admin/employee-archive/EmployeeMovementTimeline";
+import { PencilLine, Shield, UserRound } from "lucide-react";
 
 import {
   BACKGROUND_EDUCATION_FIELDS,
@@ -263,7 +264,17 @@ export function EmployeeArchiveDetailView({
           ) : (
             <>
               <ArchiveSectionAnchor id="personal-master">
-                <PanelCard title="个人主档">
+                <PanelCard
+                  title="个人主档"
+                  toolbar={
+                    canEdit ? (
+                      <Button size="sm" variant="outline" onClick={onEditMaster}>
+                        <PencilLine className="size-3.5" />
+                        编辑主档
+                      </Button>
+                    ) : null
+                  }
+                >
                   <div className="space-y-6 p-4">
                     <div>
                       <p className="mb-3 text-xs font-semibold tracking-wide text-primary uppercase">
@@ -607,33 +618,8 @@ export function EmployeeArchiveDetailView({
               ) : null}
 
               <ArchiveSectionAnchor id="movements">
-                <PanelCard title="异动记录">
-                  {movements.length === 0 ? (
-                    <PanelEmpty
-                      compact
-                      icon={<Shield className="size-4 text-muted-foreground" />}
-                      title="暂无异动记录"
-                      description="入转调离流程完成后将自动写入异动轨迹"
-                    />
-                  ) : (
-                    <div className="relative space-y-0 border-l-2 border-primary/20 p-4 pl-6">
-                      {movements.map((movement) => (
-                        <div key={movement.id} className="relative pb-6 last:pb-0">
-                          <div className="absolute -left-[25px] top-1.5 size-2.5 rounded-full bg-primary ring-2 ring-background" />
-                          <div className="text-sm font-medium">
-                            {movement.movementTypeName}
-                            <span className="ml-2 font-mono text-xs text-muted-foreground">
-                              {movement.movementType}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 text-xs text-muted-foreground">
-                            {movement.effectiveDate}
-                            {movement.reasonDescription ? ` · ${movement.reasonDescription}` : ""}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                <PanelCard title="异动记录" description="入转调离职务数据异动轨迹">
+                  <EmployeeMovementTimeline movements={movements} />
                 </PanelCard>
               </ArchiveSectionAnchor>
             </>
@@ -642,11 +628,10 @@ export function EmployeeArchiveDetailView({
       </div>
 
       <SheetFooter className="shrink-0 border-t px-6 py-4">
-        <div className="flex w-full flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+        <div className="flex w-full justify-end">
           <Button variant="outline" onClick={onClose}>
             关闭
           </Button>
-          {canEdit ? <Button onClick={onEditMaster}>编辑主档</Button> : null}
         </div>
       </SheetFooter>
     </>

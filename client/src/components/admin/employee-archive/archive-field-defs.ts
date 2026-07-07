@@ -43,9 +43,9 @@ export const PERSONAL_INTERNAL_RELATIVE_FIELDS: ArchiveFieldDef[] = [
 ];
 
 export const WORK_COST_CENTER_FIELDS: ArchiveFieldDef[] = [
-  { key: "legalEntityId", label: "法人主体ID" },
+  { key: "legalEntityId", label: "成本归属法人", type: "id", reference: "legalEntity" },
   { key: "costCenter", label: "成本中心", required: true },
-  { key: "percentage", label: "分摊比例(%)", type: "number" },
+  { key: "percentage", label: "分摊比例(%)", type: "number", min: 0, max: 100 },
   { key: "effectiveStartDate", label: "开始日期", type: "date" },
   { key: "effectiveEndDate", label: "结束日期", type: "date" },
 ];
@@ -53,7 +53,7 @@ export const WORK_COST_CENTER_FIELDS: ArchiveFieldDef[] = [
 export const WORK_CONTRACT_FIELDS: ArchiveFieldDef[] = [
   { key: "contractCode", label: "合同编号", required: true },
   { key: "contractType", label: "合同类型" },
-  { key: "legalEntityId", label: "法人主体ID" },
+  { key: "legalEntityId", label: "合同法人主体", type: "id", reference: "legalEntity" },
   { key: "operationType", label: "操作类型" },
   { key: "startDate", label: "开始日期", type: "date" },
   { key: "endDate", label: "结束日期", type: "date" },
@@ -65,7 +65,7 @@ export const WORK_CONTRACT_FIELDS: ArchiveFieldDef[] = [
 
 export const WORK_AGREEMENT_FIELDS: ArchiveFieldDef[] = [
   { key: "agreementType", label: "协议类型", required: true },
-  { key: "legalEntityId", label: "法人主体ID" },
+  { key: "legalEntityId", label: "协议法人主体", type: "id", reference: "legalEntity" },
   { key: "startDate", label: "开始日期", type: "date" },
   { key: "endDate", label: "结束日期", type: "date" },
   { key: "status", label: "状态" },

@@ -8,7 +8,6 @@ import {
   MapPinned,
   Megaphone,
   PencilLine,
-  Sparkles,
   UserPlus,
   UserRound,
 } from "lucide-react";
@@ -125,101 +124,19 @@ function FormSection({
   );
 }
 
-function CreateHero() {
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-primary/15 bg-gradient-to-br from-primary/10 via-background to-muted/25 px-5 py-4">
-      <div
-        className="pointer-events-none absolute -right-8 -top-8 size-32 rounded-full bg-primary/8 blur-2xl"
-        aria-hidden
-      />
-      <div className="relative flex flex-wrap items-center gap-4">
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary shadow-sm ring-1 ring-primary/20">
-          <UserPlus className="size-7" strokeWidth={1.75} />
-        </div>
-        <div className="min-w-0 flex-1 space-y-1">
-          <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-            <Sparkles className="size-3" />
-            主档录入
-          </span>
-          <p className="text-sm leading-relaxed text-muted-foreground">
-            先建立员工核心档案；证件、家属、任职等可在创建后于档案详情中维护。
-          </p>
-        </div>
-      </div>
-      <div className="relative mt-3 flex flex-wrap gap-2">
-        <span className="inline-flex items-center rounded-full border border-border/50 bg-background/70 px-2.5 py-1 text-[11px] text-muted-foreground">
-          <span className="mr-1 text-destructive">*</span>
-          必填：姓名、性别、手机号、入职日期
-        </span>
-        <span className="inline-flex items-center rounded-full border border-dashed border-border/55 bg-background/50 px-2.5 py-1 text-[11px] text-muted-foreground">
-          其余字段可稍后补充
-        </span>
-      </div>
-    </div>
-  );
-}
-
-function EditHero({ employee }: { employee: Employee }) {
-  return (
-    <div className="relative overflow-hidden rounded-xl border border-primary/15 bg-gradient-to-br from-primary/10 via-background to-muted/25 px-5 py-4">
-      <div
-        className="pointer-events-none absolute -right-8 -top-8 size-32 rounded-full bg-primary/8 blur-2xl"
-        aria-hidden
-      />
-      <div className="relative flex flex-wrap items-center gap-4">
-        <div className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary shadow-sm ring-1 ring-primary/20">
-          <PencilLine className="size-7" strokeWidth={1.75} />
-        </div>
-        <div className="min-w-0 flex-1 space-y-1">
-          <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/8 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-primary">
-            编辑主档
-          </span>
-          <p className="text-sm font-medium text-foreground">{employee.fullName}</p>
-          <p className="font-mono text-xs text-muted-foreground">{employee.employeeNo}</p>
-        </div>
-      </div>
-      <p className="relative mt-3 text-xs leading-relaxed text-muted-foreground">
-        修改个人主档字段；证件、家属等多行信息请在下方档案分区中维护。
-      </p>
-    </div>
-  );
-}
-
-export function EmployeeMasterSheetForm({
+export function EmployeeMasterFormBody({
   mode,
   form,
   setForm,
-  saving,
-  onCancel,
-  onSave,
   employee,
-}: EmployeeMasterSheetFormProps) {
+}: Pick<EmployeeMasterSheetFormProps, "mode" | "form" | "setForm" | "employee">) {
   const isCreate = mode === "create";
   const patch = <K extends keyof EmployeeForm>(key: K, value: EmployeeForm[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
   return (
-    <>
-      <SheetHeader className="border-b bg-muted/15 px-6 py-4 text-left">
-        <div className="flex items-center gap-3 pr-8">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
-            {isCreate ? <UserPlus className="size-5" /> : <PencilLine className="size-5" />}
-          </div>
-          <div>
-            <SheetTitle className="text-lg">{isCreate ? "新建员工" : "编辑个人主档"}</SheetTitle>
-            <SheetDescription>
-              {isCreate
-                ? "录入员工主档信息，保存后进入档案详情"
-                : "修改员工核心个人信息，保存后即时生效"}
-            </SheetDescription>
-          </div>
-        </div>
-      </SheetHeader>
-
-      <div className="flex-1 space-y-5 overflow-y-auto bg-muted/10 px-6 py-5">
-        {isCreate ? <CreateHero /> : employee ? <EditHero employee={employee} /> : null}
-
-        <FormSection
+    <div className="space-y-5">
+      <FormSection
           icon={UserRound}
           title="基础信息"
           description="身份标识与在职状态"
@@ -448,6 +365,41 @@ export function EmployeeMasterSheetForm({
             />
           </FormField>
         </FormSection>
+    </div>
+  );
+}
+
+export function EmployeeMasterSheetForm({
+  mode,
+  form,
+  setForm,
+  saving,
+  onCancel,
+  onSave,
+  employee,
+}: EmployeeMasterSheetFormProps) {
+  const isCreate = mode === "create";
+
+  return (
+    <>
+      <SheetHeader className="border-b bg-muted/15 px-6 py-4 text-left">
+        <div className="flex items-center gap-3 pr-8">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15">
+            {isCreate ? <UserPlus className="size-5" /> : <PencilLine className="size-5" />}
+          </div>
+          <div>
+            <SheetTitle className="text-lg">{isCreate ? "新建员工" : "编辑个人主档"}</SheetTitle>
+            <SheetDescription>
+              {isCreate
+                ? "录入员工主档信息，保存后进入档案详情"
+                : "修改员工核心个人信息，保存后即时生效"}
+            </SheetDescription>
+          </div>
+        </div>
+      </SheetHeader>
+
+      <div className="flex-1 space-y-5 overflow-y-auto bg-muted/10 px-6 py-5">
+        <EmployeeMasterFormBody mode={mode} form={form} setForm={setForm} employee={employee} />
       </div>
 
       <SheetFooter className="border-t bg-muted/15 px-6 py-4">

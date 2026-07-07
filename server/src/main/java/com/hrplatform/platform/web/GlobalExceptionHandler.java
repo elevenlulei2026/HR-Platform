@@ -4,7 +4,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.ErrorResponseException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -65,6 +68,30 @@ public class GlobalExceptionHandler {
     // #endregion agent log
     return ResponseEntity.status(HttpStatus.FORBIDDEN)
         .body(ApiResponse.fail("FORBIDDEN", ex.getMessage()));
+  }
+
+  @ExceptionHandler(HttpMessageNotReadableException.class)
+  public ResponseEntity<ApiResponse<Void>> handleUnreadable(HttpMessageNotReadableException ex) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .body(ApiResponse.fail("BAD_REQUEST", "请求参数格式错误，请检查数字、日期等字段"));
+  }
+
+  @ExceptionHandler(MaxUploadSizeExceededException.class)
+  public ResponseEntity<ApiResponse<Void>> handleMaxUpload(MaxUploadSizeExceededException ex) {
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+        .body(ApiResponse.fail("BAD_REQUEST", "文件过大，单文件不能超过 20MB"));
+  }
+
+  @ExceptionHandler(DataIntegrityViolationException.class)
+  public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
+    String msg = "数据关联校验失败，请检查关联字段是否正确";
+    String detail = ex.getMessage() == null ? "" : ex.getMessage();
+    if (detail.contains("fk_ecca_legal_entity_id") || detail.contains("legal_entity_id")) {
+      msg = "成本归属法人不存在或无效，请重新选择";
+    } else if (detail.contains("storage_key") || detail.contains("employee_attachment")) {
+      msg = "附件信息保存失败，请缩短文件名后重试";
+    }
+    return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("BAD_REQUEST", msg));
   }
 
   @ExceptionHandler(ErrorResponseException.class)

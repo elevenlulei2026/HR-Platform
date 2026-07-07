@@ -30,7 +30,7 @@ import type {
   EmployeeWorkExperience,
 } from "@shared/api.interface";
 
-import { deleteJson, getAuthToken, getJson, postJson, putJson } from "@/api/http";
+import { deleteJson, getAuthToken, getJson, postJson, postMultipart, putJson } from "@/api/http";
 
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL?.toString().replace(/\/$/, "") ||
@@ -43,21 +43,18 @@ export type FileUploadResult = {
   contentType: string;
 };
 
+/** 与后端 spring.servlet.multipart.max-file-size 保持一致 */
+export const EMPLOYEE_ATTACHMENT_MAX_BYTES = 20 * 1024 * 1024;
+
 export async function uploadEmployeeFile(file: File, category = "employee-attachment") {
-  const token = getAuthToken();
   const form = new FormData();
   form.append("file", file);
   form.append("category", category);
-  const res = await fetch(`${API_BASE}/api/v1/files/upload`, {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: form,
-  });
-  if (!res.ok) {
-    throw new Error(`上传失败（HTTP ${res.status}）`);
+  const res = await postMultipart<FileUploadResult>("/api/v1/files/upload", form);
+  if (!res.data?.storageKey) {
+    throw { message: "上传响应异常，请稍后重试" };
   }
-  const json = (await res.json()) as { data: FileUploadResult };
-  return json.data;
+  return res.data;
 }
 
 export async function downloadEmployeeAttachment(employeeId: string, attachmentId: string) {

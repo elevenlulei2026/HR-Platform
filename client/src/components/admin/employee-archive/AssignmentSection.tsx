@@ -6,7 +6,7 @@ import type {
   OrganizationTreeNode,
 } from "@shared/api.interface";
 import { useState, type Dispatch, type SetStateAction } from "react";
-import { Edit, Plus } from "lucide-react";
+import { Edit, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 
 import type { ApiError } from "@/api/http";
@@ -18,13 +18,21 @@ import {
   updateEmployeeAssignment,
 } from "@/api/employee";
 import { defaultDepartmentId, flattenOrgTree } from "@/api/organization";
-import { ArchiveFormDialog } from "@/components/admin/employee-archive/ArchiveFormDialog";
+import { ArchiveFormDialogPortal } from "@/components/admin/employee-archive/ArchiveFormDialogPortal";
+import {
+  ArchiveAddButton,
+  ArchiveFormSection,
+  ArchiveRecordActionButton,
+  ArchiveRecordCard,
+  ArchiveRecordField,
+  ArchiveRecordFieldGrid,
+  ArchiveRecordList,
+} from "@/components/admin/employee-archive/archive-record-ui";
 import { DepartmentPositionFields } from "@/components/admin/employee-archive/DepartmentPositionFields";
 import { FormField } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
 import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
@@ -288,10 +296,6 @@ function buildAssignmentPayload(form: AssignmentForm) {
   return payload;
 }
 
-function SectionTitle({ children }: { children: string }) {
-  return <div className="text-sm font-medium text-muted-foreground">{children}</div>;
-}
-
 function AssignmentFormFields({
   form,
   setForm,
@@ -307,57 +311,53 @@ function AssignmentFormFields({
     setForm((prev) => ({ ...prev, [key]: value }));
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <SectionTitle>岗位与组织</SectionTitle>
-        <div className="grid gap-4 md:grid-cols-2">
-          <DepartmentPositionFields
-            organizationId={form.organizationId}
-            positionId={form.positionId}
-            departments={flatOrgs}
-            organizationRequired
-            positionRequired
-            onOrganizationChange={(organizationId, positionId) => {
-              setForm((prev) => ({ ...prev, organizationId, positionId }));
-            }}
-            onPositionChange={(positionId) => set("positionId", positionId)}
+    <div className="space-y-4">
+      <ArchiveFormSection title="岗位与组织" columns={2}>
+        <DepartmentPositionFields
+          organizationId={form.organizationId}
+          positionId={form.positionId}
+          departments={flatOrgs}
+          organizationRequired
+          positionRequired
+          onOrganizationChange={(organizationId, positionId) => {
+            setForm((prev) => ({ ...prev, organizationId, positionId }));
+          }}
+          onPositionChange={(positionId) => set("positionId", positionId)}
+        />
+        <FormField label="职务 ID">
+          <Input value={form.jobId} onChange={(e) => set("jobId", e.target.value)} />
+        </FormField>
+        <FormField label="职级编码">
+          <Input value={form.jobGradeCode} onChange={(e) => set("jobGradeCode", e.target.value)} />
+        </FormField>
+        <FormField label="职位序列">
+          <Input value={form.jobSequence} onChange={(e) => set("jobSequence", e.target.value)} />
+        </FormField>
+        <FormField label="雇佣类型">
+          <OptionSelect
+            value={form.employmentType}
+            onValueChange={(value) => set("employmentType", value)}
+            options={EMPLOYMENT_TYPE_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
+            className="w-full"
           />
-          <FormField label="职务 ID">
-            <Input value={form.jobId} onChange={(e) => set("jobId", e.target.value)} />
-          </FormField>
-          <FormField label="职级编码">
-            <Input value={form.jobGradeCode} onChange={(e) => set("jobGradeCode", e.target.value)} />
-          </FormField>
-          <FormField label="职位序列">
-            <Input value={form.jobSequence} onChange={(e) => set("jobSequence", e.target.value)} />
-          </FormField>
-          <FormField label="雇佣类型">
-            <OptionSelect
-              value={form.employmentType}
-              onValueChange={(value) => set("employmentType", value)}
-              options={EMPLOYMENT_TYPE_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
-              className="w-full"
-            />
-          </FormField>
-          <FormField label="员工子类">
-            <Input value={form.employmentSubType} onChange={(e) => set("employmentSubType", e.target.value)} />
-          </FormField>
-          <FormField label="员工性质">
-            <Input value={form.employeeNature} onChange={(e) => set("employeeNature", e.target.value)} />
-          </FormField>
-          <FormField label="主任职">
-            <OptionSelect
-              value={form.isPrimary}
-              onValueChange={(value) => set("isPrimary", value)}
-              options={BOOLEAN_OPTIONS}
-              className="w-full"
-            />
-          </FormField>
-        </div>
-      </div>
+        </FormField>
+        <FormField label="员工子类">
+          <Input value={form.employmentSubType} onChange={(e) => set("employmentSubType", e.target.value)} />
+        </FormField>
+        <FormField label="员工性质">
+          <Input value={form.employeeNature} onChange={(e) => set("employeeNature", e.target.value)} />
+        </FormField>
+        <FormField label="主任职">
+          <OptionSelect
+            value={form.isPrimary}
+            onValueChange={(value) => set("isPrimary", value)}
+            options={BOOLEAN_OPTIONS}
+            className="w-full"
+          />
+        </FormField>
+      </ArchiveFormSection>
 
-      <div className="space-y-4">
-        <SectionTitle>生效与状态</SectionTitle>
+      <ArchiveFormSection title="生效与状态" columns={2}>
         <FormField label="生效开始日期" required>
           <Input
             type="date"
@@ -382,20 +382,18 @@ function AssignmentFormFields({
             />
           </FormField>
         ) : null}
-      </div>
+      </ArchiveFormSection>
 
-      <div className="space-y-4">
-        <SectionTitle>工作地点</SectionTitle>
+      <ArchiveFormSection title="工作地点" columns={2}>
         <FormField label="合同地点">
           <Input value={form.contractLocation} onChange={(e) => set("contractLocation", e.target.value)} />
         </FormField>
         <FormField label="工作地点">
           <Input value={form.workLocation} onChange={(e) => set("workLocation", e.target.value)} />
         </FormField>
-      </div>
+      </ArchiveFormSection>
 
-      <div className="space-y-4">
-        <SectionTitle>岗位属性</SectionTitle>
+      <ArchiveFormSection title="岗位属性" columns={2}>
         <FormField label="是否责任制">
           <OptionSelect
             value={form.isResponsibilitySystem}
@@ -435,10 +433,9 @@ function AssignmentFormFields({
         <FormField label="集团属性分级">
           <Input value={form.groupAttrLevel} onChange={(e) => set("groupAttrLevel", e.target.value)} />
         </FormField>
-      </div>
+      </ArchiveFormSection>
 
-      <div className="space-y-4">
-        <SectionTitle>组织层级（冗余展示）</SectionTitle>
+      <ArchiveFormSection title="组织层级（冗余展示）" description="用于展示与检索，通常由组织主数据同步" columns={2}>
         <FormField label="业务单位">
           <Input value={form.businessUnit} onChange={(e) => set("businessUnit", e.target.value)} />
         </FormField>
@@ -475,10 +472,9 @@ function AssignmentFormFields({
         <FormField label="线/店">
           <Input value={form.lineOrStore} onChange={(e) => set("lineOrStore", e.target.value)} />
         </FormField>
-      </div>
+      </ArchiveFormSection>
 
-      <div className="space-y-4">
-        <SectionTitle>薪酬与法人</SectionTitle>
+      <ArchiveFormSection title="薪酬与法人" columns={2}>
         <FormField label="发薪公司 ID">
           <Input value={form.payrollCompanyId} onChange={(e) => set("payrollCompanyId", e.target.value)} />
         </FormField>
@@ -488,10 +484,9 @@ function AssignmentFormFields({
         <FormField label="薪资组">
           <Input value={form.salaryGroup} onChange={(e) => set("salaryGroup", e.target.value)} />
         </FormField>
-      </div>
+      </ArchiveFormSection>
 
-      <div className="space-y-4">
-        <SectionTitle>雇工与试用期</SectionTitle>
+      <ArchiveFormSection title="雇工与试用期" columns={2}>
         <FormField label="供应商">
           <Input value={form.supplier} onChange={(e) => set("supplier", e.target.value)} />
         </FormField>
@@ -546,10 +541,9 @@ function AssignmentFormFields({
             placeholder="如 5年"
           />
         </FormField>
-      </div>
+      </ArchiveFormSection>
 
-      <div className="space-y-4">
-        <SectionTitle>工作关系</SectionTitle>
+      <ArchiveFormSection title="工作关系" columns={2}>
         <FormField label="人资协调员工号">
           <Input value={form.hrCoordinatorNo} onChange={(e) => set("hrCoordinatorNo", e.target.value)} />
         </FormField>
@@ -559,7 +553,7 @@ function AssignmentFormFields({
         <FormField label="SSC 工号">
           <Input value={form.sscNo} onChange={(e) => set("sscNo", e.target.value)} />
         </FormField>
-      </div>
+      </ArchiveFormSection>
     </div>
   );
 }
@@ -630,75 +624,77 @@ export function AssignmentSection({
       <PanelCard
         title="任职记录"
         toolbar={
-          canEdit ? (
-            <Button size="sm" onClick={openCreate}>
-              <Plus />
-              新增任职
-            </Button>
-          ) : null
+          canEdit ? <ArchiveAddButton label="新增任职" onClick={openCreate} /> : null
         }
       >
         {assignments.length === 0 ? (
           <PanelEmpty compact title="暂无任职记录" description="可通过新增任职维护岗位与组织信息" />
         ) : (
-          <div className="divide-y">
-            {assignments.map((assignment) => (
-              <div key={assignment.id} className="flex items-start justify-between gap-3 px-4 py-3">
-                <div className="min-w-0 space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-sm font-medium">
-                      {assignment.organizationName ?? "—"} · {assignment.positionName ?? "—"}
-                    </span>
-                    {assignment.isPrimary ? (
-                      <Badge variant="secondary" className="h-5 text-[10px]">
-                        主任职
-                      </Badge>
-                    ) : null}
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "h-5 text-[10px]",
-                        assignment.status === "ACTIVE"
-                          ? "border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
-                          : "text-muted-foreground",
-                      )}
-                    >
-                      {assignmentStatusLabel(assignment.status)}
+          <ArchiveRecordList>
+            {assignments.map((assignment, index) => (
+              <ArchiveRecordCard
+                key={assignment.id}
+                index={index + 1}
+                accent="sky"
+                actions={
+                  canEdit ? (
+                    <ArchiveRecordActionButton
+                      icon={Edit}
+                      label="编辑任职"
+                      onClick={() => openEdit(assignment)}
+                    />
+                  ) : null
+                }
+              >
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                  <div className="flex size-7 items-center justify-center rounded-md bg-sky-500/10 text-sky-600 ring-1 ring-sky-500/20 dark:text-sky-400">
+                    <Briefcase className="size-3.5" />
+                  </div>
+                  <span className="text-sm font-semibold tracking-tight">
+                    {assignment.organizationName ?? "—"} · {assignment.positionName ?? "—"}
+                  </span>
+                  {assignment.isPrimary ? (
+                    <Badge variant="secondary" className="h-5 text-[10px]">
+                      主任职
                     </Badge>
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {assignment.effectiveStartDate}
-                    {assignment.effectiveEndDate ? ` → ${assignment.effectiveEndDate}` : " → 至今"}
-                    {assignment.employmentTypeLabel || assignment.employmentType
-                      ? ` · ${assignment.employmentTypeLabel ?? assignment.employmentType}`
-                      : ""}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {[
-                      assignment.workLocation && `工作地点 ${assignment.workLocation}`,
-                      assignment.departmentName && `部门 ${assignment.departmentName}`,
-                      assignment.businessUnit && `业务单位 ${assignment.businessUnit}`,
-                      assignment.hrbpNo && `HRBP ${assignment.hrbpNo}`,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ") || "—"}
-                  </div>
+                  ) : null}
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "h-5 text-[10px]",
+                      assignment.status === "ACTIVE"
+                        ? "border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
+                        : "text-muted-foreground",
+                    )}
+                  >
+                    {assignmentStatusLabel(assignment.status)}
+                  </Badge>
                 </div>
-                {canEdit ? (
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(assignment)}>
-                    <Edit />
-                    编辑
-                  </Button>
-                ) : null}
-              </div>
+                <ArchiveRecordFieldGrid>
+                  <ArchiveRecordField
+                    label="生效区间"
+                    value={`${assignment.effectiveStartDate}${assignment.effectiveEndDate ? ` → ${assignment.effectiveEndDate}` : " → 至今"}`}
+                    mono
+                    highlight
+                  />
+                  <ArchiveRecordField
+                    label="雇佣类型"
+                    value={assignment.employmentTypeLabel ?? assignment.employmentType ?? null}
+                  />
+                  <ArchiveRecordField label="工作地点" value={assignment.workLocation} />
+                  <ArchiveRecordField label="部门" value={assignment.departmentName} />
+                  <ArchiveRecordField label="业务单位" value={assignment.businessUnit} />
+                  <ArchiveRecordField label="HRBP" value={assignment.hrbpNo} mono />
+                </ArchiveRecordFieldGrid>
+              </ArchiveRecordCard>
             ))}
-          </div>
+          </ArchiveRecordList>
         )}
       </PanelCard>
 
-      <ArchiveFormDialog
+      <ArchiveFormDialogPortal
         open={sheet.type !== "closed"}
-        onOpenChange={(open) => !open && setSheet({ type: "closed" })}
+        onOpenChange={(open) => !open && !saving && setSheet({ type: "closed" })}
         title={sheet.type === "new" ? "新增任职" : "编辑任职"}
         description="维护岗位、组织层级、雇工属性与工作关系"
         wide
@@ -711,7 +707,7 @@ export function AssignmentSection({
           flatOrgs={flatOrgs}
           isNew={sheet.type === "new"}
         />
-      </ArchiveFormDialog>
+      </ArchiveFormDialogPortal>
     </>
   );
 }

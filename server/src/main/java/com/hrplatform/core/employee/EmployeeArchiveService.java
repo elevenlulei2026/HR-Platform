@@ -3,9 +3,12 @@ package com.hrplatform.core.employee;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
+import com.hrplatform.core.organization.LegalEntityService;
 import com.hrplatform.platform.crypto.FieldCryptoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -39,6 +42,7 @@ public class EmployeeArchiveService {
   private final EmployeeTalentReviewMapper talentReviewMapper;
   private final EmployeeProjectMapper projectMapper;
   private final EmployeeAgentAssignmentMapper agentAssignmentMapper;
+  private final LegalEntityService legalEntityService;
 
   public EmployeeArchiveService(
       EmployeeService employeeService,
@@ -65,7 +69,8 @@ public class EmployeeArchiveService {
       EmployeeValuesAssessmentMapper valuesAssessmentMapper,
       EmployeeTalentReviewMapper talentReviewMapper,
       EmployeeProjectMapper projectMapper,
-      EmployeeAgentAssignmentMapper agentAssignmentMapper
+      EmployeeAgentAssignmentMapper agentAssignmentMapper,
+      LegalEntityService legalEntityService
   ) {
     this.employeeService = employeeService;
     this.fieldCryptoService = fieldCryptoService;
@@ -92,6 +97,7 @@ public class EmployeeArchiveService {
     this.talentReviewMapper = talentReviewMapper;
     this.projectMapper = projectMapper;
     this.agentAssignmentMapper = agentAssignmentMapper;
+    this.legalEntityService = legalEntityService;
   }
 
   public Map<String, Object> getArchiveBundle(long employeeId) {
@@ -238,6 +244,7 @@ public class EmployeeArchiveService {
       long employeeId,
       EmployeeCostCenterAllocationEntity entity
   ) {
+    validateCostCenterAllocation(entity);
     return create(
         costCenterAllocationMapper,
         employeeId,
@@ -252,6 +259,7 @@ public class EmployeeArchiveService {
       long id,
       EmployeeCostCenterAllocationEntity entity
   ) {
+    validateCostCenterAllocation(entity);
     return update(
         costCenterAllocationMapper,
         employeeId,
@@ -513,6 +521,12 @@ public class EmployeeArchiveService {
 
   @Transactional
   public EmployeeAttachmentEntity createAttachment(long employeeId, EmployeeAttachmentEntity entity) {
+    if (entity.getStorageKey() == null || entity.getStorageKey().isBlank()) {
+      throw new IllegalArgumentException("请先上传文件");
+    }
+    if (entity.getStorageKey().length() > 512) {
+      throw new IllegalArgumentException("附件存储路径过长，请缩短文件名后重试");
+    }
     if (entity.getUploadedAt() == null) {
       entity.setUploadedAt(java.time.LocalDateTime.now());
     }
@@ -946,6 +960,22 @@ public class EmployeeArchiveService {
   private void mergeInternalRelative(EmployeeInternalRelativeEntity current, EmployeeInternalRelativeEntity patch) { mergeAll(current, patch); }
   private void mergeIdDocument(EmployeeIdDocumentEntity current, EmployeeIdDocumentEntity patch) { mergeAll(current, patch); }
   private void mergeCostCenterAllocation(EmployeeCostCenterAllocationEntity current, EmployeeCostCenterAllocationEntity patch) { mergeAll(current, patch); }
+
+  private void validateCostCenterAllocation(EmployeeCostCenterAllocationEntity entity) {
+    if (entity.getCostCenter() == null || entity.getCostCenter().isBlank()) {
+      throw new IllegalArgumentException("请填写成本中心");
+    }
+    entity.setCostCenter(entity.getCostCenter().trim());
+    if (entity.getLegalEntityId() != null) {
+      legalEntityService.require(entity.getLegalEntityId());
+    }
+    if (entity.getPercentage() != null) {
+      BigDecimal percentage = entity.getPercentage();
+      if (percentage.compareTo(BigDecimal.ZERO) < 0 || percentage.compareTo(new BigDecimal("100")) > 0) {
+        throw new IllegalArgumentException("分摊比例须在 0–100 之间");
+      }
+    }
+  }
   private void mergeContract(EmployeeContractEntity current, EmployeeContractEntity patch) { mergeAll(current, patch); }
   private void mergeAgreement(EmployeeAgreementEntity current, EmployeeAgreementEntity patch) { mergeAll(current, patch); }
   private void mergeAttendanceCard(EmployeeAttendanceCardEntity current, EmployeeAttendanceCardEntity patch) { mergeAll(current, patch); }

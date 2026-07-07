@@ -36,8 +36,13 @@ import {
   SearchableSelect,
   type SearchableSelectOption,
 } from "@/components/admin/searchable-select";
+import { ArchiveFormDialog } from "@/components/admin/employee-archive/ArchiveFormDialog";
+import { ArchiveDialogMountProvider } from "@/components/admin/employee-archive/archive-dialog-mount";
 import { EmployeeArchiveDetailView } from "@/components/admin/employee-archive/EmployeeArchiveDetailView";
-import { EmployeeMasterSheetForm } from "@/components/admin/employee-archive/EmployeeMasterSheetForm";
+import {
+  EmployeeMasterFormBody,
+  EmployeeMasterSheetForm,
+} from "@/components/admin/employee-archive/EmployeeMasterSheetForm";
 import type { EmployeeForm } from "@/components/admin/employee-archive/employee-master-form";
 import { FormField } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
@@ -69,7 +74,7 @@ type ListLoadState =
 
 type SheetMode =
   | { type: "closed" }
-  | { type: "view"; employee: Employee; panel: "detail" | "edit-master" }
+  | { type: "view"; employee: Employee }
   | { type: "new" };
 
 function todayStr() {
@@ -242,6 +247,8 @@ export function AdminEmployeesRosterPage() {
   const [state, setState] = useState<ListLoadState>({ type: "loading" });
   const [orgs, setOrgs] = useState<OrganizationTreeNode[]>([]);
   const [sheet, setSheet] = useState<SheetMode>({ type: "closed" });
+  const [masterEditOpen, setMasterEditOpen] = useState(false);
+  const [masterEditEmployee, setMasterEditEmployee] = useState<Employee | null>(null);
   const [form, setForm] = useState<EmployeeForm>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -252,6 +259,7 @@ export function AdminEmployeesRosterPage() {
   const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const importRef = useRef<HTMLInputElement>(null);
+  const archiveDialogMountRef = useRef<HTMLDivElement>(null);
   const pageSize = 20;
 
   const flatOrgs = useMemo(() => flattenOrgTree(orgs), [orgs]);
@@ -338,11 +346,11 @@ export function AdminEmployeesRosterPage() {
   }, [debouncedKeyword, statusFilter, orgFilter]);
 
   const openView = async (employee: Employee) => {
-    setSheet({ type: "view", employee, panel: "detail" });
+    setSheet({ type: "view", employee });
     void loadDetailTabs(employee.id);
     try {
       const res = await getEmployee(employee.id);
-      setSheet({ type: "view", employee: res.data, panel: "detail" });
+      setSheet({ type: "view", employee: res.data });
     } catch {
       // 列表数据兜底展示
     }
@@ -362,7 +370,8 @@ export function AdminEmployeesRosterPage() {
       // 列表数据兜底
     }
     setForm(formFromEmployee(data));
-    setSheet({ type: "view", employee: data, panel: "edit-master" });
+    setMasterEditEmployee(data);
+    setMasterEditOpen(true);
   };
 
   const saveNewEmployee = async () => {
@@ -395,7 +404,7 @@ export function AdminEmployeesRosterPage() {
         hireDate: form.hireDate,
         status: form.status,
       });
-      setSheet({ type: "view", employee: created.data, panel: "detail" });
+      setSheet({ type: "view", employee: created.data });
       void loadDetailTabs(created.data.id);
       toast.success("员工已创建");
       void load();
@@ -408,23 +417,26 @@ export function AdminEmployeesRosterPage() {
   };
 
   const saveMasterEdit = async () => {
-    if (sheet.type !== "view" || sheet.panel !== "edit-master") return;
+    if (!masterEditEmployee) return;
     if (!form.fullName.trim()) {
       toast.error("请填写姓名");
       return;
     }
 
-    const employee = sheet.employee;
     setSaving(true);
     try {
       const updated = await updateEmployee(
-        employee.id,
+        masterEditEmployee.id,
         buildEmployeeUpdatePayload(form, {
-          skipMaskedMobile: employee.mobileMasked,
-          originalMobile: employee.mobile,
+          skipMaskedMobile: masterEditEmployee.mobileMasked,
+          originalMobile: masterEditEmployee.mobile,
         }),
       );
-      setSheet({ type: "view", employee: updated.data, panel: "detail" });
+      setMasterEditOpen(false);
+      setMasterEditEmployee(null);
+      if (sheet.type === "view" && sheet.employee.id === updated.data.id) {
+        setSheet({ type: "view", employee: updated.data });
+      }
       toast.success("员工已更新");
       void load();
     } catch (e: unknown) {
@@ -503,6 +515,7 @@ export function AdminEmployeesRosterPage() {
   }
 
   return (
+    <ArchiveDialogMountProvider mountRef={archiveDialogMountRef}>
     <div className="space-y-5">
       <PageHeader
         title="员工花名册"
@@ -700,7 +713,7 @@ export function AdminEmployeesRosterPage() {
               "data-[side=right]:max-w-[min(1260px,100vw)]",
           )}
         >
-          {sheet.type === "view" && sheet.panel === "detail" ? (
+          {sheet.type === "view" ? (
             <EmployeeArchiveDetailView
               employee={sheet.employee}
               archive={archive}
@@ -719,20 +732,6 @@ export function AdminEmployeesRosterPage() {
             />
           ) : null}
 
-          {sheet.type === "view" && sheet.panel === "edit-master" ? (
-            <EmployeeMasterSheetForm
-              mode="edit"
-              form={form}
-              setForm={setForm}
-              saving={saving}
-              employee={sheet.employee}
-              onCancel={() =>
-                setSheet({ type: "view", employee: sheet.employee, panel: "detail" })
-              }
-              onSave={() => void saveMasterEdit()}
-            />
-          ) : null}
-
           {sheet.type === "new" ? (
             <EmployeeMasterSheetForm
               mode="create"
@@ -747,6 +746,28 @@ export function AdminEmployeesRosterPage() {
         </SheetContent>
       </Sheet>
 
+      <ArchiveFormDialog
+        open={masterEditOpen}
+        onOpenChange={(open) => {
+          if (!open && !saving) {
+            setMasterEditOpen(false);
+            setMasterEditEmployee(null);
+          }
+        }}
+        title="编辑个人主档"
+        description="修改员工核心个人信息；证件、家属等多行信息请在档案分区中维护"
+        extraWide
+        saving={saving}
+        onSave={() => void saveMasterEdit()}
+      >
+        <EmployeeMasterFormBody
+          mode="edit"
+          form={form}
+          setForm={setForm}
+          employee={masterEditEmployee ?? undefined}
+        />
+      </ArchiveFormDialog>
+
       <ConfirmDialog
         open={exportConfirmOpen}
         onOpenChange={setExportConfirmOpen}
@@ -757,5 +778,7 @@ export function AdminEmployeesRosterPage() {
         onConfirm={() => void handleExport()}
       />
     </div>
+    <div ref={archiveDialogMountRef} aria-hidden className="contents" />
+    </ArchiveDialogMountProvider>
   );
 }
