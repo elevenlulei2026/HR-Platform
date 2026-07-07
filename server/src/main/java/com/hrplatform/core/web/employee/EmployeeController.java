@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrplatform.core.employee.EmployeeAssignmentEntity;
 import com.hrplatform.core.employee.EmployeeEntity;
 import com.hrplatform.core.employee.EmployeeImportService;
+import com.hrplatform.core.employee.EmployeeMasterVersionEntity;
 import com.hrplatform.core.employee.EmployeeMovementEntity;
 import com.hrplatform.core.employee.EmployeeMovementService;
 import com.hrplatform.core.employee.EmployeeService;
@@ -112,15 +113,27 @@ public class EmployeeController {
   }
 
   @GetMapping("/employees/{id}")
-  public ApiResponse<Map<String, Object>> getEmployee(@PathVariable("id") long id) {
+  public ApiResponse<Map<String, Object>> getEmployee(
+      @PathVariable("id") long id,
+      @RequestParam(required = false) String asOfDate
+  ) {
     requireRosterView();
     EmployeeEntity e = employeeService.require(id);
+    LocalDate snapshotDate = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate.trim());
+    EmployeeMasterVersionEntity master = employeeService.requireMasterVersionAsOf(id, snapshotDate);
     boolean reveal = employeeService.canViewSensitive();
     if (reveal) logSensitiveView(id, "employee");
-    EmployeeAssignmentEntity pa = employeeService.findCurrentPrimaryAssignment(id);
+    EmployeeAssignmentEntity pa = employeeService.findPrimaryAssignmentAsOf(id, snapshotDate);
     OrganizationEntity org = pa == null ? null : employeeService.organizationMap(List.of(pa.getOrganizationId())).get(pa.getOrganizationId());
     PositionEntity pos = pa == null ? null : employeeService.positionMap(List.of(pa.getPositionId())).get(pa.getPositionId());
-    return ApiResponse.ok(toEmployeeDto(e, org, pos, pa, reveal));
+    return ApiResponse.ok(toEmployeeDto(e, master, org, pos, pa, reveal));
+  }
+
+  @GetMapping("/employees/{id}/master-versions")
+  public ApiResponse<List<Map<String, Object>>> listEmployeeMasterVersions(@PathVariable("id") long id) {
+    requireRosterView();
+    employeeService.require(id);
+    return ApiResponse.ok(employeeService.listMasterVersions(id).stream().map(this::toMasterVersionDto).toList());
   }
 
   @PostMapping("/employees")
@@ -168,7 +181,8 @@ public class EmployeeController {
     EmployeeAssignmentEntity pa = employeeService.findCurrentPrimaryAssignment(created.getId());
     OrganizationEntity org = pa == null ? null : employeeService.organizationMap(List.of(pa.getOrganizationId())).get(pa.getOrganizationId());
     PositionEntity pos = pa == null ? null : employeeService.positionMap(List.of(pa.getPositionId())).get(pa.getPositionId());
-    return ApiResponse.ok(toEmployeeDto(created, org, pos, pa, reveal));
+    EmployeeMasterVersionEntity master = employeeService.requireMasterVersionAsOf(created.getId(), LocalDate.now());
+    return ApiResponse.ok(toEmployeeDto(created, master, org, pos, pa, reveal));
   }
 
   @PutMapping("/employees/{id}")
@@ -177,7 +191,9 @@ public class EmployeeController {
       @Valid @RequestBody EmployeeUpdateRequest req
   ) {
     requireEdit();
-    EmployeeEntity updated = employeeService.update(id, new EmployeeService.UpdateCommand(
+    EmployeeEntity updated = employeeService.updateMaster(id, new EmployeeService.MasterUpdateCommand(
+        req.editMode(),
+        req.effectiveStartDate(),
         req.fullName(),
         req.gender(),
         req.mobile(),
@@ -215,7 +231,8 @@ public class EmployeeController {
     EmployeeAssignmentEntity pa = employeeService.findCurrentPrimaryAssignment(id);
     OrganizationEntity org = pa == null ? null : employeeService.organizationMap(List.of(pa.getOrganizationId())).get(pa.getOrganizationId());
     PositionEntity pos = pa == null ? null : employeeService.positionMap(List.of(pa.getPositionId())).get(pa.getPositionId());
-    return ApiResponse.ok(toEmployeeDto(updated, org, pos, pa, reveal));
+    EmployeeMasterVersionEntity master = employeeService.requireMasterVersionAsOf(id, LocalDate.now());
+    return ApiResponse.ok(toEmployeeDto(updated, master, org, pos, pa, reveal));
   }
 
   @GetMapping("/employees/{id}/assignments")
@@ -332,19 +349,120 @@ public class EmployeeController {
 
   private Map<String, Object> toEmployeeDto(
       EmployeeEntity e,
+      EmployeeMasterVersionEntity master,
       OrganizationEntity org,
       PositionEntity pos,
       EmployeeAssignmentEntity pa,
       boolean revealSensitive
   ) {
-    String mobileDisplay = employeeService.displayMobile(e, revealSensitive);
+    String mobileDisplay = employeeService.displayMobileEncrypted(master.getMobile(), revealSensitive);
+    Map<String, Object> dto = new HashMap<>();
+    dto.put("id", String.valueOf(e.getId()));
+    dto.put("employeeNo", e.getEmployeeNo());
+    dto.put("effectiveStartDate", master.getEffectiveStartDate() == null ? null : master.getEffectiveStartDate().toString());
+    dto.put("effectiveEndDate", master.getEffectiveEndDate() == null ? null : master.getEffectiveEndDate().toString());
+    dto.put("fullName", master.getFullName());
+    dto.put("gender", master.getGender());
+    dto.put("genderLabel", employeeService.dictLabel("GENDER", master.getGender()));
+    dto.put("mobile", mobileDisplay);
+    dto.put("mobileMasked", !revealSensitive);
+    dto.put("companyEmail", master.getCompanyEmail());
+    dto.put("personalEmail", master.getPersonalEmail());
+    dto.put("adAccount", master.getAdAccount());
+    dto.put("maritalStatus", master.getMaritalStatus());
+    dto.put("maritalStatusLabel", employeeService.dictLabel("MARITAL_STATUS", master.getMaritalStatus()));
+    dto.put("politicalAffiliation", master.getPoliticalAffiliation());
+    dto.put("politicalAffiliationLabel", employeeService.dictLabel("POLITICAL_AFFILIATION", master.getPoliticalAffiliation()));
+    dto.put("highestEducation", master.getHighestEducation());
+    dto.put("highestEducationLabel", employeeService.dictLabel("HIGHEST_EDUCATION", master.getHighestEducation()));
+    dto.put("highestEducationGradDate", master.getHighestEducationGradDate() == null ? null : master.getHighestEducationGradDate().toString());
+    dto.put("fertilityStatus", master.getFertilityStatus());
+    dto.put("fertilityStatusLabel", employeeService.dictLabel("FERTILITY_STATUS", master.getFertilityStatus()));
+    dto.put("ethnicity", master.getEthnicity());
+    dto.put("ethnicityLabel", employeeService.dictLabel("ETHNICITY", master.getEthnicity()));
+    dto.put("hobbies", master.getHobbies());
+    dto.put("nationality", master.getNationality());
+    dto.put("nationalityLabel", employeeService.dictLabel("NATIONALITY", master.getNationality()));
+    dto.put("householdType", master.getHouseholdType());
+    dto.put("householdTypeLabel", employeeService.dictLabel("HOUSEHOLD_TYPE", master.getHouseholdType()));
+    dto.put("householdLocation", master.getHouseholdLocation());
+    dto.put("partyOrgTransferred", master.getPartyOrgTransferred());
+    dto.put("workStartDate", master.getWorkStartDate() == null ? null : master.getWorkStartDate().toString());
+    dto.put("wechat", master.getWechat());
+    dto.put("officePhone", master.getOfficePhone());
+    dto.put("officeExtension", master.getOfficeExtension());
+    dto.put("homePhone", master.getHomePhone());
+    dto.put("idCardAddress", master.getIdCardAddress());
+    dto.put("residenceAddress", master.getResidenceAddress());
+    dto.put("emergencyContactName", master.getEmergencyContactName());
+    dto.put("emergencyContactPhone", master.getEmergencyContactPhone());
+    dto.put("emergencyContactRelation", master.getEmergencyContactRelation());
+    dto.put("emergencyContactRelationLabel", employeeService.dictLabel("EMPLOYEE_RELATION", master.getEmergencyContactRelation()));
+    dto.put("recruitmentChannel", master.getRecruitmentChannel());
+    dto.put("recruitmentChannelLabel", employeeService.dictLabel("RECRUITMENT_CHANNEL", master.getRecruitmentChannel()));
+    dto.put("recruitmentChannelDetail", master.getRecruitmentChannelDetail());
+    dto.put("groupSeniorityStartDate", master.getGroupSeniorityStartDate() == null ? null : master.getGroupSeniorityStartDate().toString());
+    dto.put("hireDate", master.getHireDate() == null ? null : master.getHireDate().toString());
+    dto.put("status", master.getStatus());
+    dto.put("statusLabel", employeeService.dictLabel("EMPLOYEE_STATUS", master.getStatus()));
+    if (pa != null) {
+      dto.put("primaryOrganizationId", String.valueOf(pa.getOrganizationId()));
+      dto.put("primaryPositionId", String.valueOf(pa.getPositionId()));
+    }
+    if (org != null) {
+      dto.put("primaryOrganizationName", org.getName());
+    }
+    if (pos != null) {
+      dto.put("primaryPositionName", pos.getName());
+    }
+    dto.put("createdAt", e.getCreatedAt() == null ? null : e.getCreatedAt().toString());
+    dto.put("updatedAt", e.getUpdatedAt() == null ? null : e.getUpdatedAt().toString());
+    return dto;
+  }
+
+  private Map<String, Object> toMasterVersionDto(EmployeeMasterVersionEntity v) {
+    LocalDate today = LocalDate.now();
+    String temporal;
+    if (v.getEffectiveStartDate() != null && v.getEffectiveStartDate().isAfter(today)) {
+      temporal = "future";
+    } else if (v.getEffectiveEndDate() != null && v.getEffectiveEndDate().isBefore(today)) {
+      temporal = "past";
+    } else {
+      temporal = "present";
+    }
+    String temporalLabel = switch (temporal) {
+      case "past" -> "过去";
+      case "future" -> "将来";
+      default -> "当前";
+    };
+    Map<String, Object> dto = new HashMap<>();
+    dto.put("id", String.valueOf(v.getId()));
+    dto.put("employeeId", String.valueOf(v.getEmployeeId()));
+    dto.put("effectiveStartDate", v.getEffectiveStartDate() == null ? null : v.getEffectiveStartDate().toString());
+    dto.put("effectiveEndDate", v.getEffectiveEndDate() == null ? null : v.getEffectiveEndDate().toString());
+    dto.put("status", v.getStatus());
+    dto.put("statusLabel", employeeService.dictLabel("EMPLOYEE_STATUS", v.getStatus()));
+    dto.put("temporal", temporal);
+    dto.put("temporalLabel", temporalLabel);
+    dto.put("isOpen", v.getEffectiveEndDate() == null);
+    return dto;
+  }
+
+  private Map<String, Object> toEmployeeDto(
+      EmployeeEntity e,
+      OrganizationEntity org,
+      PositionEntity pos,
+      EmployeeAssignmentEntity pa,
+      boolean revealSensitive
+  ) {
+    // 列表口径：以 employee 表当前数据为准（不返回主档版本生效区间）
     Map<String, Object> dto = new HashMap<>();
     dto.put("id", String.valueOf(e.getId()));
     dto.put("employeeNo", e.getEmployeeNo());
     dto.put("fullName", e.getFullName());
     dto.put("gender", e.getGender());
     dto.put("genderLabel", employeeService.dictLabel("GENDER", e.getGender()));
-    dto.put("mobile", mobileDisplay);
+    dto.put("mobile", employeeService.displayMobile(e, revealSensitive));
     dto.put("mobileMasked", !revealSensitive);
     dto.put("companyEmail", e.getCompanyEmail());
     dto.put("personalEmail", e.getPersonalEmail());
@@ -541,6 +659,8 @@ public class EmployeeController {
   ) {}
 
   public record EmployeeUpdateRequest(
+      String editMode,
+      LocalDate effectiveStartDate,
       String fullName,
       String gender,
       String mobile,

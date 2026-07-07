@@ -7,6 +7,7 @@ import type {
   EmployeeFormOptions,
   EmployeeImportResult,
   EmployeeListQuery,
+  EmployeeMasterVersion,
   EmployeeMovement,
   EmployeeUpdateRequest,
   PageResult,
@@ -36,6 +37,15 @@ export async function getEmployeeFormOptions() {
 
 export async function getEmployee(id: string) {
   return getJson<Employee>(`/api/v1/employees/${id}`);
+}
+
+export async function getEmployeeSnapshot(id: string, query?: { asOfDate?: string }) {
+  const qs = query?.asOfDate ? `?asOfDate=${encodeURIComponent(query.asOfDate)}` : "";
+  return getJson<Employee>(`/api/v1/employees/${id}${qs}`);
+}
+
+export async function listEmployeeMasterVersions(employeeId: string) {
+  return getJson<EmployeeMasterVersion[]>(`/api/v1/employees/${employeeId}/master-versions`);
 }
 
 export async function createEmployee(req: EmployeeCreateRequest) {

@@ -889,6 +889,21 @@ export type HeadcountApi = {
 
 export type EmployeeStatus = "CANDIDATE" | "PROBATION" | "ACTIVE" | "TERMINATED";
 
+export type EmployeeMasterEditMode = "CURRENT" | "NEW_VERSION";
+
+/** 同一员工下的个人主档生效版本摘要 */
+export type EmployeeMasterVersion = {
+  id: string;
+  employeeId: string;
+  effectiveStartDate: string; // YYYY-MM-DD
+  effectiveEndDate?: string; // YYYY-MM-DD
+  status: EmployeeStatus;
+  statusLabel?: string;
+  temporal: "past" | "present" | "future";
+  temporalLabel: string;
+  isOpen: boolean;
+};
+
 export type AssignmentStatus = "ACTIVE" | "ENDED";
 
 export type ReportingLineType = "DIRECT" | "DOTTED";
@@ -909,6 +924,15 @@ export type MovementType =
 export type Employee = {
   id: string;
   employeeNo: string;
+  /**
+   * 个人主档生效开始日期（用于历史快照/未来预览）
+   * - 仅在详情快照接口返回；列表可能不返回
+   */
+  effectiveStartDate?: string; // YYYY-MM-DD
+  /**
+   * 个人主档生效结束日期（NULL/不返回表示至今有效）
+   */
+  effectiveEndDate?: string; // YYYY-MM-DD
   fullName: string;
   adAccount?: string;
   gender?: string;
@@ -1134,6 +1158,16 @@ export type EmployeeCreateRequest = {
 };
 
 export type EmployeeUpdateRequest = {
+  /**
+   * 生效日期编辑模式：
+   * - CURRENT：修改当前版本，不改变生效日期
+   * - NEW_VERSION：按新生效日创建一条个人主档版本
+   */
+  editMode?: EmployeeMasterEditMode;
+  /**
+   * NEW_VERSION 时必填，指定新版本的生效开始日（YYYY-MM-DD）
+   */
+  effectiveStartDate?: string;
   fullName?: string;
   gender?: string;
   mobile?: string;
@@ -1613,8 +1647,10 @@ export type EmployeeApi = {
   listEmployees: (query: EmployeeListQuery) => Promise<ApiResponse<PageResult<Employee>>>;
   /** GET /api/v1/employees/form-options */
   getEmployeeFormOptions: () => Promise<ApiResponse<EmployeeFormOptions>>;
-  /** GET /api/v1/employees/{id} */
+  /** GET /api/v1/employees/{id}?asOfDate=YYYY-MM-DD */
   getEmployee: (id: string) => Promise<ApiResponse<Employee>>;
+  /** GET /api/v1/employees/{id}/master-versions */
+  listEmployeeMasterVersions: (employeeId: string) => Promise<ApiResponse<EmployeeMasterVersion[]>>;
   /** POST /api/v1/employees */
   createEmployee: (req: EmployeeCreateRequest) => Promise<ApiResponse<Employee>>;
   /** PUT /api/v1/employees/{id} */

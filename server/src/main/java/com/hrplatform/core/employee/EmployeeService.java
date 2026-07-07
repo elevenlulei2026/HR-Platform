@@ -16,6 +16,7 @@ import com.hrplatform.platform.dict.DictService;
 import com.hrplatform.platform.rbac.DataScope;
 import com.hrplatform.platform.rbac.DataScopeResolver;
 import com.hrplatform.platform.rbac.RbacService;
+import java.time.temporal.ChronoUnit;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ public class EmployeeService {
   private final EmployeeMapper employeeMapper;
   private final EmployeeAssignmentMapper assignmentMapper;
   private final EmployeeIdDocumentMapper idDocumentMapper;
+  private final EmployeeMasterVersionMapper masterVersionMapper;
   private final OrganizationMapper organizationMapper;
   private final PositionMapper positionMapper;
   private final SysUserMapper sysUserMapper;
@@ -45,6 +47,7 @@ public class EmployeeService {
       EmployeeMapper employeeMapper,
       EmployeeAssignmentMapper assignmentMapper,
       EmployeeIdDocumentMapper idDocumentMapper,
+      EmployeeMasterVersionMapper masterVersionMapper,
       OrganizationMapper organizationMapper,
       PositionMapper positionMapper,
       SysUserMapper sysUserMapper,
@@ -57,6 +60,7 @@ public class EmployeeService {
     this.employeeMapper = employeeMapper;
     this.assignmentMapper = assignmentMapper;
     this.idDocumentMapper = idDocumentMapper;
+    this.masterVersionMapper = masterVersionMapper;
     this.organizationMapper = organizationMapper;
     this.positionMapper = positionMapper;
     this.sysUserMapper = sysUserMapper;
@@ -122,6 +126,33 @@ public class EmployeeService {
     return e;
   }
 
+  public EmployeeMasterVersionEntity requireMasterVersionAsOf(long employeeId, LocalDate asOfDate) {
+    require(employeeId);
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+    var list = masterVersionMapper.selectList(
+        new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
+            .eq(EmployeeMasterVersionEntity::getEmployeeId, employeeId)
+            .le(EmployeeMasterVersionEntity::getEffectiveStartDate, date)
+            .and(w -> w.isNull(EmployeeMasterVersionEntity::getEffectiveEndDate)
+                .or().ge(EmployeeMasterVersionEntity::getEffectiveEndDate, date))
+            .orderByDesc(EmployeeMasterVersionEntity::getEffectiveStartDate)
+            .orderByDesc(EmployeeMasterVersionEntity::getId)
+            .last("LIMIT 1")
+    );
+    if (list.isEmpty()) throw new IllegalArgumentException("员工主档快照不存在");
+    return list.get(0);
+  }
+
+  public List<EmployeeMasterVersionEntity> listMasterVersions(long employeeId) {
+    require(employeeId);
+    return masterVersionMapper.selectList(
+        new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
+            .eq(EmployeeMasterVersionEntity::getEmployeeId, employeeId)
+            .orderByDesc(EmployeeMasterVersionEntity::getEffectiveStartDate)
+            .orderByDesc(EmployeeMasterVersionEntity::getId)
+    );
+  }
+
   @Transactional
   public EmployeeEntity create(CreateCommand cmd) {
     if (cmd.fullName() == null || cmd.fullName().isBlank()) throw new IllegalArgumentException("姓名不能为空");
@@ -164,6 +195,45 @@ public class EmployeeService {
     entity.setStatus(cmd.status() == null || cmd.status().isBlank() ? "ACTIVE" : cmd.status().trim().toUpperCase());
     employeeMapper.insert(entity);
 
+    // 写入首条个人主档版本（以 hireDate 为生效开始日）
+    EmployeeMasterVersionEntity v = new EmployeeMasterVersionEntity();
+    v.setEmployeeId(entity.getId());
+    v.setEffectiveStartDate(cmd.hireDate());
+    v.setEffectiveEndDate(null);
+    v.setFullName(entity.getFullName());
+    v.setGender(entity.getGender());
+    v.setAdAccount(entity.getAdAccount());
+    v.setMobile(entity.getMobile());
+    v.setCompanyEmail(entity.getCompanyEmail());
+    v.setPersonalEmail(entity.getPersonalEmail());
+    v.setMaritalStatus(entity.getMaritalStatus());
+    v.setPoliticalAffiliation(entity.getPoliticalAffiliation());
+    v.setHighestEducation(entity.getHighestEducation());
+    v.setHighestEducationGradDate(entity.getHighestEducationGradDate());
+    v.setFertilityStatus(entity.getFertilityStatus());
+    v.setEthnicity(entity.getEthnicity());
+    v.setHobbies(entity.getHobbies());
+    v.setNationality(entity.getNationality());
+    v.setHouseholdType(entity.getHouseholdType());
+    v.setHouseholdLocation(entity.getHouseholdLocation());
+    v.setPartyOrgTransferred(entity.getPartyOrgTransferred());
+    v.setWorkStartDate(entity.getWorkStartDate());
+    v.setWechat(entity.getWechat());
+    v.setOfficePhone(entity.getOfficePhone());
+    v.setOfficeExtension(entity.getOfficeExtension());
+    v.setHomePhone(entity.getHomePhone());
+    v.setIdCardAddress(entity.getIdCardAddress());
+    v.setResidenceAddress(entity.getResidenceAddress());
+    v.setEmergencyContactName(entity.getEmergencyContactName());
+    v.setEmergencyContactPhone(entity.getEmergencyContactPhone());
+    v.setEmergencyContactRelation(entity.getEmergencyContactRelation());
+    v.setRecruitmentChannel(entity.getRecruitmentChannel());
+    v.setRecruitmentChannelDetail(entity.getRecruitmentChannelDetail());
+    v.setGroupSeniorityStartDate(entity.getGroupSeniorityStartDate());
+    v.setHireDate(entity.getHireDate());
+    v.setStatus(entity.getStatus());
+    masterVersionMapper.insert(v);
+
     EmployeeAssignmentEntity assignment = null;
     if (cmd.organizationId() != null && cmd.positionId() != null) {
       assignment = createAssignmentInternal(
@@ -182,44 +252,200 @@ public class EmployeeService {
   }
 
   @Transactional
-  public EmployeeEntity update(long id, UpdateCommand cmd) {
+  public EmployeeEntity updateMaster(long id, MasterUpdateCommand cmd) {
     EmployeeEntity cur = require(id);
-    if (cmd.fullName() != null) cur.setFullName(cmd.fullName().trim());
-    if (cmd.gender() != null) cur.setGender(cmd.gender());
-    if (cmd.mobile() != null && !cmd.mobile().isBlank()) {
-      cur.setMobile(fieldCryptoService.encrypt(cmd.mobile().trim()));
+    String mode = cmd.editMode() == null || cmd.editMode().isBlank() ? "CURRENT" : cmd.editMode().trim().toUpperCase();
+    if (!"CURRENT".equals(mode) && !"NEW_VERSION".equals(mode)) {
+      throw new IllegalArgumentException("无效的 editMode");
     }
-    if (cmd.companyEmail() != null) cur.setCompanyEmail(cmd.companyEmail());
-    if (cmd.personalEmail() != null) cur.setPersonalEmail(cmd.personalEmail());
-    if (cmd.adAccount() != null) cur.setAdAccount(cmd.adAccount());
-    if (cmd.maritalStatus() != null) cur.setMaritalStatus(cmd.maritalStatus());
-    if (cmd.politicalAffiliation() != null) cur.setPoliticalAffiliation(cmd.politicalAffiliation());
-    if (cmd.highestEducation() != null) cur.setHighestEducation(cmd.highestEducation());
-    if (cmd.highestEducationGradDate() != null) cur.setHighestEducationGradDate(cmd.highestEducationGradDate());
-    if (cmd.fertilityStatus() != null) cur.setFertilityStatus(cmd.fertilityStatus());
-    if (cmd.ethnicity() != null) cur.setEthnicity(cmd.ethnicity());
-    if (cmd.hobbies() != null) cur.setHobbies(cmd.hobbies());
-    if (cmd.nationality() != null) cur.setNationality(cmd.nationality());
-    if (cmd.householdType() != null) cur.setHouseholdType(cmd.householdType());
-    if (cmd.householdLocation() != null) cur.setHouseholdLocation(cmd.householdLocation());
-    if (cmd.partyOrgTransferred() != null) cur.setPartyOrgTransferred(cmd.partyOrgTransferred());
-    if (cmd.workStartDate() != null) cur.setWorkStartDate(cmd.workStartDate());
-    if (cmd.wechat() != null) cur.setWechat(cmd.wechat());
-    if (cmd.officePhone() != null) cur.setOfficePhone(cmd.officePhone());
-    if (cmd.officeExtension() != null) cur.setOfficeExtension(cmd.officeExtension());
-    if (cmd.homePhone() != null) cur.setHomePhone(cmd.homePhone());
-    if (cmd.idCardAddress() != null) cur.setIdCardAddress(cmd.idCardAddress());
-    if (cmd.residenceAddress() != null) cur.setResidenceAddress(cmd.residenceAddress());
-    if (cmd.emergencyContactName() != null) cur.setEmergencyContactName(cmd.emergencyContactName());
-    if (cmd.emergencyContactPhone() != null) cur.setEmergencyContactPhone(cmd.emergencyContactPhone());
-    if (cmd.emergencyContactRelation() != null) cur.setEmergencyContactRelation(cmd.emergencyContactRelation());
-    if (cmd.recruitmentChannel() != null) cur.setRecruitmentChannel(cmd.recruitmentChannel());
-    if (cmd.recruitmentChannelDetail() != null) cur.setRecruitmentChannelDetail(cmd.recruitmentChannelDetail());
-    if (cmd.groupSeniorityStartDate() != null) cur.setGroupSeniorityStartDate(cmd.groupSeniorityStartDate());
-    if (cmd.hireDate() != null) cur.setHireDate(cmd.hireDate());
-    if (cmd.status() != null) cur.setStatus(cmd.status().trim().toUpperCase());
+
+    if ("NEW_VERSION".equals(mode) && cmd.effectiveStartDate() == null) {
+      throw new IllegalArgumentException("新增生效版本时必须填写生效日期");
+    }
+
+    if ("CURRENT".equals(mode)) {
+      // 修改“今天”所在的个人主档版本
+      LocalDate today = LocalDate.now();
+      EmployeeMasterVersionEntity version = requireMasterVersionAsOf(id, today);
+      applyMasterPatch(version, cmd);
+      masterVersionMapper.updateById(version);
+    } else {
+      LocalDate start = cmd.effectiveStartDate();
+      // 生效日不允许重复
+      Long exists = masterVersionMapper.selectCount(
+          new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
+              .eq(EmployeeMasterVersionEntity::getEmployeeId, id)
+              .eq(EmployeeMasterVersionEntity::getEffectiveStartDate, start)
+      );
+      if (exists != null && exists > 0) {
+        throw new IllegalArgumentException("同一生效日期已存在版本");
+      }
+
+      // 以“当前版本”为模板复制
+      EmployeeMasterVersionEntity base = requireMasterVersionAsOf(id, LocalDate.now());
+      EmployeeMasterVersionEntity newV = cloneMasterVersion(base);
+      newV.setId(null);
+      newV.setEmployeeId(id);
+      newV.setEffectiveStartDate(start);
+      applyMasterPatch(newV, cmd);
+
+      // 自动衔接：找前一版本/下一版本
+      EmployeeMasterVersionEntity prev = findPrevVersion(id, start);
+      EmployeeMasterVersionEntity next = findNextVersion(id, start);
+      if (next != null) {
+        newV.setEffectiveEndDate(next.getEffectiveStartDate().minus(1, ChronoUnit.DAYS));
+      } else {
+        newV.setEffectiveEndDate(null);
+      }
+      if (prev != null) {
+        prev.setEffectiveEndDate(start.minus(1, ChronoUnit.DAYS));
+        masterVersionMapper.updateById(prev);
+      }
+      masterVersionMapper.insert(newV);
+    }
+
+    // 以“今天快照”回写 employee 表，保证详情默认与列表口径一致（当前生效）
+    EmployeeMasterVersionEntity todayV = requireMasterVersionAsOf(id, LocalDate.now());
+    applyToEmployeeEntity(cur, todayV);
     employeeMapper.updateById(cur);
     return require(id);
+  }
+
+  private EmployeeMasterVersionEntity findPrevVersion(long employeeId, LocalDate start) {
+    var list = masterVersionMapper.selectList(
+        new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
+            .eq(EmployeeMasterVersionEntity::getEmployeeId, employeeId)
+            .lt(EmployeeMasterVersionEntity::getEffectiveStartDate, start)
+            .orderByDesc(EmployeeMasterVersionEntity::getEffectiveStartDate)
+            .last("LIMIT 1")
+    );
+    return list.isEmpty() ? null : list.get(0);
+  }
+
+  private EmployeeMasterVersionEntity findNextVersion(long employeeId, LocalDate start) {
+    var list = masterVersionMapper.selectList(
+        new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
+            .eq(EmployeeMasterVersionEntity::getEmployeeId, employeeId)
+            .gt(EmployeeMasterVersionEntity::getEffectiveStartDate, start)
+            .orderByAsc(EmployeeMasterVersionEntity::getEffectiveStartDate)
+            .last("LIMIT 1")
+    );
+    return list.isEmpty() ? null : list.get(0);
+  }
+
+  private EmployeeMasterVersionEntity cloneMasterVersion(EmployeeMasterVersionEntity base) {
+    EmployeeMasterVersionEntity v = new EmployeeMasterVersionEntity();
+    v.setEmployeeId(base.getEmployeeId());
+    v.setEffectiveStartDate(base.getEffectiveStartDate());
+    v.setEffectiveEndDate(base.getEffectiveEndDate());
+
+    v.setFullName(base.getFullName());
+    v.setAdAccount(base.getAdAccount());
+    v.setGender(base.getGender());
+    v.setMobile(base.getMobile());
+    v.setCompanyEmail(base.getCompanyEmail());
+    v.setPersonalEmail(base.getPersonalEmail());
+
+    v.setMaritalStatus(base.getMaritalStatus());
+    v.setPoliticalAffiliation(base.getPoliticalAffiliation());
+    v.setHighestEducation(base.getHighestEducation());
+    v.setHighestEducationGradDate(base.getHighestEducationGradDate());
+    v.setFertilityStatus(base.getFertilityStatus());
+    v.setEthnicity(base.getEthnicity());
+    v.setHobbies(base.getHobbies());
+    v.setNationality(base.getNationality());
+    v.setHouseholdType(base.getHouseholdType());
+    v.setHouseholdLocation(base.getHouseholdLocation());
+    v.setPartyOrgTransferred(base.getPartyOrgTransferred());
+    v.setWorkStartDate(base.getWorkStartDate());
+    v.setWechat(base.getWechat());
+    v.setOfficePhone(base.getOfficePhone());
+    v.setOfficeExtension(base.getOfficeExtension());
+    v.setHomePhone(base.getHomePhone());
+    v.setIdCardAddress(base.getIdCardAddress());
+    v.setResidenceAddress(base.getResidenceAddress());
+    v.setEmergencyContactName(base.getEmergencyContactName());
+    v.setEmergencyContactPhone(base.getEmergencyContactPhone());
+    v.setEmergencyContactRelation(base.getEmergencyContactRelation());
+    v.setRecruitmentChannel(base.getRecruitmentChannel());
+    v.setRecruitmentChannelDetail(base.getRecruitmentChannelDetail());
+    v.setGroupSeniorityStartDate(base.getGroupSeniorityStartDate());
+
+    v.setHireDate(base.getHireDate());
+    v.setStatus(base.getStatus());
+    return v;
+  }
+
+  private void applyMasterPatch(EmployeeMasterVersionEntity v, MasterUpdateCommand cmd) {
+    if (cmd.fullName() != null) v.setFullName(cmd.fullName().trim());
+    if (cmd.gender() != null) v.setGender(cmd.gender());
+    if (cmd.mobile() != null && !cmd.mobile().isBlank()) {
+      v.setMobile(fieldCryptoService.encrypt(cmd.mobile().trim()));
+    }
+    if (cmd.companyEmail() != null) v.setCompanyEmail(cmd.companyEmail());
+    if (cmd.personalEmail() != null) v.setPersonalEmail(cmd.personalEmail());
+    if (cmd.adAccount() != null) v.setAdAccount(cmd.adAccount());
+    if (cmd.maritalStatus() != null) v.setMaritalStatus(cmd.maritalStatus());
+    if (cmd.politicalAffiliation() != null) v.setPoliticalAffiliation(cmd.politicalAffiliation());
+    if (cmd.highestEducation() != null) v.setHighestEducation(cmd.highestEducation());
+    if (cmd.highestEducationGradDate() != null) v.setHighestEducationGradDate(cmd.highestEducationGradDate());
+    if (cmd.fertilityStatus() != null) v.setFertilityStatus(cmd.fertilityStatus());
+    if (cmd.ethnicity() != null) v.setEthnicity(cmd.ethnicity());
+    if (cmd.hobbies() != null) v.setHobbies(cmd.hobbies());
+    if (cmd.nationality() != null) v.setNationality(cmd.nationality());
+    if (cmd.householdType() != null) v.setHouseholdType(cmd.householdType());
+    if (cmd.householdLocation() != null) v.setHouseholdLocation(cmd.householdLocation());
+    if (cmd.partyOrgTransferred() != null) v.setPartyOrgTransferred(cmd.partyOrgTransferred());
+    if (cmd.workStartDate() != null) v.setWorkStartDate(cmd.workStartDate());
+    if (cmd.wechat() != null) v.setWechat(cmd.wechat());
+    if (cmd.officePhone() != null) v.setOfficePhone(cmd.officePhone());
+    if (cmd.officeExtension() != null) v.setOfficeExtension(cmd.officeExtension());
+    if (cmd.homePhone() != null) v.setHomePhone(cmd.homePhone());
+    if (cmd.idCardAddress() != null) v.setIdCardAddress(cmd.idCardAddress());
+    if (cmd.residenceAddress() != null) v.setResidenceAddress(cmd.residenceAddress());
+    if (cmd.emergencyContactName() != null) v.setEmergencyContactName(cmd.emergencyContactName());
+    if (cmd.emergencyContactPhone() != null) v.setEmergencyContactPhone(cmd.emergencyContactPhone());
+    if (cmd.emergencyContactRelation() != null) v.setEmergencyContactRelation(cmd.emergencyContactRelation());
+    if (cmd.recruitmentChannel() != null) v.setRecruitmentChannel(cmd.recruitmentChannel());
+    if (cmd.recruitmentChannelDetail() != null) v.setRecruitmentChannelDetail(cmd.recruitmentChannelDetail());
+    if (cmd.groupSeniorityStartDate() != null) v.setGroupSeniorityStartDate(cmd.groupSeniorityStartDate());
+    if (cmd.hireDate() != null) v.setHireDate(cmd.hireDate());
+    if (cmd.status() != null) v.setStatus(cmd.status().trim().toUpperCase());
+  }
+
+  private void applyToEmployeeEntity(EmployeeEntity e, EmployeeMasterVersionEntity v) {
+    e.setFullName(v.getFullName());
+    e.setAdAccount(v.getAdAccount());
+    e.setGender(v.getGender());
+    e.setMobile(v.getMobile());
+    e.setCompanyEmail(v.getCompanyEmail());
+    e.setPersonalEmail(v.getPersonalEmail());
+    e.setMaritalStatus(v.getMaritalStatus());
+    e.setPoliticalAffiliation(v.getPoliticalAffiliation());
+    e.setHighestEducation(v.getHighestEducation());
+    e.setHighestEducationGradDate(v.getHighestEducationGradDate());
+    e.setFertilityStatus(v.getFertilityStatus());
+    e.setEthnicity(v.getEthnicity());
+    e.setHobbies(v.getHobbies());
+    e.setNationality(v.getNationality());
+    e.setHouseholdType(v.getHouseholdType());
+    e.setHouseholdLocation(v.getHouseholdLocation());
+    e.setPartyOrgTransferred(v.getPartyOrgTransferred());
+    e.setWorkStartDate(v.getWorkStartDate());
+    e.setWechat(v.getWechat());
+    e.setOfficePhone(v.getOfficePhone());
+    e.setOfficeExtension(v.getOfficeExtension());
+    e.setHomePhone(v.getHomePhone());
+    e.setIdCardAddress(v.getIdCardAddress());
+    e.setResidenceAddress(v.getResidenceAddress());
+    e.setEmergencyContactName(v.getEmergencyContactName());
+    e.setEmergencyContactPhone(v.getEmergencyContactPhone());
+    e.setEmergencyContactRelation(v.getEmergencyContactRelation());
+    e.setRecruitmentChannel(v.getRecruitmentChannel());
+    e.setRecruitmentChannelDetail(v.getRecruitmentChannelDetail());
+    e.setGroupSeniorityStartDate(v.getGroupSeniorityStartDate());
+    e.setHireDate(v.getHireDate());
+    e.setStatus(v.getStatus());
   }
 
   public List<EmployeeIdDocumentEntity> listIdDocuments(long employeeId) {
@@ -422,20 +648,24 @@ public class EmployeeService {
     return !s1.isAfter(bEnd) && !s2.isAfter(aEnd);
   }
 
-  public EmployeeAssignmentEntity findCurrentPrimaryAssignment(long employeeId) {
-    LocalDate today = LocalDate.now();
+  public EmployeeAssignmentEntity findPrimaryAssignmentAsOf(long employeeId, LocalDate asOfDate) {
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
     List<EmployeeAssignmentEntity> list = assignmentMapper.selectList(
         new LambdaQueryWrapper<EmployeeAssignmentEntity>()
             .eq(EmployeeAssignmentEntity::getEmployeeId, employeeId)
             .eq(EmployeeAssignmentEntity::getIsPrimary, true)
             .eq(EmployeeAssignmentEntity::getStatus, "ACTIVE")
-            .le(EmployeeAssignmentEntity::getEffectiveStartDate, today)
+            .le(EmployeeAssignmentEntity::getEffectiveStartDate, date)
             .and(w -> w.isNull(EmployeeAssignmentEntity::getEffectiveEndDate)
-                .or().ge(EmployeeAssignmentEntity::getEffectiveEndDate, today))
+                .or().ge(EmployeeAssignmentEntity::getEffectiveEndDate, date))
             .orderByDesc(EmployeeAssignmentEntity::getEffectiveStartDate)
             .last("LIMIT 1")
     );
     return list.isEmpty() ? null : list.get(0);
+  }
+
+  public EmployeeAssignmentEntity findCurrentPrimaryAssignment(long employeeId) {
+    return findPrimaryAssignmentAsOf(employeeId, LocalDate.now());
   }
 
   public Map<Long, EmployeeAssignmentEntity> primaryAssignmentMap(List<Long> employeeIds) {
@@ -485,6 +715,14 @@ public class EmployeeService {
 
   public String displayMobile(EmployeeEntity e, boolean revealSensitive) {
     String plain = fieldCryptoService.decrypt(e.getMobile());
+    if (revealSensitive && canViewSensitive()) {
+      return plain;
+    }
+    return fieldCryptoService.maskMobile(plain);
+  }
+
+  public String displayMobileEncrypted(String encryptedMobile, boolean revealSensitive) {
+    String plain = fieldCryptoService.decrypt(encryptedMobile);
     if (revealSensitive && canViewSensitive()) {
       return plain;
     }
@@ -568,7 +806,9 @@ public class EmployeeService {
       LocalDate assignmentEffectiveStartDate
   ) {}
 
-  public record UpdateCommand(
+  public record MasterUpdateCommand(
+      String editMode,
+      LocalDate effectiveStartDate,
       String fullName,
       String gender,
       String mobile,

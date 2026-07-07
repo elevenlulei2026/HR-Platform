@@ -3,10 +3,11 @@ import type {
   EmployeeArchive,
   EmployeeAssignment,
   EmployeeFormOptions,
+  EmployeeMasterVersion,
   EmployeeMovement,
   OrganizationTreeNode,
 } from "@shared/api.interface";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { EmployeeMovementTimeline } from "@/components/admin/employee-archive/EmployeeMovementTimeline";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -14,6 +15,7 @@ import {
   Baby,
   Building2,
   Calendar,
+  CalendarClock,
   CalendarDays,
   Flag,
   GraduationCap,
@@ -28,6 +30,7 @@ import {
   PencilLine,
   Phone,
   PhoneCall,
+  History,
   Shield,
   Smartphone,
   Sparkles,
@@ -71,10 +74,12 @@ import { ArchiveMultiSection } from "@/components/admin/employee-archive/Archive
 import { ArchiveSectionAnchor } from "@/components/admin/employee-archive/ArchiveSectionAnchor";
 import { AssignmentSection } from "@/components/admin/employee-archive/AssignmentSection";
 import { PanelCard, PanelLoading } from "@/components/admin/page-shell";
+import { listEmployeeMasterVersions } from "@/api/employee";
 import { employeeStatusLabel, statusBadgeClass } from "@/api/employee";
 import { EmployeeAvatar } from "@/components/admin/employee-archive/EmployeeAvatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { SheetFooter, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { useScrollSpy } from "@/hooks/useScrollSpy";
 import { cn } from "@/lib/utils";
@@ -171,6 +176,9 @@ function MasterSubSection({
 
 type EmployeeArchiveDetailViewProps = {
   employee: Employee;
+  asOfDate: string;
+  /** 主档版本变更后触发刷新（用于“新增生效版本”即时可见） */
+  masterVersionsRefreshSeq?: number;
   archive: EmployeeArchive | null;
   assignments: EmployeeAssignment[];
   movements: EmployeeMovement[];
@@ -180,12 +188,85 @@ type EmployeeArchiveDetailViewProps = {
   archiveDictOptions?: EmployeeFormOptions | null;
   onClose: () => void;
   onEditMaster: () => void;
+  onAsOfDateChange: (next: string) => Promise<void> | void;
   onArchiveChanged: () => void;
   onAssignmentsChanged: () => Promise<void>;
 };
 
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function temporalHint(asOfDate: string) {
+  const today = todayStr();
+  if (asOfDate < today) return { label: "历史快照", variant: "secondary" as const };
+  if (asOfDate > today) return { label: "未来预览", variant: "outline" as const };
+  return { label: "当前生效", variant: "default" as const };
+}
+
+function VersionTimeline({
+  versions,
+  activeId,
+  onSelect,
+}: {
+  versions: EmployeeMasterVersion[];
+  activeId?: string;
+  onSelect: (version: EmployeeMasterVersion) => void;
+}) {
+  if (versions.length === 0) return null;
+  return (
+    <div className="mb-3 rounded-lg border border-border/60 bg-muted/15 p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+          <History className="size-3.5" />
+          生效版本
+          <Badge variant="secondary" className="h-4 px-1.5 text-[10px] font-normal">
+            {versions.length} 个
+          </Badge>
+        </div>
+        <span className="text-[10px] text-muted-foreground">点击切换查看快照</span>
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-0.5">
+        {versions.map((v) => {
+          const isActive = v.id === activeId;
+          return (
+            <button
+              key={v.id}
+              type="button"
+              onClick={() => onSelect(v)}
+              className={cn(
+                "flex min-w-[148px] shrink-0 flex-col gap-1 rounded-md border px-2.5 py-2 text-left transition-all",
+                "hover:border-primary/40 hover:bg-background",
+                isActive ? "border-primary/50 bg-primary/5 shadow-sm" : "border-border/50 bg-background/50",
+              )}
+            >
+              <div className="flex items-center justify-between gap-1">
+                <span className="font-mono text-[11px] font-semibold tabular-nums text-foreground">
+                  {v.effectiveStartDate}
+                </span>
+                <Badge
+                  variant={v.temporal === "present" ? "default" : v.temporal === "future" ? "outline" : "secondary"}
+                  className="h-4 px-1 text-[9px] font-normal"
+                >
+                  {v.temporalLabel}
+                </Badge>
+              </div>
+              <div className="truncate text-[10px] text-muted-foreground">
+                {v.effectiveEndDate ? `至 ${v.effectiveEndDate}` : "至今"}
+                {v.isOpen ? " · 开放" : ""}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function EmployeeArchiveDetailView({
   employee,
+  asOfDate,
+  masterVersionsRefreshSeq,
   archive,
   assignments,
   movements,
@@ -195,6 +276,7 @@ export function EmployeeArchiveDetailView({
   archiveDictOptions,
   onClose,
   onEditMaster,
+  onAsOfDateChange,
   onArchiveChanged,
   onAssignmentsChanged,
 }: EmployeeArchiveDetailViewProps) {
@@ -204,6 +286,38 @@ export function EmployeeArchiveDetailView({
     scrollPadding: 8,
   });
   const activeCategoryId = findCategoryBySection(activeSectionId);
+  const temporal = useMemo(() => temporalHint(asOfDate), [asOfDate]);
+
+  const [versions, setVersions] = useState<EmployeeMasterVersion[]>([]);
+  const [versionsLoading, setVersionsLoading] = useState(false);
+
+  const activeVersionId = useMemo(() => {
+    const date = asOfDate;
+    const hit = versions.find((v) => {
+      if (v.effectiveStartDate > date) return false;
+      if (!v.effectiveEndDate) return true;
+      return v.effectiveEndDate >= date;
+    });
+    return hit?.id;
+  }, [asOfDate, versions]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setVersionsLoading(true);
+    void (async () => {
+      try {
+        const res = await listEmployeeMasterVersions(employee.id);
+        if (!cancelled) setVersions(res.data);
+      } catch {
+        if (!cancelled) setVersions([]);
+      } finally {
+        if (!cancelled) setVersionsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [employee.id, masterVersionsRefreshSeq]);
 
   const sectionDictOptions = useMemo(
     () =>
@@ -257,7 +371,7 @@ export function EmployeeArchiveDetailView({
   return (
     <>
       <SheetHeader className="shrink-0 border-b px-5 py-3 text-left">
-        <div className="flex items-start gap-3 pr-8">
+        <div className="flex flex-wrap items-start gap-3 pr-8">
           <EmployeeAvatar
             employeeId={employee.id}
             fullName={employee.fullName}
@@ -289,6 +403,12 @@ export function EmployeeArchiveDetailView({
               {employee.hireDate ? (
                 <span className="text-xs text-muted-foreground">入职 {employee.hireDate}</span>
               ) : null}
+              {employee.effectiveStartDate ? (
+                <span className="text-xs text-muted-foreground">
+                  · 主档生效 {employee.effectiveStartDate}
+                  {employee.effectiveEndDate ? ` 至 ${employee.effectiveEndDate}` : " · 至今"}
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
@@ -312,15 +432,46 @@ export function EmployeeArchiveDetailView({
                 <PanelCard
                   title="个人主档"
                   toolbar={
-                    canEdit ? (
-                      <Button size="sm" variant="outline" onClick={onEditMaster}>
-                        <PencilLine className="size-3.5" />
-                        编辑主档
-                      </Button>
-                    ) : null
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant={temporal.variant} className="gap-1">
+                        <CalendarClock className="size-3" />
+                        {temporal.label}
+                      </Badge>
+                      <Input
+                        type="date"
+                        value={asOfDate}
+                        onChange={(e) => void onAsOfDateChange(e.target.value)}
+                        className="h-8 w-[150px]"
+                      />
+                      {asOfDate !== todayStr() ? (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs"
+                          onClick={() => void onAsOfDateChange(todayStr())}
+                        >
+                          回到今天
+                        </Button>
+                      ) : null}
+                      {canEdit ? (
+                        <Button size="sm" variant="outline" onClick={onEditMaster}>
+                          <PencilLine className="size-3.5" />
+                          编辑主档
+                        </Button>
+                      ) : null}
+                    </div>
                   }
                 >
                   <div className="space-y-3 p-3">
+                    {versionsLoading ? (
+                      <div className="h-16 animate-pulse rounded-lg bg-muted/30" />
+                    ) : (
+                      <VersionTimeline
+                        versions={versions}
+                        activeId={activeVersionId}
+                        onSelect={(v) => void onAsOfDateChange(v.effectiveStartDate)}
+                      />
+                    )}
                     <MasterSubSection icon={User} title="基础信息">
                         <InfoRow label="姓名" value={employee.fullName} />
                         <InfoRow label="工号" value={employee.employeeNo} mono />

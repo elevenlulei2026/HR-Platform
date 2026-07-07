@@ -129,9 +129,16 @@ export function employeeFormFromEmployee(employee: Employee): EmployeeForm {
 /** 个人主档可编辑字段 → 更新请求（与 EmployeeMasterFormBody 字段一一对应） */
 export function buildEmployeeUpdatePayload(
   form: EmployeeForm,
-  options?: { skipMaskedMobile?: boolean; originalMobile?: string },
+  options?: {
+    skipMaskedMobile?: boolean;
+    originalMobile?: string;
+    editMode?: EmployeeUpdateRequest["editMode"];
+    effectiveStartDate?: string;
+  },
 ): EmployeeUpdateRequest {
   const payload: EmployeeUpdateRequest = {
+    editMode: options?.editMode,
+    effectiveStartDate: options?.effectiveStartDate,
     fullName: form.fullName.trim(),
     gender: form.gender,
     companyEmail: form.companyEmail || undefined,
@@ -180,7 +187,40 @@ export function buildEmployeeUpdatePayload(
 /** 新建员工：在更新 payload 基础上强制附带手机号 */
 export function buildEmployeeCreatePayload(form: EmployeeForm): EmployeeCreateRequest {
   return {
-    ...buildEmployeeUpdatePayload(form),
+    fullName: form.fullName.trim(),
+    gender: form.gender,
     mobile: form.mobile.trim(),
+    companyEmail: form.companyEmail || undefined,
+    personalEmail: form.personalEmail || undefined,
+    adAccount: form.adAccount || undefined,
+    maritalStatus: form.maritalStatus || undefined,
+    politicalAffiliation: form.politicalAffiliation || undefined,
+    highestEducation: form.highestEducation || undefined,
+    highestEducationGradDate: form.highestEducationGradDate || undefined,
+    fertilityStatus: form.fertilityStatus || undefined,
+    ethnicity: form.ethnicity || undefined,
+    hobbies: form.hobbies || undefined,
+    nationality: form.nationality || undefined,
+    householdType: form.householdType || undefined,
+    householdLocation: form.householdLocation || undefined,
+    partyOrgTransferred:
+      form.partyOrgTransferred === ""
+        ? undefined
+        : form.partyOrgTransferred === "true",
+    workStartDate: form.workStartDate || undefined,
+    wechat: form.wechat || undefined,
+    officePhone: form.officePhone || undefined,
+    officeExtension: form.officeExtension || undefined,
+    homePhone: form.homePhone || undefined,
+    idCardAddress: form.idCardAddress || undefined,
+    residenceAddress: form.residenceAddress || undefined,
+    emergencyContactName: form.emergencyContactName || undefined,
+    emergencyContactPhone: form.emergencyContactPhone || undefined,
+    emergencyContactRelation: form.emergencyContactRelation || undefined,
+    recruitmentChannel: form.recruitmentChannel || undefined,
+    recruitmentChannelDetail: form.recruitmentChannelDetail || undefined,
+    groupSeniorityStartDate: form.groupSeniorityStartDate || undefined,
+    hireDate: form.hireDate,
+    status: form.status,
   };
 }

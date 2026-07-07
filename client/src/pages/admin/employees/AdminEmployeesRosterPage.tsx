@@ -24,6 +24,7 @@ import {
   employeeStatusLabel,
   exportEmployees,
   getEmployee,
+  getEmployeeSnapshot,
   getEmployeeFormOptions,
   importEmployees,
   listEmployeeAssignments,
@@ -51,7 +52,7 @@ import {
   employeeFormFromEmployee,
   emptyEmployeeForm,
 } from "@/components/admin/employee-archive/employee-master-form";
-import { FormField } from "@/components/admin/form-field";
+import { FormField, OptionToggle } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
 import {
   NoPermissionCard,
@@ -66,6 +67,7 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Sheet,
   SheetContent,
@@ -83,6 +85,8 @@ type SheetMode =
   | { type: "closed" }
   | { type: "view"; employee: Employee }
   | { type: "new" };
+
+type MasterEditMode = "CURRENT" | "NEW_VERSION";
 
 function toApiError(e: unknown): ApiError {
   if (
@@ -105,6 +109,10 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+function todayStr() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 export function AdminEmployeesRosterPage() {
   const perm = usePermission();
   const canView = perm.has("employee:roster:view");
@@ -120,8 +128,12 @@ export function AdminEmployeesRosterPage() {
   const [orgs, setOrgs] = useState<OrganizationTreeNode[]>([]);
   const [formOptions, setFormOptions] = useState<EmployeeFormOptions | null>(null);
   const [sheet, setSheet] = useState<SheetMode>({ type: "closed" });
+  const [detailAsOfDate, setDetailAsOfDate] = useState(todayStr());
+  const [masterVersionsRefreshSeq, setMasterVersionsRefreshSeq] = useState(0);
   const [masterEditOpen, setMasterEditOpen] = useState(false);
   const [masterEditEmployee, setMasterEditEmployee] = useState<Employee | null>(null);
+  const [masterEditMode, setMasterEditMode] = useState<MasterEditMode>("CURRENT");
+  const [masterEffectiveStartDate, setMasterEffectiveStartDate] = useState(todayStr());
   const [form, setForm] = useState(emptyEmployeeForm());
   const [saving, setSaving] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -225,10 +237,13 @@ export function AdminEmployeesRosterPage() {
   }, [debouncedKeyword, statusFilter, orgFilter]);
 
   const openView = async (employee: Employee) => {
+    // 永远默认选中“当前有效”（今天）版本
+    const today = todayStr();
+    setDetailAsOfDate(today);
     setSheet({ type: "view", employee });
     void loadDetailTabs(employee.id);
     try {
-      const res = await getEmployee(employee.id);
+      const res = await getEmployeeSnapshot(employee.id, { asOfDate: today });
       setSheet({ type: "view", employee: res.data });
     } catch {
       // 列表数据兜底展示
@@ -250,6 +265,8 @@ export function AdminEmployeesRosterPage() {
     }
     setForm(employeeFormFromEmployee(data));
     setMasterEditEmployee(data);
+    setMasterEditMode("CURRENT");
+    setMasterEffectiveStartDate(data.effectiveStartDate ?? todayStr());
     setMasterEditOpen(true);
   };
 
@@ -286,6 +303,16 @@ export function AdminEmployeesRosterPage() {
       toast.error("请填写姓名");
       return;
     }
+    if (masterEditMode === "NEW_VERSION") {
+      if (!masterEffectiveStartDate) {
+        toast.error("请选择新版本生效日期");
+        return;
+      }
+      if (masterEffectiveStartDate === (masterEditEmployee.effectiveStartDate ?? "")) {
+        toast.error("新版本须使用不同的生效日期");
+        return;
+      }
+    }
 
     setSaving(true);
     try {
@@ -294,12 +321,26 @@ export function AdminEmployeesRosterPage() {
         buildEmployeeUpdatePayload(form, {
           skipMaskedMobile: masterEditEmployee.mobileMasked,
           originalMobile: masterEditEmployee.mobile,
+          editMode: masterEditMode,
+          effectiveStartDate: masterEditMode === "NEW_VERSION" ? masterEffectiveStartDate : undefined,
         }),
       );
       setMasterEditOpen(false);
       setMasterEditEmployee(null);
       if (sheet.type === "view" && sheet.employee.id === updated.data.id) {
         setSheet({ type: "view", employee: updated.data });
+      }
+      // 保存成功后立即刷新“个人主档”的版本时间线与快照（无需关闭重开）
+      setMasterVersionsRefreshSeq((prev) => prev + 1);
+      if (sheet.type === "view" && sheet.employee.id === updated.data.id) {
+        const today = todayStr();
+        setDetailAsOfDate(today);
+        try {
+          const res = await getEmployeeSnapshot(sheet.employee.id, { asOfDate: today });
+          setSheet({ type: "view", employee: res.data });
+        } catch {
+          // 失败时保留 updated.data 作为兜底
+        }
       }
       toast.success("员工已更新");
       void load();
@@ -580,6 +621,8 @@ export function AdminEmployeesRosterPage() {
           {sheet.type === "view" ? (
             <EmployeeArchiveDetailView
               employee={sheet.employee}
+              asOfDate={detailAsOfDate}
+              masterVersionsRefreshSeq={masterVersionsRefreshSeq}
               archive={archive}
               assignments={assignments}
               movements={movements}
@@ -589,6 +632,16 @@ export function AdminEmployeesRosterPage() {
               archiveDictOptions={formOptions}
               onClose={() => setSheet({ type: "closed" })}
               onEditMaster={() => void openMasterEdit(sheet.employee)}
+              onAsOfDateChange={async (next) => {
+                setDetailAsOfDate(next);
+                try {
+                  const res = await getEmployeeSnapshot(sheet.employee.id, { asOfDate: next });
+                  setSheet({ type: "view", employee: res.data });
+                } catch (e: unknown) {
+                  const err = toApiError(e);
+                  toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
+                }
+              }}
               onArchiveChanged={() => void loadArchiveOnly(sheet.employee.id)}
               onAssignmentsChanged={async () => {
                 await reloadAssignments(sheet.employee.id);
@@ -626,6 +679,40 @@ export function AdminEmployeesRosterPage() {
         saving={saving}
         onSave={() => void saveMasterEdit()}
       >
+        <div className="space-y-4">
+          <div className="rounded-xl border bg-muted/10 p-4">
+            <div className="mb-3 text-xs font-semibold tracking-tight text-foreground">版本</div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <FormField label="编辑方式" required>
+                <OptionToggle
+                  value={masterEditMode}
+                  onChange={(v) => {
+                    setMasterEditMode(v as MasterEditMode);
+                    if (v === "CURRENT") {
+                      setMasterEffectiveStartDate(masterEditEmployee?.effectiveStartDate ?? todayStr());
+                    }
+                  }}
+                  options={[
+                    { id: "CURRENT" as const, label: "修改当前版本" },
+                    { id: "NEW_VERSION" as const, label: "新增生效版本" },
+                  ]}
+                />
+              </FormField>
+              <FormField
+                label="生效日期"
+                required
+                hint={masterEditMode === "CURRENT" ? "修改当前版本时生效日期不可变更" : undefined}
+              >
+                <Input
+                  type="date"
+                  value={masterEffectiveStartDate}
+                  disabled={masterEditMode === "CURRENT"}
+                  onChange={(e) => setMasterEffectiveStartDate(e.target.value)}
+                />
+              </FormField>
+            </div>
+          </div>
+
         <EmployeeMasterFormBody
           mode="edit"
           form={form}
@@ -633,6 +720,7 @@ export function AdminEmployeesRosterPage() {
           employee={masterEditEmployee ?? undefined}
           dictOptions={formOptions}
         />
+        </div>
       </ArchiveFormDialog>
 
       <ConfirmDialog
