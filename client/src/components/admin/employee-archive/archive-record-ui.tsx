@@ -28,7 +28,7 @@ export function ArchiveAddButton({
 
 /** 档案记录列表容器 */
 export function ArchiveRecordList({ children }: { children: ReactNode }) {
-  return <div className="space-y-2.5 p-3">{children}</div>;
+  return <div className="space-y-2 p-2.5">{children}</div>;
 }
 
 type ArchiveRecordCardProps = {
@@ -65,15 +65,15 @@ export function ArchiveRecordCard({
       )}
     >
       {index !== undefined ? (
-        <div className="flex w-10 shrink-0 flex-col items-center pt-3.5 pl-3">
-          <span className="flex size-6 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold tabular-nums text-primary ring-1 ring-primary/15">
+        <div className="flex w-8 shrink-0 flex-col items-center pt-2.5 pl-2.5">
+          <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold tabular-nums text-primary ring-1 ring-primary/15">
             {index}
           </span>
         </div>
       ) : null}
-      <div className="min-w-0 flex-1 py-3 pr-1">{children}</div>
+      <div className="min-w-0 flex-1 py-2 pr-1">{children}</div>
       {actions ? (
-        <div className="flex shrink-0 items-center gap-0.5 py-2.5 pr-2.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+        <div className="flex shrink-0 items-center gap-0.5 py-2 pr-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
           {actions}
         </div>
       ) : null}
@@ -81,11 +81,9 @@ export function ArchiveRecordCard({
   );
 }
 
-/** 记录字段网格 */
+/** 记录字段网格（详情抽屉内一行四列） */
 export function ArchiveRecordFieldGrid({ children }: { children: ReactNode }) {
-  return (
-    <div className="grid gap-1.5 sm:grid-cols-2 xl:grid-cols-3">{children}</div>
-  );
+  return <div className="grid grid-cols-4 gap-1">{children}</div>;
 }
 
 export function ArchiveRecordField({
@@ -94,29 +92,32 @@ export function ArchiveRecordField({
   masked,
   mono,
   highlight,
+  icon: Icon,
 }: {
   label: string;
   value?: string | null;
   masked?: boolean;
   mono?: boolean;
   highlight?: boolean;
+  icon?: LucideIcon;
 }) {
   return (
     <div
       className={cn(
-        "rounded-lg px-2.5 py-2 transition-colors",
+        "rounded-md px-2 py-1.5 transition-colors",
         highlight
           ? "bg-primary/5 ring-1 ring-primary/10"
-          : "bg-muted/25 hover:bg-muted/40",
+          : "bg-muted/20 hover:bg-muted/35",
       )}
     >
-      <div className="text-[10px] font-medium tracking-wide text-muted-foreground uppercase">
-        {label}
+      <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+        {Icon ? <Icon className="size-2.5 shrink-0 opacity-55" /> : null}
+        <span className="truncate">{label}</span>
       </div>
       <div
         className={cn(
-          "mt-0.5 text-sm leading-snug font-medium text-foreground",
-          mono && "font-mono text-[13px]",
+          "mt-0.5 text-[13px] leading-tight font-medium text-foreground",
+          mono && "font-mono text-xs",
           !value && "text-muted-foreground/70",
         )}
       >

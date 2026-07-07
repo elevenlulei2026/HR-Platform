@@ -243,7 +243,7 @@ export function ArchiveAttachmentSection({
             : `共 ${uploadedCount} 项附件`
         }
       >
-        <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-5 gap-2 p-2.5">
           {ATTACHMENT_TYPE_CATALOG.map((typeDef) => {
             const files = grouped.get(typeDef.value) ?? [];
             const hasFiles = files.length > 0;
@@ -254,12 +254,12 @@ export function ArchiveAttachmentSection({
               <div
                 key={typeDef.value}
                 className={cn(
-                  "group relative overflow-hidden rounded-xl border bg-gradient-to-br to-background shadow-sm transition-all duration-200",
+                  "group relative overflow-hidden rounded-lg border bg-gradient-to-br to-background shadow-sm transition-all duration-200",
                   hasFiles
                     ? "border-border/60"
                     : "border-dashed border-border/70 bg-muted/10",
                   typeDef.wash,
-                  canEdit && !isUploading && "cursor-pointer hover:border-border hover:shadow-md",
+                  canEdit && !isUploading && "cursor-pointer hover:border-border hover:shadow",
                   isUploading && "pointer-events-none opacity-70",
                 )}
                 role={canEdit ? "button" : undefined}
@@ -276,88 +276,80 @@ export function ArchiveAttachmentSection({
                 }}
               >
                 {/* 类型标题 */}
-                <div className="flex items-center gap-2.5 border-b border-border/40 px-3.5 py-2.5">
+                <div className="flex items-center gap-1.5 border-b border-border/40 px-2 py-1.5">
                   <div
                     className={cn(
-                      "flex size-8 shrink-0 items-center justify-center rounded-lg ring-1",
+                      "flex size-6 shrink-0 items-center justify-center rounded-md ring-1",
                       typeDef.accent,
                       typeDef.ring,
                       "bg-background/80",
                     )}
                   >
-                    <Icon className="size-4" strokeWidth={2} />
+                    <Icon className="size-3" strokeWidth={2} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-semibold tracking-tight">{typeDef.label}</div>
-                    <div className="font-mono text-[10px] text-muted-foreground">{typeDef.value}</div>
+                    <div className="truncate text-xs font-semibold leading-tight">{typeDef.label}</div>
                   </div>
                   {hasFiles ? (
-                    <Badge variant="secondary" className="shrink-0 tabular-nums">
+                    <Badge variant="secondary" className="h-4 shrink-0 px-1 text-[10px] tabular-nums">
                       {files.length}
                     </Badge>
                   ) : (
-                    <Badge
-                      variant="outline"
-                      className="shrink-0 border-dashed text-[10px] text-muted-foreground"
-                    >
-                      未上传
-                    </Badge>
+                    <span className="shrink-0 text-[10px] text-muted-foreground/70">—</span>
                   )}
                 </div>
 
                 {/* 文件列表 / 空态 */}
-                <div className="space-y-1.5 px-3.5 py-3">
+                <div className="space-y-1 px-2 py-1.5">
                   {hasFiles ? (
                     files.map((file) => (
                       <div
                         key={file.id}
-                        className="flex items-center gap-2 rounded-lg bg-background/60 px-2.5 py-2 ring-1 ring-border/40"
+                        className="flex items-center gap-1 rounded-md bg-background/60 px-1.5 py-1 ring-1 ring-border/35"
                         onClick={(e) => e.stopPropagation()}
                       >
-                        <FileUp className="size-3.5 shrink-0 text-muted-foreground" />
+                        <FileUp className="size-2.5 shrink-0 text-muted-foreground" />
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-xs font-medium">
-                            {file.originalFilename ?? "未命名文件"}
+                          <div className="truncate text-[11px] font-medium leading-tight">
+                            {file.originalFilename ?? "未命名"}
                           </div>
-                          <div className="font-mono text-[10px] text-muted-foreground">
-                            {file.uploadedAt?.slice(0, 19).replace("T", " ") ?? "—"}
+                          <div className="truncate font-mono text-[9px] text-muted-foreground">
+                            {file.uploadedAt?.slice(0, 10) ?? "—"}
                           </div>
                         </div>
-                        <div className="flex shrink-0 gap-0.5">
+                        <div className="flex shrink-0">
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            className="size-7"
+                            className="size-6"
                             title="下载"
                             onClick={() => void download(file)}
                           >
-                            <Download className="size-3.5" />
+                            <Download className="size-3" />
                           </Button>
                           {canEdit ? (
                             <Button
                               variant="ghost"
                               size="icon-sm"
-                              className="size-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                              className="size-6 text-destructive hover:bg-destructive/10 hover:text-destructive"
                               title="删除"
                               onClick={() => setDeleteTarget(file)}
                             >
-                              <Trash2 className="size-3.5" />
+                              <Trash2 className="size-3" />
                             </Button>
                           ) : null}
                         </div>
                       </div>
                     ))
                   ) : (
-                    <div className="flex flex-col items-center justify-center gap-2 py-4 text-center">
-                      <div className="flex size-10 items-center justify-center rounded-full bg-muted/40 ring-1 ring-border/50">
-                        {isUploading ? (
-                          <Upload className="size-4 animate-pulse text-muted-foreground" />
-                        ) : (
-                          <Upload className="size-4 text-muted-foreground/60" />
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        {isUploading ? "上传中…" : canEdit ? "点击上传" : "暂无文件"}
+                    <div className="flex flex-col items-center justify-center gap-1 py-2 text-center">
+                      {isUploading ? (
+                        <Upload className="size-3.5 animate-pulse text-muted-foreground" />
+                      ) : (
+                        <Upload className="size-3.5 text-muted-foreground/50" />
+                      )}
+                      <p className="text-[10px] text-muted-foreground">
+                        {isUploading ? "上传中…" : canEdit ? "点击上传" : "暂无"}
                       </p>
                     </div>
                   )}
@@ -365,13 +357,13 @@ export function ArchiveAttachmentSection({
                   {hasFiles && canEdit ? (
                     <button
                       type="button"
-                      className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-border/60 py-1.5 text-[11px] text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
+                      className="flex w-full items-center justify-center gap-1 rounded border border-dashed border-border/50 py-0.5 text-[10px] text-muted-foreground transition-colors hover:border-primary/40 hover:bg-primary/5 hover:text-primary"
                       onClick={(e) => {
                         e.stopPropagation();
                         triggerUpload(typeDef.value);
                       }}
                     >
-                      <Upload className="size-3" />
+                      <Upload className="size-2.5" />
                       继续上传
                     </button>
                   ) : null}

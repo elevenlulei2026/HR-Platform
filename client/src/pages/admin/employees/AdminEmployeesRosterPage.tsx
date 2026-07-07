@@ -710,7 +710,7 @@ export function AdminEmployeesRosterPage() {
           className={cn(
             "gap-0 p-0",
             (sheet.type === "view" || sheet.type === "new") &&
-              "data-[side=right]:max-w-[min(1260px,100vw)]",
+              "data-[side=right]:max-w-[min(1512px,100vw)]",
           )}
         >
           {sheet.type === "view" ? (

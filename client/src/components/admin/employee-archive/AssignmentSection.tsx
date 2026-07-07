@@ -646,9 +646,9 @@ export function AssignmentSection({
                   ) : null
                 }
               >
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <div className="flex size-7 items-center justify-center rounded-md bg-sky-500/10 text-sky-600 ring-1 ring-sky-500/20 dark:text-sky-400">
-                    <Briefcase className="size-3.5" />
+                <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                  <div className="flex size-6 items-center justify-center rounded-md bg-sky-500/10 text-sky-600 ring-1 ring-sky-500/20 dark:text-sky-400">
+                    <Briefcase className="size-3" />
                   </div>
                   <span className="text-sm font-semibold tracking-tight">
                     {assignment.organizationName ?? "—"} · {assignment.positionName ?? "—"}

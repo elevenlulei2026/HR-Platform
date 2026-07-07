@@ -5,9 +5,35 @@ import type {
   EmployeeMovement,
   OrganizationTreeNode,
 } from "@shared/api.interface";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef } from "react";
 import { EmployeeMovementTimeline } from "@/components/admin/employee-archive/EmployeeMovementTimeline";
-import { PencilLine, Shield, UserRound } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+import {
+  AtSign,
+  Baby,
+  Building2,
+  Calendar,
+  CalendarDays,
+  Flag,
+  GraduationCap,
+  Hash,
+  HeartHandshake,
+  Home,
+  IdCard,
+  Mail,
+  MapPin,
+  MessageCircle,
+  PencilLine,
+  Phone,
+  PhoneCall,
+  Shield,
+  Smartphone,
+  Sparkles,
+  User,
+  UserRound,
+  Users,
+} from "lucide-react";
+import type { ReactNode } from "react";
 
 import {
   BACKGROUND_EDUCATION_FIELDS,
@@ -39,6 +65,7 @@ import {
   findCategoryBySection,
 } from "@/components/admin/employee-archive/archive-section-nav";
 import { ArchiveAttachmentSection } from "@/components/admin/employee-archive/ArchiveAttachmentSection";
+import { ArchiveDetailNav } from "@/components/admin/employee-archive/ArchiveDetailNav";
 import { ArchiveMultiSection } from "@/components/admin/employee-archive/ArchiveMultiSection";
 import { ArchiveSectionAnchor } from "@/components/admin/employee-archive/ArchiveSectionAnchor";
 import { AssignmentSection } from "@/components/admin/employee-archive/AssignmentSection";
@@ -51,31 +78,89 @@ import { SheetFooter, SheetHeader, SheetTitle, SheetDescription } from "@/compon
 import { useScrollSpy } from "@/hooks/useScrollSpy";
 import { cn } from "@/lib/utils";
 
+const FIELD_ICONS: Record<string, LucideIcon> = {
+  姓名: User,
+  工号: Hash,
+  "AD 账号": AtSign,
+  性别: Users,
+  婚姻状况: HeartHandshake,
+  政治面貌: Flag,
+  最高学历: GraduationCap,
+  最高学历毕业时间: Calendar,
+  生育状况: Baby,
+  民族: Users,
+  国籍: Flag,
+  户口类别: IdCard,
+  户口所在地: MapPin,
+  兴趣爱好: Sparkles,
+  党组织关系转入: Building2,
+  参加工作日期: CalendarDays,
+  入职日期: Calendar,
+  手机号: Smartphone,
+  公司邮箱: Mail,
+  个人邮箱: Mail,
+  微信: MessageCircle,
+  座机: Phone,
+  分机: PhoneCall,
+  家庭电话: Phone,
+  身份证地址: MapPin,
+  居住地地址: Home,
+  紧急联系人: User,
+  紧急联系人电话: Smartphone,
+  与员工关系: Users,
+};
+
 function InfoRow({
   label,
   value,
   masked,
   mono,
+  icon,
 }: {
   label: string;
   value?: string | null;
   masked?: boolean;
   mono?: boolean;
+  icon?: LucideIcon;
 }) {
+  const Icon = icon ?? FIELD_ICONS[label];
   return (
-    <div className="rounded-lg border border-transparent bg-muted/20 px-3 py-2.5 transition-colors hover:border-border/60 hover:bg-muted/35">
-      <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
+    <div className="group rounded-md border border-border/25 bg-muted/15 px-2.5 py-1.5 transition-colors hover:border-border/45 hover:bg-muted/28">
+      <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+        {Icon ? <Icon className="size-2.5 shrink-0 opacity-55" /> : null}
+        <span className="truncate">{label}</span>
       </div>
-      <div className={cn("mt-1 text-sm font-medium", mono && "font-mono text-[13px]")}>
+      <div className={cn("mt-0.5 text-[13px] leading-tight font-medium", mono && "font-mono text-xs")}>
         {value || "—"}
         {masked ? (
-          <Badge variant="outline" className="ml-2 h-4 px-1 text-[10px] font-normal">
+          <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[10px] font-normal">
             <Shield className="mr-0.5 size-2.5" />
             脱敏
           </Badge>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function MasterSubSection({
+  icon: Icon,
+  title,
+  children,
+}: {
+  icon: LucideIcon;
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2 border-b border-border/40 pb-1.5">
+        <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-primary/15">
+          <Icon className="size-3.5" />
+        </div>
+        <p className="text-xs font-semibold tracking-tight text-foreground">{title}</p>
+      </div>
+      <div className="grid grid-cols-4 gap-1">{children}</div>
     </div>
   );
 }
@@ -108,15 +193,11 @@ export function EmployeeArchiveDetailView({
   onAssignmentsChanged,
 }: EmployeeArchiveDetailViewProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { activeSectionId, scrollTo } = useScrollSpy(ALL_ARCHIVE_SECTION_IDS, scrollRef);
+  const { activeSectionId, scrollTo } = useScrollSpy(ALL_ARCHIVE_SECTION_IDS, scrollRef, {
+    probeOffset: 24,
+    scrollPadding: 8,
+  });
   const activeCategoryId = findCategoryBySection(activeSectionId);
-  const [navLockedCategory, setNavLockedCategory] = useState<string | null>(null);
-
-  const displayCategoryId = navLockedCategory ?? activeCategoryId;
-  const secondarySections = useMemo(
-    () => ARCHIVE_NAV.find((c) => c.id === displayCategoryId)?.sections ?? [],
-    [displayCategoryId],
-  );
 
   const sectionCounts = useMemo(() => {
     if (!archive) return {} as Record<string, number>;
@@ -152,29 +233,21 @@ export function EmployeeArchiveDetailView({
   const jumpToCategory = (categoryId: string) => {
     const cat = ARCHIVE_NAV.find((c) => c.id === categoryId);
     const first = cat?.sections[0]?.id;
-    if (first) {
-      setNavLockedCategory(categoryId);
-      scrollTo(first);
-      setTimeout(() => setNavLockedCategory(null), 800);
-    }
-  };
-
-  const jumpToSection = (sectionId: string) => {
-    scrollTo(sectionId);
+    if (first) scrollTo(first);
   };
 
   return (
     <>
-      <SheetHeader className="shrink-0 border-b px-6 py-4 text-left">
-        <div className="flex items-start gap-4 pr-8">
-          <Avatar className="size-14 ring-2 ring-primary/15">
+      <SheetHeader className="shrink-0 border-b px-5 py-3 text-left">
+        <div className="flex items-start gap-3 pr-8">
+          <Avatar className="size-12 ring-2 ring-primary/15">
             <AvatarFallback className="bg-primary/10 text-base font-semibold text-primary">
               {employee.fullName.slice(0, 1) || <UserRound className="size-5" />}
             </AvatarFallback>
           </Avatar>
           <div className="min-w-0 flex-1">
-            <SheetTitle className="text-xl tracking-tight">{employee.fullName}</SheetTitle>
-            <SheetDescription className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs">
+            <SheetTitle className="text-lg tracking-tight">{employee.fullName}</SheetTitle>
+            <SheetDescription className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-xs">
               <span>{employee.employeeNo}</span>
               {employee.primaryOrganizationName ? (
                 <>
@@ -189,7 +262,7 @@ export function EmployeeArchiveDetailView({
                 </>
               ) : null}
             </SheetDescription>
-            <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className={cn(statusBadgeClass(employee.status))}>
                 {employee.statusLabel ?? employeeStatusLabel(employee.status)}
               </Badge>
@@ -201,64 +274,16 @@ export function EmployeeArchiveDetailView({
         </div>
       </SheetHeader>
 
-      {/* 双级粘性导航 */}
-      <div
-        className="sticky top-0 z-10 shrink-0 border-b bg-background/95 backdrop-blur-md supports-[backdrop-filter]:bg-background/80"
-        style={{ ["--archive-nav-offset" as string]: "9.75rem" }}
-      >
-        <div className="flex gap-1 overflow-x-auto px-4 pt-2.5 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {ARCHIVE_NAV.map((cat) => (
-            <button
-              key={cat.id}
-              type="button"
-              onClick={() => jumpToCategory(cat.id)}
-              className={cn(
-                "shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                displayCategoryId === cat.id
-                  ? "bg-primary text-primary-foreground shadow-sm"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
-              )}
-            >
-              {cat.label}
-            </button>
-          ))}
-        </div>
-        <div className="flex gap-1 overflow-x-auto border-t border-border/50 px-4 py-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          {secondarySections.map((sec) => {
-            const count = sectionCounts[sec.id];
-            return (
-              <button
-                key={sec.id}
-                type="button"
-                onClick={() => jumpToSection(sec.id)}
-                className={cn(
-                  "flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-colors",
-                  activeSectionId === sec.id
-                    ? "border-primary/40 bg-primary/10 font-medium text-primary"
-                    : "border-transparent text-muted-foreground hover:border-border hover:bg-muted/60 hover:text-foreground",
-                )}
-              >
-                {sec.label}
-                {count !== undefined && count > 0 ? (
-                  <span
-                    className={cn(
-                      "rounded-full px-1.5 py-px text-[10px] tabular-nums",
-                      activeSectionId === sec.id
-                        ? "bg-primary/20 text-primary"
-                        : "bg-muted text-muted-foreground",
-                    )}
-                  >
-                    {count}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <ArchiveDetailNav
+        activeCategoryId={activeCategoryId}
+        activeSectionId={activeSectionId}
+        sectionCounts={sectionCounts}
+        onCategoryClick={jumpToCategory}
+        onSectionClick={scrollTo}
+      />
 
       <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-5 px-6 py-5">
+        <div className="space-y-3 px-5 py-3">
           {detailLoading ? (
             <PanelLoading message="加载员工档案…" />
           ) : (
@@ -275,12 +300,8 @@ export function EmployeeArchiveDetailView({
                     ) : null
                   }
                 >
-                  <div className="space-y-6 p-4">
-                    <div>
-                      <p className="mb-3 text-xs font-semibold tracking-wide text-primary uppercase">
-                        基础信息
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                  <div className="space-y-3 p-3">
+                    <MasterSubSection icon={User} title="基础信息">
                         <InfoRow label="姓名" value={employee.fullName} />
                         <InfoRow label="工号" value={employee.employeeNo} mono />
                         <InfoRow label="AD 账号" value={employee.adAccount} mono />
@@ -310,13 +331,8 @@ export function EmployeeArchiveDetailView({
                         />
                         <InfoRow label="参加工作日期" value={employee.workStartDate} />
                         <InfoRow label="入职日期" value={employee.hireDate} />
-                      </div>
-                    </div>
-                    <div>
-                      <p className="mb-3 text-xs font-semibold tracking-wide text-primary uppercase">
-                        联系方式
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                    </MasterSubSection>
+                    <MasterSubSection icon={Phone} title="联系方式">
                         <InfoRow
                           label="手机号"
                           value={employee.mobile}
@@ -328,20 +344,14 @@ export function EmployeeArchiveDetailView({
                         <InfoRow label="座机" value={employee.officePhone} />
                         <InfoRow label="分机" value={employee.officeExtension} />
                         <InfoRow label="家庭电话" value={employee.homePhone} />
-                      </div>
-                    </div>
-                    <div>
-                      <p className="mb-3 text-xs font-semibold tracking-wide text-primary uppercase">
-                        地址与紧急联系人
-                      </p>
-                      <div className="grid grid-cols-2 gap-2 xl:grid-cols-4">
+                    </MasterSubSection>
+                    <MasterSubSection icon={MapPin} title="地址与紧急联系人">
                         <InfoRow label="身份证地址" value={employee.idCardAddress} />
                         <InfoRow label="居住地地址" value={employee.residenceAddress} />
                         <InfoRow label="紧急联系人" value={employee.emergencyContactName} />
                         <InfoRow label="紧急联系人电话" value={employee.emergencyContactPhone} />
                         <InfoRow label="与员工关系" value={employee.emergencyContactRelation} />
-                      </div>
-                    </div>
+                    </MasterSubSection>
                   </div>
                 </PanelCard>
               </ArchiveSectionAnchor>
@@ -545,7 +555,7 @@ export function EmployeeArchiveDetailView({
                     />
                   </ArchiveSectionAnchor>
 
-                  <div className="rounded-lg border border-dashed border-primary/25 bg-primary/5 px-4 py-2.5 text-xs text-muted-foreground">
+                  <div className="rounded-lg border border-dashed border-primary/25 bg-primary/5 px-3 py-2 text-xs text-muted-foreground">
                     人才发展模块为档案记录，不代表启用独立绩效 / 培训 / 盘点业务系统。
                   </div>
                   <ArchiveSectionAnchor id="training-records">
@@ -627,7 +637,7 @@ export function EmployeeArchiveDetailView({
         </div>
       </div>
 
-      <SheetFooter className="shrink-0 border-t px-6 py-4">
+      <SheetFooter className="shrink-0 border-t px-5 py-3">
         <div className="flex w-full justify-end">
           <Button variant="outline" onClick={onClose}>
             关闭
