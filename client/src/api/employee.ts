@@ -19,6 +19,7 @@ import type {
 } from "@shared/api.interface";
 
 import { deleteJson, getBlob, getJson, postJson, postMultipart, putJson } from "@/api/http";
+import { normalizeNumericId } from "@/lib/numeric-id";
 
 function pageQuery(params: Record<string, string | number | undefined>): string {
   const qs = new URLSearchParams();
@@ -50,12 +51,7 @@ export async function listEmployeeMasterVersions(employeeId: string) {
 }
 
 export async function createEmployee(req: EmployeeCreateRequest) {
-  const body = {
-    ...req,
-    organizationId: req.organizationId ? Number(req.organizationId) : undefined,
-    positionId: req.positionId ? Number(req.positionId) : undefined,
-  };
-  return postJson<Employee, typeof body>("/api/v1/employees", body);
+  return postJson<Employee, EmployeeCreateRequest>("/api/v1/employees", req);
 }
 
 export async function updateEmployee(id: string, req: EmployeeUpdateRequest) {
@@ -125,20 +121,11 @@ export async function listReportingLines(query: ReportingLineListQuery) {
 }
 
 export async function createReportingLine(req: ReportingLineCreateRequest) {
-  const body = {
-    ...req,
-    employeeId: Number(req.employeeId),
-    managerEmployeeId: Number(req.managerEmployeeId),
-  };
-  return postJson<ReportingLine, typeof body>("/api/v1/reporting-lines", body);
+  return postJson<ReportingLine, ReportingLineCreateRequest>("/api/v1/reporting-lines", req);
 }
 
 export async function updateReportingLine(id: string, req: ReportingLineUpdateRequest) {
-  const body = {
-    ...req,
-    managerEmployeeId: req.managerEmployeeId ? Number(req.managerEmployeeId) : undefined,
-  };
-  return putJson<ReportingLine, typeof body>(`/api/v1/reporting-lines/${id}`, body);
+  return putJson<ReportingLine, ReportingLineUpdateRequest>(`/api/v1/reporting-lines/${id}`, req);
 }
 
 export async function deleteReportingLine(id: string) {
@@ -207,12 +194,19 @@ const ASSIGNMENT_ID_FIELDS = [
   "handoverEmployeeId",
 ] as const;
 
+function normalizeAssignmentId(value: unknown): string | undefined {
+  return normalizeNumericId(value);
+}
+
 function normalizeAssignmentBody<T extends Record<string, unknown>>(req: T) {
   const body: Record<string, unknown> = { ...req };
   for (const key of ASSIGNMENT_ID_FIELDS) {
-    const value = body[key];
-    if (value === undefined || value === "") continue;
-    body[key] = Number(value);
+    const normalized = normalizeAssignmentId(body[key]);
+    if (normalized === undefined) {
+      delete body[key];
+      continue;
+    }
+    body[key] = normalized;
   }
   if (req.editMode !== undefined) {
     body.editMode = req.editMode;

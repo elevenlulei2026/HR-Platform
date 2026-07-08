@@ -522,8 +522,6 @@ public class EmployeeService {
   @Transactional
   public EmployeeAssignmentEntity createAssignmentFromBody(long employeeId, EmployeeAssignmentEntity body) {
     require(employeeId);
-    if (body.getOrganizationId() == null) throw new IllegalArgumentException("部门不能为空");
-    if (body.getPositionId() == null) throw new IllegalArgumentException("岗位不能为空");
     if (body.getEffectiveStartDate() == null) throw new IllegalArgumentException("生效日期不能为空");
     body.setId(null);
     body.setEmployeeId(employeeId);
@@ -531,13 +529,8 @@ public class EmployeeService {
     if (body.getStatus() == null || body.getStatus().isBlank()) {
       body.setStatus("ACTIVE");
     }
-    if (organizationMapper.selectById(body.getOrganizationId()) == null) {
-      throw new IllegalArgumentException("组织不存在");
-    }
+    prepareAssignmentForWrite(body);
     PositionEntity position = positionMapper.selectById(body.getPositionId());
-    if (position == null) {
-      throw new IllegalArgumentException("岗位不存在");
-    }
     assignmentHelper.applyPositionDefaults(body, position);
     List<EmployeeAssignmentEntity> existing = listAssignments(employeeId);
     EmployeeAssignmentHelper.AssignmentVersionSpliceResult splice =
@@ -579,7 +572,8 @@ public class EmployeeService {
 
     applyAssignmentPatch(cur, patch);
     assignmentHelper.normalizeIndicator(cur);
-    PositionEntity position = cur.getPositionId() == null ? null : positionMapper.selectById(cur.getPositionId());
+    prepareAssignmentForWrite(cur);
+    PositionEntity position = positionMapper.selectById(cur.getPositionId());
     assignmentHelper.applyPositionDefaults(cur, position);
     List<EmployeeAssignmentEntity> all = listAssignments(employeeId);
     assignmentHelper.computeDerivedFields(cur, all, LocalDate.now());
@@ -610,13 +604,8 @@ public class EmployeeService {
       newRow.setStatus("ACTIVE");
     }
 
-    if (organizationMapper.selectById(newRow.getOrganizationId()) == null) {
-      throw new IllegalArgumentException("组织不存在");
-    }
+    prepareAssignmentForWrite(newRow);
     PositionEntity position = positionMapper.selectById(newRow.getPositionId());
-    if (position == null) {
-      throw new IllegalArgumentException("岗位不存在");
-    }
     assignmentHelper.applyPositionDefaults(newRow, position);
 
     List<EmployeeAssignmentEntity> existing = listAssignments(employeeId);
@@ -630,6 +619,48 @@ public class EmployeeService {
     assignmentMapper.insert(newRow);
     recordAssignmentMovement(newRow);
     return requireAssignment(employeeId, newRow.getId());
+  }
+
+  /**
+   * API 写入前清理遗留外键列（V27 已改用 code 字段），并校验部门/岗位关联。
+   */
+  private void prepareAssignmentForWrite(EmployeeAssignmentEntity entity) {
+    entity.setJobId(null);
+    entity.setLegalEntityId(null);
+    entity.setPayrollCompanyId(null);
+    entity.setCostLegalEntityId(null);
+    validateAssignmentOrganizationPosition(entity);
+    if (entity.getHandoverEmployeeId() != null
+        && employeeMapper.selectById(entity.getHandoverEmployeeId()) == null) {
+      throw new IllegalArgumentException("交接人不存在，请重新选择");
+    }
+  }
+
+  private void validateAssignmentOrganizationPosition(EmployeeAssignmentEntity entity) {
+    if (entity.getOrganizationId() == null) {
+      throw new IllegalArgumentException("部门不能为空");
+    }
+    if (entity.getPositionId() == null) {
+      throw new IllegalArgumentException("岗位不能为空");
+    }
+    OrganizationEntity org = organizationMapper.selectById(entity.getOrganizationId());
+    if (org == null) {
+      throw new IllegalArgumentException("部门不存在或已失效，请重新选择部门");
+    }
+    PositionEntity position = positionMapper.selectById(entity.getPositionId());
+    if (position == null) {
+      throw new IllegalArgumentException("岗位不存在或已失效，请重新选择岗位");
+    }
+    if (position.getOrganizationId() == null) {
+      throw new IllegalArgumentException("岗位组织信息缺失，请重新选择岗位");
+    }
+    if (entity.getOrganizationId().equals(position.getOrganizationId())) {
+      return;
+    }
+    OrganizationEntity positionOrg = organizationMapper.selectById(position.getOrganizationId());
+    if (positionOrg == null || org.getCode() == null || !org.getCode().equals(positionOrg.getCode())) {
+      throw new IllegalArgumentException("所选岗位不属于当前部门，请重新选择岗位");
+    }
   }
 
   private void applyAssignmentPatch(EmployeeAssignmentEntity cur, EmployeeAssignmentEntity patch) {

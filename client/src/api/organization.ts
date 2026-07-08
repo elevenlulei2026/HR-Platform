@@ -20,6 +20,7 @@ import type {
 } from "@shared/api.interface";
 
 import { deleteJson, getJson, postJson, putJson } from "@/api/http";
+import { normalizeNumericId } from "@/lib/numeric-id";
 
 function pageQuery(params: Record<string, string | number | undefined>): string {
   const qs = new URLSearchParams();
@@ -93,19 +94,11 @@ export async function listPositions(query: PositionListQuery) {
 }
 
 export async function createPosition(req: PositionCreateRequest) {
-  const body = {
-    ...req,
-    organizationId: Number(req.organizationId),
-  };
-  return postJson<Position, typeof body>("/api/v1/positions", body);
+  return postJson<Position, PositionCreateRequest>("/api/v1/positions", req);
 }
 
 export async function updatePosition(id: string, req: PositionUpdateRequest) {
-  const body = {
-    ...req,
-    organizationId: req.organizationId ? Number(req.organizationId) : undefined,
-  };
-  return putJson<Position, typeof body>(`/api/v1/positions/${id}`, body);
+  return putJson<Position, PositionUpdateRequest>(`/api/v1/positions/${id}`, req);
 }
 
 export async function deletePosition(id: string) {
@@ -121,7 +114,30 @@ export function flattenOrgTree(nodes: OrganizationTreeNode[]): OrganizationTreeN
   return out;
 }
 
+/** 任职可选部门：当前生效、启用中，排除集团根节点 */
+export function filterAssignableDepartments(
+  departments: OrganizationTreeNode[],
+): OrganizationTreeNode[] {
+  return departments.filter((org) => org.status === "ACTIVE" && org.code !== "ORG-ROOT");
+}
+
+/** 将任职记录中的部门 ID 解析为当前可选部门（按编码回退到最新生效版本） */
+export function resolveOrganizationIdForAssignment(
+  organizationId: string,
+  organizationCode: string | undefined,
+  assignable: OrganizationTreeNode[],
+): string {
+  if (organizationId && assignable.some((org) => org.id === organizationId)) {
+    return organizationId;
+  }
+  if (organizationCode) {
+    const matched = assignable.find((org) => org.code === organizationCode);
+    if (matched) return matched.id;
+  }
+  return "";
+}
+
 /** 新建任职/员工时默认部门 */
 export function defaultDepartmentId(departments: OrganizationTreeNode[]): string {
-  return departments[0]?.id ?? "";
+  return filterAssignableDepartments(departments)[0]?.id ?? "";
 }

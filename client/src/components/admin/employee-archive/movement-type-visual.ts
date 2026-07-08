@@ -133,6 +133,18 @@ export const MOVEMENT_VISUAL_MAP = Object.fromEntries(
   MOVEMENT_TYPE_VISUALS.map((item) => [item.code, item]),
 ) as Record<MovementType, MovementVisualMeta>;
 
+/** 判断职务异动操作是否属于离职阶段 */
+export function isLeaveMovement(
+  movementType: string | undefined | null,
+  catalogOptions?: Array<{ movementType: string; phase: string }>,
+): boolean {
+  if (!movementType) return false;
+  const fromCatalog = catalogOptions?.find((m) => m.movementType === movementType);
+  if (fromCatalog) return fromCatalog.phase === "LEAVE";
+  const visual = MOVEMENT_VISUAL_MAP[movementType as MovementType];
+  return visual?.phase === "leave";
+}
+
 export function visualForMovement(
   movementType: string,
   movementTypeName: string,

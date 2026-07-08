@@ -2,6 +2,7 @@ import type {
   AssignmentIndicator,
   EmployeeAssignment,
   EmployeeAssignmentEditMode,
+  OrganizationTreeNode,
 } from "@shared/api.interface";
 import { CalendarClock, Edit } from "lucide-react";
 
@@ -20,6 +21,8 @@ type AssignmentIndicatorSectionProps = {
   indicatorShortLabel: string;
   accent: AssignmentIndicatorAccent;
   assignments: EmployeeAssignment[];
+  /** 用于渲染“组织路径”的完整组织列表（包含根节点） */
+  orgsForPath: OrganizationTreeNode[];
   focusedId?: string;
   onFocus: (assignmentId: string) => void;
   onEdit: (assignment: EmployeeAssignment, mode: EmployeeAssignmentEditMode) => void;
@@ -37,6 +40,7 @@ export function AssignmentIndicatorSection({
   indicatorShortLabel,
   accent,
   assignments,
+  orgsForPath,
   focusedId,
   onFocus,
   onEdit,
@@ -104,7 +108,7 @@ export function AssignmentIndicatorSection({
         </div>
 
         <div className="border-t border-border/30 bg-card/50 px-3 py-3">
-          <AssignmentRecordDisplay assignment={active} />
+          <AssignmentRecordDisplay assignment={active} orgsForPath={orgsForPath} />
         </div>
       </div>
     </div>

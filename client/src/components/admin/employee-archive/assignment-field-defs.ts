@@ -1,9 +1,12 @@
 import type { EmployeeAssignment } from "@shared/api.interface";
+import type { ReactNode } from "react";
+
+import { isLeaveMovement } from "@/components/admin/employee-archive/movement-type-visual";
 
 export type AssignmentFieldDef = {
   label: string;
   /** 取值函数，返回 null/空则展示 — */
-  value: (a: EmployeeAssignment) => string | null | undefined;
+  value: (a: EmployeeAssignment) => ReactNode;
   mono?: boolean;
   highlight?: boolean;
 };
@@ -37,7 +40,7 @@ function handoverDisplay(a: EmployeeAssignment) {
 /** §2.1 任职记录全部展示字段（分组） */
 export const ASSIGNMENT_DISPLAY_SECTIONS: AssignmentFieldSection[] = [
   {
-    title: "生效与雇工",
+    title: "雇佣",
     fields: [
       { label: "入职日期", value: (a) => a.hireDate, mono: true },
       { label: "司龄", value: (a) => a.companyTenure },
@@ -109,15 +112,32 @@ export const ASSIGNMENT_DISPLAY_SECTIONS: AssignmentFieldSection[] = [
       { label: "薪资组", value: (a) => labelOrCode(a.salaryGroupLabel, a.salaryGroup) },
     ],
   },
-  {
-    title: "离职信息",
-    fields: [
-      { label: "真实离职原因(HRBP)", value: (a) => a.trueResignationReasonHrbp },
-      { label: "真实离职原因子类(HRBP)", value: (a) => a.trueResignationReasonSubHrbp },
-      { label: "交接人", value: handoverDisplay, mono: true },
-      { label: "离职去向", value: (a) => a.resignationDestination },
-      { label: "是否启动竞业限制-公司建议", value: (a) => boolLabel(a.nonCompeteCompanySuggest) },
-      { label: "是否给薪", value: (a) => boolLabel(a.nonCompeteWithPay) },
-    ],
-  },
 ];
+
+export const ASSIGNMENT_RESIGNATION_SECTION: AssignmentFieldSection = {
+  title: "离职信息",
+  fields: [
+    { label: "真实离职原因(HRBP)", value: (a) => a.trueResignationReasonHrbp },
+    { label: "真实离职原因子类(HRBP)", value: (a) => a.trueResignationReasonSubHrbp },
+    { label: "交接人", value: handoverDisplay, mono: true },
+    { label: "离职去向", value: (a) => a.resignationDestination },
+    { label: "是否启动竞业限制-公司建议", value: (a) => boolLabel(a.nonCompeteCompanySuggest) },
+    { label: "是否给薪", value: (a) => boolLabel(a.nonCompeteWithPay) },
+  ],
+};
+
+/** 按任职记录数据生成展示分组（离职信息仅在操作=离职时插入职务异动下方） */
+export function getAssignmentDisplaySections(
+  assignment: EmployeeAssignment,
+): AssignmentFieldSection[] {
+  if (!isLeaveMovement(assignment.movementType)) {
+    return ASSIGNMENT_DISPLAY_SECTIONS;
+  }
+  const movementIndex = ASSIGNMENT_DISPLAY_SECTIONS.findIndex((s) => s.title === "职务异动");
+  const insertAt = movementIndex >= 0 ? movementIndex + 1 : ASSIGNMENT_DISPLAY_SECTIONS.length;
+  return [
+    ...ASSIGNMENT_DISPLAY_SECTIONS.slice(0, insertAt),
+    ASSIGNMENT_RESIGNATION_SECTION,
+    ...ASSIGNMENT_DISPLAY_SECTIONS.slice(insertAt),
+  ];
+}

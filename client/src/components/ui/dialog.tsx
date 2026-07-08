@@ -46,18 +46,24 @@ function DialogContent({
   children,
   showCloseButton = true,
   elevated = false,
+  nested = false,
   ...props
 }: DialogPrimitive.Popup.Props & {
   showCloseButton?: boolean
   /** 叠在 Sheet 抽屉之上时须提升遮罩与内容层级 */
   elevated?: boolean
+  /** 叠在 elevated 弹窗之内（如档案编辑弹窗内的选择器） */
+  nested?: boolean
 }) {
   return (
     <DialogPortal>
       <DialogOverlay
-        forceRender={elevated}
+        forceRender={elevated || nested}
         className={cn(
+          nested &&
+            "z-[75] bg-black/60 supports-backdrop-filter:backdrop-blur-sm",
           elevated &&
+            !nested &&
             "z-[65] bg-black/60 supports-backdrop-filter:backdrop-blur-sm",
         )}
       />
@@ -65,7 +71,8 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           "fixed top-1/2 left-1/2 z-[51] grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-4 rounded-xl bg-popover p-4 text-sm text-popover-foreground shadow-lg ring-1 ring-foreground/10 transition duration-150 outline-none sm:max-w-sm data-ending-style:scale-95 data-ending-style:opacity-0 data-starting-style:scale-95 data-starting-style:opacity-0",
-          elevated && "z-[70] shadow-2xl ring-foreground/15",
+          elevated && !nested && "z-[70] shadow-2xl ring-foreground/15",
+          nested && "z-[80] shadow-2xl ring-foreground/15",
           className
         )}
         {...props}

@@ -142,13 +142,6 @@ function strOrUndefined(value: string) {
   return trimmed || undefined;
 }
 
-function numOrUndefined(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const num = Number(trimmed);
-  return Number.isNaN(num) ? undefined : num;
-}
-
 function boolOrUndefined(value: string) {
   if (!value) return undefined;
   return value === "true";
@@ -184,9 +177,7 @@ export function buildAssignmentPayload(form: AssignmentForm): EmployeeAssignment
     costLegalEntityCode: strOrUndefined(form.costLegalEntityCode),
     trueResignationReasonHrbp: strOrUndefined(form.trueResignationReasonHrbp),
     trueResignationReasonSubHrbp: strOrUndefined(form.trueResignationReasonSubHrbp),
-    handoverEmployeeId: numOrUndefined(form.handoverEmployeeId) !== undefined
-      ? String(numOrUndefined(form.handoverEmployeeId))
-      : undefined,
+    handoverEmployeeId: strOrUndefined(form.handoverEmployeeId),
     resignationDestination: strOrUndefined(form.resignationDestination),
     nonCompeteCompanySuggest: boolOrUndefined(form.nonCompeteCompanySuggest),
     nonCompeteWithPay: boolOrUndefined(form.nonCompeteWithPay),

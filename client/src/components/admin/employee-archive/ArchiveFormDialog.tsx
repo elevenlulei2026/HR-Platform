@@ -47,7 +47,8 @@ export function ArchiveFormDialog({
         className={cn(
           "flex max-h-[min(88vh,900px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-lg",
           wide && !extraWide && "sm:max-w-2xl",
-          extraWide && "sm:max-w-[min(1008px,calc(100vw-2rem))]",
+          // extraWide ≈ 比 wide 再大约 20%，用于任职等信息密集表单
+          extraWide && "sm:max-w-[min(1200px,calc(100vw-2rem))]",
         )}
       >
         <DialogHeader className="shrink-0 border-b bg-gradient-to-r from-muted/30 via-background to-muted/20 px-6 py-4 pr-12 text-left">

@@ -86,11 +86,20 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiResponse<Void>> handleDataIntegrity(DataIntegrityViolationException ex) {
     String msg = "数据关联校验失败，请检查关联字段是否正确";
     String detail = ex.getMessage() == null ? "" : ex.getMessage();
-    if (detail.contains("fk_ecca_legal_entity_id") || detail.contains("legal_entity_id")) {
-      msg = "成本归属法人不存在或无效，请重新选择";
+    if (detail.contains("fk_ea_organization_id") || detail.contains("organization_id")) {
+      msg = "所选部门无效或已失效，请重新选择部门";
+    } else if (detail.contains("fk_ea_position_id") || detail.contains("position_id")) {
+      msg = "所选岗位无效或已失效，请重新选择岗位";
+    } else if (detail.contains("fk_ea_job_id") || detail.contains("job_id")) {
+      msg = "职务关联无效，请重新选择岗位或联系管理员";
+    } else if (detail.contains("fk_ea_payroll_company_id") || detail.contains("payroll_company_id")) {
+      msg = "发薪公司关联无效，请重新选择发薪公司";
+    } else if (detail.contains("fk_ecca_legal_entity_id") || detail.contains("fk_ea_legal_entity_id") || detail.contains("legal_entity_id")) {
+      msg = "法人实体关联无效，请重新选择法人实体";
     } else if (detail.contains("storage_key") || detail.contains("employee_attachment")) {
       msg = "附件信息保存失败，请缩短文件名后重试";
     }
+    log.warn("Data integrity violation: {}", detail);
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("BAD_REQUEST", msg));
   }
 

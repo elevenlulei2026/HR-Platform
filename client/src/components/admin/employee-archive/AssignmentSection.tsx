@@ -24,7 +24,7 @@ import {
   updateEmployeeAssignment,
 } from "@/api/employee";
 import { getMovementCatalogOptions } from "@/api/movement-catalog";
-import { defaultDepartmentId, flattenOrgTree, getPosition } from "@/api/organization";
+import { defaultDepartmentId, filterAssignableDepartments, flattenOrgTree, getPosition, resolveOrganizationIdForAssignment } from "@/api/organization";
 import { ArchiveFormDialogPortal } from "@/components/admin/employee-archive/ArchiveFormDialogPortal";
 import { AssignmentIndicatorSection } from "@/components/admin/employee-archive/AssignmentIndicatorSection";
 import {
@@ -46,10 +46,12 @@ import {
   type AssignmentForm,
 } from "@/components/admin/employee-archive/assignment-form";
 import { DepartmentPositionFields } from "@/components/admin/employee-archive/DepartmentPositionFields";
+import { isLeaveMovement } from "@/components/admin/employee-archive/movement-type-visual";
 import { FormField, OptionToggle } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
+import { SearchableDialogPicker } from "@/components/admin/searchable-dialog-picker";
 import {
-  SearchableSelect,
+  formatCodeName,
   type SearchableSelectOption,
 } from "@/components/admin/searchable-select";
 import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
@@ -88,11 +90,12 @@ function toApiError(e: unknown): ApiError {
 function AssignmentFormFields({
   form,
   setForm,
-  flatOrgs,
+  allOrgsForPath,
+  assignableOrgs,
   dictOptions,
   movementOptions,
   employeeGroupOptions,
-  employeeOptions,
+  handoverEmployeeOptions,
   employeeLoading,
   onEmployeeSearch,
   readOnlyComputed,
@@ -103,11 +106,12 @@ function AssignmentFormFields({
 }: {
   form: AssignmentForm;
   setForm: React.Dispatch<React.SetStateAction<AssignmentForm>>;
-  flatOrgs: ReturnType<typeof flattenOrgTree>;
+  allOrgsForPath: OrganizationTreeNode[];
+  assignableOrgs: OrganizationTreeNode[];
   dictOptions: EmployeeAssignmentFormOptions;
   movementOptions: MovementCatalogOption[];
   employeeGroupOptions: Array<{ employeeGroupCode: string; employeeGroupName: string; subgroups: Array<{ code: string; name: string }> }>;
-  employeeOptions: SearchableSelectOption[];
+  handoverEmployeeOptions: SearchableSelectOption[];
   employeeLoading: boolean;
   onEmployeeSearch: (keyword: string) => void;
   readOnlyComputed: {
@@ -160,6 +164,7 @@ function AssignmentFormFields({
     computeExpectedRegularizationPreview(form.hireDate, form.probationPeriod, dictOptions.probationPeriods);
 
   const effectiveStartLocked = !isNew && editMode === "CURRENT";
+  const showResignationFields = isLeaveMovement(form.movementType, movementOptions);
 
   return (
     <div className="space-y-4">
@@ -219,7 +224,7 @@ function AssignmentFormFields({
         ) : null}
       </ArchiveFormSection>
 
-      <ArchiveFormSection title="生效与雇工" columns={4}>
+      <ArchiveFormSection title="雇佣" columns={4}>
         <FormField label="入职日期">
           <Input type="date" value={form.hireDate} onChange={(e) => set("hireDate", e.target.value)} />
         </FormField>
@@ -330,7 +335,88 @@ function AssignmentFormFields({
         </FormField>
       </ArchiveFormSection>
 
-      <ArchiveFormSection title="岗位与组织" columns={4}>
+      {showResignationFields ? (
+        <ArchiveFormSection title="离职信息" columns={4}>
+          <FormField label="真实离职原因(HRBP)">
+            <Input
+              value={form.trueResignationReasonHrbp}
+              onChange={(e) => set("trueResignationReasonHrbp", e.target.value)}
+            />
+          </FormField>
+          <FormField label="真实离职原因子类(HRBP)">
+            <Input
+              value={form.trueResignationReasonSubHrbp}
+              onChange={(e) => set("trueResignationReasonSubHrbp", e.target.value)}
+            />
+          </FormField>
+          <FormField label="交接人">
+            <SearchableDialogPicker
+              value={form.handoverEmployeeId}
+              onChange={(value) => set("handoverEmployeeId", value)}
+              options={handoverEmployeeOptions}
+              dialogTitle="选择交接人"
+              dialogDescription="输入员工姓名或工号搜索，点击条目完成选择"
+              placeholder="点击搜索选择交接人"
+              entityEmptyTitle="点击搜索选择交接人"
+              entityEmptyHint="在弹窗中搜索员工姓名或工号"
+              entitySelectedHint="已选择交接人，点击可重新搜索"
+              searchPlaceholder="搜索员工姓名 / 工号…"
+              entityIcon="briefcase"
+              formatOption={formatCodeName}
+              loading={employeeLoading}
+              shouldFilter={false}
+              onSearchChange={onEmployeeSearch}
+              helperText="none"
+              className="w-full"
+            />
+          </FormField>
+          <FormField label="离职去向">
+            <Input
+              value={form.resignationDestination}
+              onChange={(e) => set("resignationDestination", e.target.value)}
+            />
+          </FormField>
+          <FormField label="是否启动竞业限制-公司建议">
+            <OptionSelect
+              value={form.nonCompeteCompanySuggest}
+              onValueChange={(value) => set("nonCompeteCompanySuggest", value)}
+              allowEmpty
+              emptyLabel="不填写"
+              options={BOOLEAN_OPTIONS}
+              className="w-full"
+            />
+          </FormField>
+          <FormField label="是否给薪">
+            <OptionSelect
+              value={form.nonCompeteWithPay}
+              onValueChange={(value) => set("nonCompeteWithPay", value)}
+              allowEmpty
+              emptyLabel="不填写"
+              options={BOOLEAN_OPTIONS}
+              className="w-full"
+            />
+          </FormField>
+        </ArchiveFormSection>
+      ) : null}
+
+      <ArchiveFormSection
+        title="岗位与组织"
+        description="统一口径的部门、组织路径与岗位选择；其余字段用于补充雇佣归属与审批口径"
+        columns={4}
+      >
+        <DepartmentPositionFields
+          organizationId={form.organizationId}
+          positionId={form.positionId}
+          jobSequence={form.jobSequence}
+          departments={assignableOrgs}
+          organizationsForPath={allOrgsForPath}
+          organizationRequired
+          positionRequired
+          onOrganizationChange={(organizationId) => {
+            setForm((prev) => ({ ...prev, organizationId, positionId: "" }));
+          }}
+          onPositionChange={(positionId) => void handlePositionChange(positionId)}
+        />
         <FormField label="法人实体">
           <OptionSelect
             value={form.legalEntityCode}
@@ -340,20 +426,6 @@ function AssignmentFormFields({
             options={dictOptions.legalCompanies.map((o) => ({ value: o.value, label: o.label }))}
             className="w-full"
           />
-        </FormField>
-        <DepartmentPositionFields
-          organizationId={form.organizationId}
-          positionId={form.positionId}
-          departments={flatOrgs}
-          organizationRequired
-          positionRequired
-          onOrganizationChange={(organizationId) => {
-            setForm((prev) => ({ ...prev, organizationId, positionId: "" }));
-          }}
-          onPositionChange={(positionId) => void handlePositionChange(positionId)}
-        />
-        <FormField label="岗位序列">
-          <Input value={form.jobSequence || "—"} disabled />
         </FormField>
         <FormField label="职级">
           <OptionSelect
@@ -504,70 +576,13 @@ function AssignmentFormFields({
           </FormField>
         ) : null}
       </ArchiveFormSection>
-
-      <ArchiveFormSection title="离职信息" columns={4}>
-        <FormField label="真实离职原因(HRBP)">
-          <Input
-            value={form.trueResignationReasonHrbp}
-            onChange={(e) => set("trueResignationReasonHrbp", e.target.value)}
-          />
-        </FormField>
-        <FormField label="真实离职原因子类(HRBP)">
-          <Input
-            value={form.trueResignationReasonSubHrbp}
-            onChange={(e) => set("trueResignationReasonSubHrbp", e.target.value)}
-          />
-        </FormField>
-        <FormField label="交接人">
-          <SearchableSelect
-            value={form.handoverEmployeeId}
-            onChange={(value) => set("handoverEmployeeId", value)}
-            options={employeeOptions}
-            variant="entity"
-            placeholder="搜索员工姓名或工号"
-            entityEmptyTitle="搜索员工"
-            entityEmptyHint="输入姓名或工号"
-            entitySelectedHint="已选择交接人"
-            searchPlaceholder="搜索员工…"
-            loading={employeeLoading}
-            shouldFilter={false}
-            onSearchChange={onEmployeeSearch}
-            className="w-full"
-          />
-        </FormField>
-        <FormField label="离职去向">
-          <Input
-            value={form.resignationDestination}
-            onChange={(e) => set("resignationDestination", e.target.value)}
-          />
-        </FormField>
-        <FormField label="是否启动竞业限制-公司建议">
-          <OptionSelect
-            value={form.nonCompeteCompanySuggest}
-            onValueChange={(value) => set("nonCompeteCompanySuggest", value)}
-            allowEmpty
-            emptyLabel="不填写"
-            options={BOOLEAN_OPTIONS}
-            className="w-full"
-          />
-        </FormField>
-        <FormField label="是否给薪">
-          <OptionSelect
-            value={form.nonCompeteWithPay}
-            onValueChange={(value) => set("nonCompeteWithPay", value)}
-            allowEmpty
-            emptyLabel="不填写"
-            options={BOOLEAN_OPTIONS}
-            className="w-full"
-          />
-        </FormField>
-      </ArchiveFormSection>
     </div>
   );
 }
 
 export function AssignmentSection({ employee, orgs, canEdit, onChanged }: AssignmentSectionProps) {
   const flatOrgs = flattenOrgTree(orgs);
+  const assignableOrgs = useMemo(() => filterAssignableDepartments(flatOrgs), [flatOrgs]);
   const [assignments, setAssignments] = useState<EmployeeAssignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [dictOptions, setDictOptions] = useState<EmployeeAssignmentFormOptions>(
@@ -678,6 +693,28 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
     createdAt: editingItem?.createdAt?.slice(0, 10) ?? "",
   };
 
+  const handoverEmployeeOptions = useMemo(() => {
+    const handoverId = form.handoverEmployeeId;
+    if (!handoverId || employeeOptions.some((item) => item.value === handoverId)) {
+      return employeeOptions;
+    }
+    if (
+      editingItem?.handoverEmployeeId === handoverId &&
+      (editingItem.handoverEmployeeName || editingItem.handoverEmployeeNo)
+    ) {
+      return [
+        {
+          value: handoverId,
+          label: editingItem.handoverEmployeeName ?? editingItem.handoverEmployeeNo ?? handoverId,
+          code: editingItem.handoverEmployeeNo,
+          keywords: `${editingItem.handoverEmployeeNo ?? ""} ${editingItem.handoverEmployeeName ?? ""}`,
+        },
+        ...employeeOptions,
+      ];
+    }
+    return employeeOptions;
+  }, [employeeOptions, editingItem, form.handoverEmployeeId]);
+
   const openCreate = () => {
     const next = emptyAssignmentForm(employee);
     next.organizationId = defaultDepartmentId(flatOrgs);
@@ -693,8 +730,30 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
     [assignments],
   );
 
+  const applyResolvableOrganization = useCallback(
+    (next: AssignmentForm, item: EmployeeAssignment): AssignmentForm => {
+      const resolved = resolveOrganizationIdForAssignment(
+        next.organizationId,
+        item.organizationCode,
+        assignableOrgs,
+      );
+      if (!resolved) {
+        if (next.organizationId) {
+          toast.warning("原任职部门已失效，请重新选择部门");
+        }
+        return { ...next, organizationId: "", positionId: "" };
+      }
+      if (resolved !== next.organizationId) {
+        return { ...next, organizationId: resolved, positionId: "" };
+      }
+      return next;
+    },
+    [assignableOrgs],
+  );
+
   const openEdit = (item: EmployeeAssignment, mode: EmployeeAssignmentEditMode = "CURRENT") => {
-    const next = formFromAssignment(item);
+    let next = formFromAssignment(item);
+    next = applyResolvableOrganization(next, item);
     if (mode === "NEW_VERSION") {
       next.effectiveStartDate = todayStr();
     }
@@ -704,7 +763,8 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
 
   const handleEditModeChange = (mode: EmployeeAssignmentEditMode) => {
     if (sheet.type !== "edit") return;
-    const base = formFromAssignment(sheet.item);
+    let base = formFromAssignment(sheet.item);
+    base = applyResolvableOrganization(base, sheet.item);
     if (mode === "CURRENT") {
       base.effectiveStartDate = sheet.item.effectiveStartDate;
     } else {
@@ -804,6 +864,7 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
                 indicatorShortLabel={zone.shortLabel}
                 accent={zone.accent}
                 assignments={filterAssignmentsByIndicator(assignments, zone.indicator)}
+                orgsForPath={flatOrgs}
                 focusedId={focusedByIndicator[zone.indicator]}
                 canEdit={canEdit}
                 onFocus={(assignmentId) =>
@@ -837,11 +898,12 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
         <AssignmentFormFields
           form={form}
           setForm={setForm}
-          flatOrgs={flatOrgs}
+          allOrgsForPath={flatOrgs}
+          assignableOrgs={assignableOrgs}
           dictOptions={dictOptions}
           movementOptions={movementOptions}
           employeeGroupOptions={employeeGroupOptions}
-          employeeOptions={employeeOptions}
+          handoverEmployeeOptions={handoverEmployeeOptions}
           employeeLoading={employeeLoading}
           onEmployeeSearch={setEmployeeSearch}
           readOnlyComputed={readOnlyComputed}

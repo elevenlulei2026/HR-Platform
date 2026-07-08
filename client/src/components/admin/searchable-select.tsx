@@ -495,13 +495,20 @@ export function SearchableSelect({
             <>
               <EntityIconBadge icon={entityIcon} selected />
               <div className="min-w-0 flex-1 space-y-1">
-                <div className="flex min-w-0 flex-wrap items-center gap-2">
-                  <OptionCodeBadge code={selected.code ?? selected.value} />
-                  <span className={cn("truncate text-sm", adminFormControlValueClassName)}>
+                <div className="flex min-w-0 items-center gap-2">
+                  <span
+                    className={cn(
+                      "min-w-0 flex-1 truncate text-sm",
+                      adminFormControlValueClassName,
+                    )}
+                  >
                     {selected.label}
                   </span>
+                  <OptionCodeBadge code={selected.code ?? selected.value} />
                 </div>
-                <p className="text-[11px] text-muted-foreground">{resolvedEntitySelectedHint}</p>
+                <p className="truncate text-[11px] text-muted-foreground">
+                  {resolvedEntitySelectedHint}
+                </p>
               </div>
             </>
           ) : (

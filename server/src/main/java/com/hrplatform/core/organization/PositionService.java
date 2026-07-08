@@ -13,6 +13,7 @@ import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -60,8 +61,33 @@ public class PositionService {
     }
 
     String k = keyword == null ? "" : keyword.trim().toLowerCase();
+    final Long filterOrganizationId = organizationId;
+    String resolvedOrgCode = null;
+    if (filterOrganizationId != null) {
+      OrganizationEntity selectedOrg = organizationMapper.selectById(filterOrganizationId);
+      if (selectedOrg != null) {
+        resolvedOrgCode = selectedOrg.getCode();
+      }
+    }
+    final String orgCodeFilter = resolvedOrgCode;
+    Map<Long, String> orgCodeById = orgCodeFilter == null
+        ? Map.of()
+        : organizationMapper.selectBatchIds(
+            byCode.values().stream()
+                .map(PositionEntity::getOrganizationId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList()
+        ).stream().collect(Collectors.toMap(OrganizationEntity::getId, OrganizationEntity::getCode, (a, b) -> a));
+
     List<PositionEntity> filtered = byCode.values().stream()
-        .filter(e -> organizationId == null || organizationId.equals(e.getOrganizationId()))
+        .filter(e -> {
+          if (filterOrganizationId == null) return true;
+          if (filterOrganizationId.equals(e.getOrganizationId())) return true;
+          if (orgCodeFilter == null) return false;
+          String positionOrgCode = orgCodeById.get(e.getOrganizationId());
+          return orgCodeFilter.equals(positionOrgCode);
+        })
         .filter(e -> {
           if (k.isEmpty()) return true;
           return (e.getCode() != null && e.getCode().toLowerCase().contains(k))

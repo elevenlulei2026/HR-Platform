@@ -23,11 +23,7 @@ export async function listHeadcountPlans(query: HeadcountPlanListQuery) {
 }
 
 export async function createHeadcountPlan(req: HeadcountPlanCreateRequest) {
-  const body = {
-    ...req,
-    organizationId: Number(req.organizationId),
-  };
-  return postJson<HeadcountPlan, typeof body>("/api/v1/headcount-plans", body);
+  return postJson<HeadcountPlan, HeadcountPlanCreateRequest>("/api/v1/headcount-plans", req);
 }
 
 export async function updateHeadcountPlan(id: string, req: HeadcountPlanUpdateRequest) {
@@ -39,9 +35,5 @@ export async function deleteHeadcountPlan(id: string) {
 }
 
 export async function checkHeadcount(req: HeadcountCheckRequest) {
-  const body = {
-    ...req,
-    organizationId: Number(req.organizationId),
-  };
-  return postJson<HeadcountCheckResult, typeof body>("/api/v1/headcount/check", body);
+  return postJson<HeadcountCheckResult, HeadcountCheckRequest>("/api/v1/headcount/check", req);
 }

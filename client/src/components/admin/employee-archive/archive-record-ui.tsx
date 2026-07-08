@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import * as React from "react";
 import type { LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
@@ -97,12 +98,13 @@ export function ArchiveRecordField({
   icon: Icon,
 }: {
   label: string;
-  value?: string | null;
+  value?: ReactNode;
   masked?: boolean;
   mono?: boolean;
   highlight?: boolean;
   icon?: LucideIcon;
 }) {
+  const isEmpty = value === null || value === undefined || value === "";
   return (
     <div
       className={cn(
@@ -120,10 +122,10 @@ export function ArchiveRecordField({
         className={cn(
           "mt-0.5 text-[13px] leading-tight font-medium text-foreground",
           mono && "font-mono text-xs",
-          !value && "text-muted-foreground/70",
+          isEmpty && "text-muted-foreground/70",
         )}
       >
-        {value || "—"}
+        {isEmpty ? "—" : React.isValidElement(value) ? value : (value as ReactNode)}
         {masked ? <ArchiveMaskedBadge /> : null}
       </div>
     </div>
