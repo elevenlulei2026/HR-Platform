@@ -556,15 +556,19 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
 
   const renderFormFields = () => {
     if (!needsEmployeeSearch) {
+      const isCostCenterAllocations = resourcePath === "cost-center-allocations";
       return (
         <div className="grid gap-4 md:grid-cols-2">
-          {fieldDefs.map((field) => (
-            <div key={field.key}>
-              <FormField label={field.label} required={field.required && !field.readOnly}>
-                {renderFieldControl(field)}
-              </FormField>
-            </div>
-          ))}
+          {fieldDefs.map((field) => {
+            const fullRow = isCostCenterAllocations && field.key === "legalEntityId";
+            return (
+              <div key={field.key} className={fullRow ? "md:col-span-2" : undefined}>
+                <FormField label={field.label} required={field.required && !field.readOnly}>
+                  {renderFieldControl(field)}
+                </FormField>
+              </div>
+            );
+          })}
         </div>
       );
     }
@@ -664,26 +668,52 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
                   ) : null
                 }
               >
-                <ArchiveRecordFieldGrid>
-                  {displayFields.map((field) => {
-                    const masked = isMaskedField(field, item);
-                    const display = formatDisplayValue(field, item, dictOptions);
-                    return (
-                      <ArchiveRecordField
-                        key={field.key}
-                        label={field.label}
-                        value={display}
-                        masked={masked}
-                        highlight={field.key === highlightKey}
-                        mono={
-                          field.type === "date" ||
-                          field.key.includes("No") ||
-                          field.reference === "employee"
-                        }
-                      />
-                    );
-                  })}
-                </ArchiveRecordFieldGrid>
+                {resourcePath === "cost-center-allocations" ? (
+                  <div className="overflow-x-auto">
+                    <ArchiveRecordFieldGrid columns={5} className="min-w-[860px] gap-0.5">
+                      {displayFields.map((field) => {
+                        const masked = isMaskedField(field, item);
+                        const display = formatDisplayValue(field, item, dictOptions);
+                        return (
+                          <ArchiveRecordField
+                            key={field.key}
+                            label={field.label}
+                            value={display}
+                            masked={masked}
+                            highlight={field.key === highlightKey}
+                            compact
+                            mono={
+                              field.type === "date" ||
+                              field.key.includes("No") ||
+                              field.reference === "employee"
+                            }
+                          />
+                        );
+                      })}
+                    </ArchiveRecordFieldGrid>
+                  </div>
+                ) : (
+                  <ArchiveRecordFieldGrid>
+                    {displayFields.map((field) => {
+                      const masked = isMaskedField(field, item);
+                      const display = formatDisplayValue(field, item, dictOptions);
+                      return (
+                        <ArchiveRecordField
+                          key={field.key}
+                          label={field.label}
+                          value={display}
+                          masked={masked}
+                          highlight={field.key === highlightKey}
+                          mono={
+                            field.type === "date" ||
+                            field.key.includes("No") ||
+                            field.reference === "employee"
+                          }
+                        />
+                      );
+                    })}
+                  </ArchiveRecordFieldGrid>
+                )}
               </ArchiveRecordCard>
             ))}
           </ArchiveRecordList>

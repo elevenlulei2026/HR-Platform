@@ -85,8 +85,26 @@ export function ArchiveRecordCard({
 }
 
 /** 记录字段网格（详情抽屉内一行四列） */
-export function ArchiveRecordFieldGrid({ children }: { children: ReactNode }) {
-  return <div className="grid grid-cols-4 gap-1">{children}</div>;
+export function ArchiveRecordFieldGrid({
+  children,
+  columns = 4,
+  className,
+}: {
+  children: ReactNode;
+  columns?: 2 | 3 | 4 | 5 | 6;
+  className?: string;
+}) {
+  const colClass =
+    columns === 2
+      ? "grid-cols-2"
+      : columns === 3
+        ? "grid-cols-3"
+        : columns === 5
+          ? "grid-cols-5"
+          : columns === 6
+            ? "grid-cols-6"
+            : "grid-cols-4";
+  return <div className={cn("grid gap-1", colClass, className)}>{children}</div>;
 }
 
 export function ArchiveRecordField({
@@ -96,6 +114,7 @@ export function ArchiveRecordField({
   mono,
   highlight,
   icon: Icon,
+  compact = false,
 }: {
   label: string;
   value?: ReactNode;
@@ -103,25 +122,33 @@ export function ArchiveRecordField({
   mono?: boolean;
   highlight?: boolean;
   icon?: LucideIcon;
+  compact?: boolean;
 }) {
   const isEmpty = value === null || value === undefined || value === "";
   return (
     <div
       className={cn(
-        "rounded-md px-2 py-1.5 transition-colors",
+        "rounded-md transition-colors",
+        compact ? "px-1.5 py-1" : "px-2 py-1.5",
         highlight
           ? "bg-primary/5 ring-1 ring-primary/10"
           : "bg-muted/20 hover:bg-muted/35",
       )}
     >
-      <div className="flex items-center gap-1 text-[10px] font-medium text-muted-foreground">
+      <div
+        className={cn(
+          "flex items-center gap-1 font-medium text-muted-foreground",
+          compact ? "text-[9px]" : "text-[10px]",
+        )}
+      >
         {Icon ? <Icon className="size-2.5 shrink-0 opacity-55" /> : null}
         <span className="truncate">{label}</span>
       </div>
       <div
         className={cn(
-          "mt-0.5 text-[13px] leading-tight font-medium text-foreground",
-          mono && "font-mono text-xs",
+          "mt-0.5 leading-tight font-medium text-foreground",
+          compact ? "text-[12px]" : "text-[13px]",
+          mono && (compact ? "font-mono text-[11px]" : "font-mono text-xs"),
           isEmpty && "text-muted-foreground/70",
         )}
       >
