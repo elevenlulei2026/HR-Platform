@@ -7,6 +7,7 @@ import type {
 } from "@shared/api.interface";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import type { ApiError } from "@/api/http";
@@ -44,6 +45,7 @@ import {
   BookText,
   ChevronLeft,
   ChevronRight,
+  GitBranch,
   Hash,
   Inbox,
   Pencil,
@@ -51,6 +53,7 @@ import {
   RefreshCw,
   Search,
   Sparkles,
+  Users,
 } from "lucide-react";
 import {
   Sheet,
@@ -60,6 +63,8 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { MovementCatalogPanel } from "@/pages/admin/settings/MovementCatalogPanel";
+import { EmployeeGroupCatalogPanel } from "@/pages/admin/settings/EmployeeGroupCatalogPanel";
 
 type LoadState<T> =
   | { type: "loading" }
@@ -78,7 +83,9 @@ type CodeRuleSheetMode =
   | { type: "new" }
   | { type: "edit"; item: CodeRule };
 
-type SettingsTab = "dict" | "code-rules";
+type SettingsTab = "dict" | "code-rules" | "movement-catalog" | "employee-group-catalog";
+
+const SETTINGS_TABS: SettingsTab[] = ["dict", "code-rules", "movement-catalog", "employee-group-catalog"];
 
 const RESET_OPTIONS: Array<{ id: CodeRuleSeqReset; label: string }> = [
   { id: "DAY", label: "按天" },
@@ -208,7 +215,12 @@ function DataTable({
 }
 
 export function AdminSettingsPage() {
-  const [activeTab, setActiveTab] = useState<SettingsTab>("dict");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  const activeTab: SettingsTab = SETTINGS_TABS.includes(tabParam as SettingsTab)
+    ? (tabParam as SettingsTab)
+    : "dict";
+  const setActiveTab = (tab: SettingsTab) => setSearchParams({ tab });
 
   // dict types
   const [dictKeyword, setDictKeyword] = useState("");
@@ -248,7 +260,8 @@ export function AdminSettingsPage() {
     try {
       setDictTypesState((prev) => (prev.type === "ok" ? prev : { type: "loading" }));
       const res = await listDictTypes(dictQuery);
-      setDictTypesState({ type: "ok", data: { items: res.data.items, total: res.data.total } });
+      const items = res.data.items.filter((t) => t.code !== "MOVEMENT_REASON");
+      setDictTypesState({ type: "ok", data: { items, total: items.length } });
     } catch (e: unknown) {
       const err: ApiError =
         typeof (e as any)?.message === "string"
@@ -341,7 +354,11 @@ export function AdminSettingsPage() {
         <p className="text-[13px] text-muted-foreground">
           {activeTab === "dict"
             ? "维护字典类型与字典项，供各业务模块下拉选项引用。"
-            : "维护工号、组织编码等自动生成规则，修改后下一次生成立即生效。"}
+            : activeTab === "movement-catalog"
+              ? "维护职务异动操作码、原因码及原因子项，供任职记录与入转调离流程引用。"
+              : activeTab === "employee-group-catalog"
+                ? "维护员工组与员工子组，供任职信息中员工组/子组联动选择引用。"
+                : "维护工号、组织编码等自动生成规则，修改后下一次生成立即生效。"}
         </p>
       </div>
 
@@ -358,6 +375,14 @@ export function AdminSettingsPage() {
           <TabsTrigger value="code-rules" className="min-w-[108px] gap-1.5">
             <Hash className="size-4" />
             编码规则
+          </TabsTrigger>
+          <TabsTrigger value="movement-catalog" className="min-w-[132px] gap-1.5">
+            <GitBranch className="size-4" />
+            职务异动类型
+          </TabsTrigger>
+          <TabsTrigger value="employee-group-catalog" className="min-w-[132px] gap-1.5">
+            <Users className="size-4" />
+            员工组/子组
           </TabsTrigger>
         </TabsList>
 
@@ -774,6 +799,14 @@ export function AdminSettingsPage() {
               </>
             ) : null}
           </div>
+        </TabsContent>
+
+        <TabsContent value="movement-catalog" className="mt-0 w-full outline-none">
+          <MovementCatalogPanel />
+        </TabsContent>
+
+        <TabsContent value="employee-group-catalog" className="mt-0 w-full outline-none">
+          <EmployeeGroupCatalogPanel />
         </TabsContent>
       </Tabs>
 

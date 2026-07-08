@@ -191,6 +191,282 @@ export type DictApi = {
   deleteDictItem: (id: string) => Promise<ApiResponse<{ id: string }>>;
 };
 
+// -----------------------------
+// 职务异动类型目录（三级：操作 / 原因 / 子项）
+// -----------------------------
+
+export type MovementPhase = "HIRE" | "CHANGE" | "LEAVE";
+
+export type MovementTypeDef = {
+  id: string;
+  code: string;
+  name: string;
+  phase: MovementPhase;
+  phaseLabel?: string;
+  status: DictStatus;
+  sort: number;
+  remark?: string;
+  reasonCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type MovementReasonDef = {
+  id: string;
+  movementTypeCode: string;
+  code: string;
+  name: string;
+  status: DictStatus;
+  sort: number;
+  remark?: string;
+  subCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type MovementReasonSubDef = {
+  id: string;
+  reasonId: string;
+  code: string;
+  name: string;
+  status: DictStatus;
+  sort: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type MovementCatalogTreeRow = {
+  movementTypeCode: string;
+  movementTypeName: string;
+  movementTypeStatus: DictStatus;
+  reasonCode?: string;
+  reasonName?: string;
+  reasonStatus?: DictStatus;
+  reasonSubCode?: string;
+  reasonSubName?: string;
+  reasonSubStatus?: DictStatus;
+};
+
+export type MovementCatalogOptionReason = {
+  code: string;
+  name: string;
+  requiresSub: boolean;
+  subs: Array<{ code: string; name: string }>;
+};
+
+export type MovementCatalogOption = {
+  movementType: string;
+  movementTypeName: string;
+  phase: MovementPhase;
+  reasons: MovementCatalogOptionReason[];
+};
+
+export type MovementTypeCreateRequest = {
+  code: string;
+  name: string;
+  phase: MovementPhase;
+  status?: DictStatus;
+  sort?: number;
+  remark?: string;
+};
+
+export type MovementTypeUpdateRequest = {
+  name?: string;
+  phase?: MovementPhase;
+  status?: DictStatus;
+  sort?: number;
+  remark?: string;
+};
+
+export type MovementReasonCreateRequest = {
+  movementTypeCode: string;
+  code: string;
+  name: string;
+  status?: DictStatus;
+  sort?: number;
+  remark?: string;
+};
+
+export type MovementReasonUpdateRequest = {
+  name?: string;
+  status?: DictStatus;
+  sort?: number;
+  remark?: string;
+};
+
+export type MovementReasonSubCreateRequest = {
+  reasonId: string;
+  code: string;
+  name: string;
+  status?: DictStatus;
+  sort?: number;
+};
+
+export type MovementReasonSubUpdateRequest = {
+  name?: string;
+  status?: DictStatus;
+  sort?: number;
+};
+
+export type MovementCatalogApi = {
+  /** GET /api/v1/movement-types */
+  listMovementTypes: () => Promise<ApiResponse<MovementTypeDef[]>>;
+  /** POST /api/v1/movement-types */
+  createMovementType: (req: MovementTypeCreateRequest) => Promise<ApiResponse<MovementTypeDef>>;
+  /** PUT /api/v1/movement-types/{id} */
+  updateMovementType: (id: string, req: MovementTypeUpdateRequest) => Promise<ApiResponse<MovementTypeDef>>;
+  /** PATCH /api/v1/movement-types/{id}/status */
+  updateMovementTypeStatus: (
+    id: string,
+    status: DictStatus,
+  ) => Promise<ApiResponse<MovementTypeDef>>;
+  /** GET /api/v1/movement-types/{code}/reasons */
+  listMovementReasons: (movementTypeCode: string) => Promise<ApiResponse<MovementReasonDef[]>>;
+  /** POST /api/v1/movement-reasons */
+  createMovementReason: (req: MovementReasonCreateRequest) => Promise<ApiResponse<MovementReasonDef>>;
+  /** PUT /api/v1/movement-reasons/{id} */
+  updateMovementReason: (
+    id: string,
+    req: MovementReasonUpdateRequest,
+  ) => Promise<ApiResponse<MovementReasonDef>>;
+  /** PATCH /api/v1/movement-reasons/{id}/status */
+  updateMovementReasonStatus: (
+    id: string,
+    status: DictStatus,
+  ) => Promise<ApiResponse<MovementReasonDef>>;
+  /** GET /api/v1/movement-reasons/{id}/subs */
+  listMovementReasonSubs: (reasonId: string) => Promise<ApiResponse<MovementReasonSubDef[]>>;
+  /** POST /api/v1/movement-reason-subs */
+  createMovementReasonSub: (
+    req: MovementReasonSubCreateRequest,
+  ) => Promise<ApiResponse<MovementReasonSubDef>>;
+  /** PUT /api/v1/movement-reason-subs/{id} */
+  updateMovementReasonSub: (
+    id: string,
+    req: MovementReasonSubUpdateRequest,
+  ) => Promise<ApiResponse<MovementReasonSubDef>>;
+  /** PATCH /api/v1/movement-reason-subs/{id}/status */
+  updateMovementReasonSubStatus: (
+    id: string,
+    status: DictStatus,
+  ) => Promise<ApiResponse<MovementReasonSubDef>>;
+  /** GET /api/v1/movement-catalog/options */
+  getMovementCatalogOptions: () => Promise<ApiResponse<MovementCatalogOption[]>>;
+  /** GET /api/v1/movement-catalog/tree */
+  getMovementCatalogTree: () => Promise<ApiResponse<MovementCatalogTreeRow[]>>;
+};
+
+// -----------------------------
+// 员工组/员工子组目录（两级）
+// -----------------------------
+
+export type EmployeeGroupDef = {
+  id: string;
+  code: string;
+  name: string;
+  status: DictStatus;
+  sort: number;
+  remark?: string;
+  subgroupCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type EmployeeSubgroupDef = {
+  id: string;
+  employeeGroupCode: string;
+  code: string;
+  name: string;
+  status: DictStatus;
+  sort: number;
+  remark?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type EmployeeGroupCatalogTreeRow = {
+  employeeGroupCode: string;
+  employeeGroupName: string;
+  employeeGroupStatus: DictStatus;
+  employeeSubgroupCode?: string;
+  employeeSubgroupName?: string;
+  employeeSubgroupStatus?: DictStatus;
+};
+
+export type EmployeeGroupCatalogOption = {
+  employeeGroupCode: string;
+  employeeGroupName: string;
+  subgroups: Array<{ code: string; name: string }>;
+};
+
+export type EmployeeGroupCreateRequest = {
+  code: string;
+  name: string;
+  status?: DictStatus;
+  sort?: number;
+  remark?: string;
+};
+
+export type EmployeeGroupUpdateRequest = {
+  name?: string;
+  status?: DictStatus;
+  sort?: number;
+  remark?: string;
+};
+
+export type EmployeeSubgroupCreateRequest = {
+  employeeGroupCode: string;
+  code: string;
+  name: string;
+  status?: DictStatus;
+  sort?: number;
+  remark?: string;
+};
+
+export type EmployeeSubgroupUpdateRequest = {
+  name?: string;
+  status?: DictStatus;
+  sort?: number;
+  remark?: string;
+};
+
+export type EmployeeGroupCatalogApi = {
+  /** GET /api/v1/employee-groups */
+  listEmployeeGroups: () => Promise<ApiResponse<EmployeeGroupDef[]>>;
+  /** POST /api/v1/employee-groups */
+  createEmployeeGroup: (req: EmployeeGroupCreateRequest) => Promise<ApiResponse<EmployeeGroupDef>>;
+  /** PUT /api/v1/employee-groups/{id} */
+  updateEmployeeGroup: (
+    id: string,
+    req: EmployeeGroupUpdateRequest,
+  ) => Promise<ApiResponse<EmployeeGroupDef>>;
+  /** PATCH /api/v1/employee-groups/{id}/status */
+  updateEmployeeGroupStatus: (
+    id: string,
+    status: DictStatus,
+  ) => Promise<ApiResponse<EmployeeGroupDef>>;
+  /** GET /api/v1/employee-groups/{code}/subgroups */
+  listEmployeeSubgroups: (employeeGroupCode: string) => Promise<ApiResponse<EmployeeSubgroupDef[]>>;
+  /** POST /api/v1/employee-subgroups */
+  createEmployeeSubgroup: (
+    req: EmployeeSubgroupCreateRequest,
+  ) => Promise<ApiResponse<EmployeeSubgroupDef>>;
+  /** PUT /api/v1/employee-subgroups/{id} */
+  updateEmployeeSubgroup: (
+    id: string,
+    req: EmployeeSubgroupUpdateRequest,
+  ) => Promise<ApiResponse<EmployeeSubgroupDef>>;
+  /** PATCH /api/v1/employee-subgroups/{id}/status */
+  updateEmployeeSubgroupStatus: (
+    id: string,
+    status: DictStatus,
+  ) => Promise<ApiResponse<EmployeeSubgroupDef>>;
+  /** GET /api/v1/employee-group-catalog/options */
+  getEmployeeGroupCatalogOptions: () => Promise<ApiResponse<EmployeeGroupCatalogOption[]>>;
+  /** GET /api/v1/employee-group-catalog/tree */
+  getEmployeeGroupCatalogTree: () => Promise<ApiResponse<EmployeeGroupCatalogTreeRow[]>>;
+};
+
 export type CodeRuleSeqReset = "DAY" | "MONTH" | "YEAR" | "NEVER";
 
 export type CodeRule = {

@@ -232,6 +232,47 @@ export async function putJson<T, TBody extends Record<string, unknown>>(
   return json as ApiResponse<T>;
 }
 
+export async function patchJson<T, TBody extends Record<string, unknown>>(
+  path: string,
+  body: TBody,
+): Promise<ApiResponse<T>> {
+  const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  const token = getAuthToken();
+
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw { message: "网络错误：无法连接到服务" } satisfies ApiError;
+  }
+
+  let json: unknown;
+  try {
+    json = await res.json();
+  } catch {
+    throw { message: "服务返回非 JSON 响应" } satisfies ApiError;
+  }
+
+  if (!res.ok) {
+    const traceId =
+      typeof (json as any)?.traceId === "string" ? (json as any).traceId : undefined;
+    const message =
+      typeof (json as any)?.message === "string"
+        ? (json as any).message
+        : `请求失败（HTTP ${res.status}）`;
+    throw { message, traceId } satisfies ApiError;
+  }
+
+  return json as ApiResponse<T>;
+}
+
 export async function deleteJson<T>(path: string): Promise<ApiResponse<T>> {
   const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
   const token = getAuthToken();
