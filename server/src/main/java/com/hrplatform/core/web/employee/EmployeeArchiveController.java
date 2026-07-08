@@ -616,6 +616,12 @@ public class EmployeeArchiveController {
           // 关联员工可能已删除，保留 ID 即可
         }
       }
+      return;
+    }
+    if (bean instanceof EmployeeAgreementEntity agreement) {
+      putDictLabel(dto, "agreementCategory", "AGREEMENT_CATEGORY", agreement.getAgreementCategory());
+      putDictLabel(dto, "operationType", "AGREEMENT_OPERATION_TYPE", agreement.getOperationType());
+      return;
     }
   }
 

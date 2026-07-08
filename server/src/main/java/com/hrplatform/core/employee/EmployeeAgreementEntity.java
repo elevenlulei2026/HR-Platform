@@ -9,6 +9,17 @@ import java.time.LocalDateTime;
 public class EmployeeAgreementEntity {
   private Long id;
   private Long employeeId;
+  /** 生效开始日期（档案记录） */
+  private LocalDate effectiveStartDate;
+  /** 生效结束日期（档案记录） */
+  private LocalDate effectiveEndDate;
+  /** 协议编号（手填） */
+  private String agreementCode;
+  /** 操作类型（数据字典：AGREEMENT_OPERATION_TYPE） */
+  private String operationType;
+  /** 协议类别（数据字典：AGREEMENT_CATEGORY） */
+  private String agreementCategory;
+  /** @deprecated 旧字段：协议类型（历史数据兼容） */
   private String agreementType;
   private Long legalEntityId;
   private LocalDate startDate;
@@ -25,6 +36,16 @@ public class EmployeeAgreementEntity {
   public void setId(Long id) { this.id = id; }
   public Long getEmployeeId() { return employeeId; }
   public void setEmployeeId(Long employeeId) { this.employeeId = employeeId; }
+  public LocalDate getEffectiveStartDate() { return effectiveStartDate; }
+  public void setEffectiveStartDate(LocalDate effectiveStartDate) { this.effectiveStartDate = effectiveStartDate; }
+  public LocalDate getEffectiveEndDate() { return effectiveEndDate; }
+  public void setEffectiveEndDate(LocalDate effectiveEndDate) { this.effectiveEndDate = effectiveEndDate; }
+  public String getAgreementCode() { return agreementCode; }
+  public void setAgreementCode(String agreementCode) { this.agreementCode = agreementCode; }
+  public String getOperationType() { return operationType; }
+  public void setOperationType(String operationType) { this.operationType = operationType; }
+  public String getAgreementCategory() { return agreementCategory; }
+  public void setAgreementCategory(String agreementCategory) { this.agreementCategory = agreementCategory; }
   public String getAgreementType() { return agreementType; }
   public void setAgreementType(String agreementType) { this.agreementType = agreementType; }
   public Long getLegalEntityId() { return legalEntityId; }

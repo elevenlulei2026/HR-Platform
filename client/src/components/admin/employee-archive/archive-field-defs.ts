@@ -64,11 +64,14 @@ export const WORK_CONTRACT_FIELDS: ArchiveFieldDef[] = [
 ];
 
 export const WORK_AGREEMENT_FIELDS: ArchiveFieldDef[] = [
-  { key: "agreementType", label: "协议类型", required: true },
+  { key: "effectiveStartDate", label: "生效日期", type: "date", required: true },
+  { key: "agreementCode", label: "协议编号", required: true },
+  { key: "operationType", label: "操作类型", required: true },
+  { key: "status", label: "协议状态", required: true },
+  { key: "agreementCategory", label: "协议类别", required: true },
   { key: "legalEntityId", label: "协议法人主体", type: "id", reference: "legalEntity" },
   { key: "startDate", label: "开始日期", type: "date" },
   { key: "endDate", label: "结束日期", type: "date" },
-  { key: "status", label: "状态" },
   { key: "fileAttachmentId", label: "附件ID" },
   { key: "remark", label: "备注" },
 ];

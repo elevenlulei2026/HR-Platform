@@ -58,7 +58,6 @@ import {
   TALENT_REVIEW_FIELDS,
   TALENT_TRAINING_FIELDS,
   TALENT_VALUES_FIELDS,
-  WORK_AGREEMENT_FIELDS,
   WORK_COST_CENTER_FIELDS,
 } from "@/components/admin/employee-archive/archive-field-defs";
 import {
@@ -67,6 +66,7 @@ import {
   findCategoryBySection,
 } from "@/components/admin/employee-archive/archive-section-nav";
 import { ArchiveAttachmentSection } from "@/components/admin/employee-archive/ArchiveAttachmentSection";
+import { AgreementSection } from "@/components/admin/employee-archive/AgreementSection";
 import { ContractSection } from "@/components/admin/employee-archive/ContractSection";
 import { ArchiveDetailNav } from "@/components/admin/employee-archive/ArchiveDetailNav";
 import { ArchiveMultiSection } from "@/components/admin/employee-archive/ArchiveMultiSection";
@@ -622,12 +622,10 @@ export function EmployeeArchiveDetailView({
                     />
                   </ArchiveSectionAnchor>
                   <ArchiveSectionAnchor id="agreements">
-                    <ArchiveMultiSection
-                      title="协议信息"
+                    <AgreementSection
                       employeeId={employee.id}
-                      resourcePath="agreements"
                       items={archive.agreements}
-                      fieldDefs={WORK_AGREEMENT_FIELDS}
+                      attachments={archive.attachments}
                       canEdit={canEdit}
                       onChanged={onArchiveChanged}
                     />

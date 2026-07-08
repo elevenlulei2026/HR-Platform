@@ -1,4 +1,4 @@
-import type { EmployeeAttachment, EmployeeContract } from "@shared/api.interface";
+import type { EmployeeAgreement, EmployeeAttachment } from "@shared/api.interface";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Download, Edit, FileUp, Plus, Trash2 } from "lucide-react";
@@ -12,8 +12,8 @@ import {
   updateEmployeeArchiveResource,
   uploadEmployeeFile,
 } from "@/api/employee-archive";
+import { listDictItemsByTypeCode } from "@/api/dict";
 import { listLegalEntities } from "@/api/organization";
-import { listChildrenByParent, listParentsByType } from "@/api/parent-child-catalog";
 import { ArchiveFormDialogPortal } from "@/components/admin/employee-archive/ArchiveFormDialogPortal";
 import { ConfirmDialogPortal } from "@/components/admin/employee-archive/ConfirmDialogPortal";
 import {
@@ -28,13 +28,13 @@ import { FormField } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
 import { SearchableSelect, formatCodeName, type SearchableSelectOption } from "@/components/admin/searchable-select";
 import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
-type ContractSectionProps = {
+type AgreementSectionProps = {
   employeeId: string;
-  items: EmployeeContract[];
+  items: EmployeeAgreement[];
   attachments: EmployeeAttachment[];
   canEdit: boolean;
   onChanged: () => Promise<void> | void;
@@ -43,27 +43,14 @@ type ContractSectionProps = {
 type SheetState =
   | { type: "closed" }
   | { type: "new" }
-  | { type: "edit"; item: EmployeeContract };
+  | { type: "edit"; item: EmployeeAgreement };
 
-type ParentOption = { value: string; label: string };
+type Option = { value: string; label: string };
 
-const OPERATION_TYPE_OPTIONS: ParentOption[] = [
-  { value: "10", label: "新签" },
-  { value: "20", label: "续签" },
-  { value: "30", label: "变更" },
-  { value: "40", label: "解除" },
-];
-
-const STATUS_OPTIONS: ParentOption[] = [
+const STATUS_OPTIONS: Option[] = [
   { value: "VALID", label: "有效" },
   { value: "INVALID", label: "无效" },
 ];
-
-// 无固定期限劳动合同（二级值 code：120/150）
-const INDEFINITE_CONTRACT_DESC_CODES = new Set<string>(["120", "150"]);
-function isIndefiniteContractDesc(contractCategoryDesc?: string) {
-  return INDEFINITE_CONTRACT_DESC_CODES.has(contractCategoryDesc?.trim() ?? "");
-}
 
 function toApiError(e: unknown): ApiError {
   if (
@@ -77,15 +64,14 @@ function toApiError(e: unknown): ApiError {
   return { message: "请求失败，请稍后重试" };
 }
 
-function initialForm(item?: EmployeeContract) {
+function initialForm(item?: EmployeeAgreement) {
   return {
     effectiveStartDate: item?.effectiveStartDate ?? "",
-    contractCode: item?.contractCode ?? "",
-    legalEntityId: item?.legalEntityId ?? "",
+    agreementCode: item?.agreementCode ?? "",
     operationType: item?.operationType ?? "",
     status: item?.status ?? "VALID",
-    contractCategory: item?.contractCategory ?? "",
-    contractCategoryDesc: item?.contractCategoryDesc ?? "",
+    agreementCategory: item?.agreementCategory ?? "",
+    legalEntityId: item?.legalEntityId ?? "",
     startDate: item?.startDate ?? "",
     endDate: item?.endDate ?? "",
     fileAttachmentId: item?.fileAttachmentId ?? "",
@@ -93,37 +79,34 @@ function initialForm(item?: EmployeeContract) {
   };
 }
 
-function validateForm(form: ReturnType<typeof initialForm>, isIndefinite: boolean) {
+function validateForm(form: ReturnType<typeof initialForm>) {
   if (!form.effectiveStartDate.trim()) return "请选择生效日期";
-  if (!form.contractCode.trim()) return "请填写合同编码";
-  if (!form.legalEntityId.trim()) return "请选择合同法人主体";
+  if (!form.agreementCode.trim()) return "请填写协议编号";
   if (!form.operationType.trim()) return "请选择操作类型";
-  if (!form.status.trim()) return "请选择状态";
-  if (!form.contractCategory.trim()) return "请选择合同类别";
-  if (!form.contractCategoryDesc.trim()) return "请选择合同类别描述";
-  if (!form.startDate.trim()) return "请选择开始日期";
-  if (!isIndefinite && !form.endDate.trim()) return "请选择结束日期";
+  if (!form.status.trim()) return "请选择协议状态";
+  if (!form.agreementCategory.trim()) return "请选择协议类别";
+  if (!form.legalEntityId.trim()) return "请选择协议法人主体";
+  if (!form.startDate.trim()) return "请选择协议开始日期";
+  if (!form.endDate.trim()) return "请选择协议结束日期";
   return null;
 }
 
-export function ContractSection({
+export function AgreementSection({
   employeeId,
   items,
   attachments,
   canEdit,
   onChanged,
-}: ContractSectionProps) {
+}: AgreementSectionProps) {
   const [sheet, setSheet] = useState<SheetState>({ type: "closed" });
   const [form, setForm] = useState(() => initialForm());
   const [saving, setSaving] = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<EmployeeContract | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<EmployeeAgreement | null>(null);
   const [deleting, setDeleting] = useState(false);
 
   const [legalOptions, setLegalOptions] = useState<SearchableSelectOption[]>([]);
-  const [categoryParents, setCategoryParents] = useState<ParentOption[]>([]);
-  const [categoryChildren, setCategoryChildren] = useState<ParentOption[]>([]);
-  const [categoryNameByCode, setCategoryNameByCode] = useState<Record<string, string>>({});
-  const [categoryDescNameByCode, setCategoryDescNameByCode] = useState<Record<string, string>>({});
+  const [operationTypeOptions, setOperationTypeOptions] = useState<Option[]>([]);
+  const [categoryOptions, setCategoryOptions] = useState<Option[]>([]);
 
   const uploadInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -144,14 +127,24 @@ export function ContractSection({
     return map;
   }, [legalOptions]);
 
-  const isIndefinite = isIndefiniteContractDesc(form.contractCategoryDesc);
+  const categoryNameByCode = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const o of categoryOptions) map[o.value] = o.label;
+    return map;
+  }, [categoryOptions]);
+
+  const operationTypeNameByCode = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const o of operationTypeOptions) map[o.value] = o.label;
+    return map;
+  }, [operationTypeOptions]);
 
   const openNew = () => {
     setForm(initialForm());
     setSheet({ type: "new" });
   };
 
-  const openEdit = (item: EmployeeContract) => {
+  const openEdit = (item: EmployeeAgreement) => {
     setForm(initialForm(item));
     setSheet({ type: "edit", item });
   };
@@ -183,33 +176,28 @@ export function ContractSection({
     let cancelled = false;
     void (async () => {
       try {
-        const res = await listParentsByType("CONTRACT_CATEGORY");
+        const [opRes, catRes] = await Promise.all([
+          listDictItemsByTypeCode("AGREEMENT_OPERATION_TYPE"),
+          listDictItemsByTypeCode("AGREEMENT_CATEGORY"),
+        ]);
         if (cancelled) return;
-        setCategoryParents(res.data.map((p) => ({ value: p.code, label: p.name })));
-
-        // 列表页需要“名称而非编码”：一次性缓存父子目录映射
-        const parentMap: Record<string, string> = {};
-        for (const p of res.data) parentMap[p.code] = p.name;
-        setCategoryNameByCode(parentMap);
-
-        const childResults = await Promise.all(
-          res.data.map(async (p) => {
-            try {
-              const cr = await listChildrenByParent("CONTRACT_CATEGORY", p.code);
-              return cr.data;
-            } catch {
-              return [];
-            }
-          }),
+        setOperationTypeOptions(
+          opRes.data
+            .filter((i) => i.status === "ACTIVE")
+            .sort((a, b) => a.sort - b.sort)
+            .map((i) => ({ value: i.value, label: i.label })),
         );
-        if (cancelled) return;
-        const childMap: Record<string, string> = {};
-        for (const children of childResults) {
-          for (const c of children) childMap[c.code] = c.name;
-        }
-        setCategoryDescNameByCode(childMap);
+        setCategoryOptions(
+          catRes.data
+            .filter((i) => i.status === "ACTIVE")
+            .sort((a, b) => a.sort - b.sort)
+            .map((i) => ({ value: i.value, label: i.label })),
+        );
       } catch {
-        if (!cancelled) setCategoryParents([]);
+        if (!cancelled) {
+          setOperationTypeOptions([]);
+          setCategoryOptions([]);
+        }
       }
     })();
     return () => {
@@ -217,57 +205,34 @@ export function ContractSection({
     };
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    const parent = form.contractCategory.trim();
-    if (!parent) {
-      setCategoryChildren([]);
-      return;
-    }
-    void (async () => {
-      try {
-        const res = await listChildrenByParent("CONTRACT_CATEGORY", parent);
-        if (cancelled) return;
-        setCategoryChildren(res.data.map((c) => ({ value: c.code, label: c.name })));
-      } catch {
-        if (!cancelled) setCategoryChildren([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [form.contractCategory]);
-
   const save = async () => {
-    const errText = validateForm(form, isIndefinite);
+    const errText = validateForm(form);
     if (errText) {
       toast.error(errText);
       return;
     }
     setSaving(true);
     try {
-      const endDatePayload = form.endDate.trim() || undefined;
       const payload = {
         effectiveStartDate: form.effectiveStartDate.trim(),
-        contractCode: form.contractCode.trim(),
-        legalEntityId: form.legalEntityId.trim(),
+        agreementCode: form.agreementCode.trim(),
         operationType: form.operationType.trim(),
         status: form.status.trim(),
-        contractCategory: form.contractCategory.trim(),
-        contractCategoryDesc: form.contractCategoryDesc.trim(),
+        agreementCategory: form.agreementCategory.trim(),
+        legalEntityId: form.legalEntityId.trim(),
         startDate: form.startDate.trim(),
-        endDate: endDatePayload,
+        endDate: form.endDate.trim(),
         fileAttachmentId: form.fileAttachmentId.trim() || undefined,
         remark: form.remark.trim() || undefined,
-      } satisfies Partial<EmployeeContract>;
+      } satisfies Partial<EmployeeAgreement>;
 
       if (sheet.type === "new") {
-        await createEmployeeArchiveResource(employeeId, "contracts", payload);
+        await createEmployeeArchiveResource(employeeId, "agreements", payload);
       } else if (sheet.type === "edit") {
-        await updateEmployeeArchiveResource(employeeId, "contracts", sheet.item.id, payload);
+        await updateEmployeeArchiveResource(employeeId, "agreements", sheet.item.id, payload);
       }
 
-      toast.success("合同信息已保存");
+      toast.success("协议信息已保存");
       setSheet({ type: "closed" });
       await onChanged();
     } catch (e: unknown) {
@@ -282,9 +247,9 @@ export function ContractSection({
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await deleteEmployeeArchiveResource(employeeId, "contracts", deleteTarget.id);
+      await deleteEmployeeArchiveResource(employeeId, "agreements", deleteTarget.id);
       setDeleteTarget(null);
-      toast.success("合同记录已删除");
+      toast.success("协议记录已删除");
       await onChanged();
     } catch (e: unknown) {
       const apiErr = toApiError(e);
@@ -306,14 +271,14 @@ export function ContractSection({
     }
     setUploading(true);
     try {
-      const stored = await uploadEmployeeFile(file, "employee-contract-attachment");
+      const stored = await uploadEmployeeFile(file, "employee-agreement-attachment");
       const created = await createEmployeeArchiveResource(employeeId, "attachments", {
         attachmentType: "OTHER",
         originalFilename: stored.originalFilename,
         storageKey: stored.storageKey,
       });
       setForm((prev) => ({ ...prev, fileAttachmentId: created.data.id }));
-      toast.success("附件已上传并关联到合同");
+      toast.success("附件已上传并关联到协议");
       await onChanged();
     } catch (e: unknown) {
       const apiErr = toApiError(e);
@@ -342,7 +307,7 @@ export function ContractSection({
   return (
     <>
       <PanelCard
-        title="合同信息"
+        title="协议信息"
         toolbar={
           <>
             {items.length > 1 ? (
@@ -352,7 +317,7 @@ export function ContractSection({
             ) : null}
             {canEdit ? (
               <ArchiveAddButton
-                label="新增合同"
+                label="新增协议"
                 icon={Plus}
                 onClick={openNew}
               />
@@ -363,34 +328,25 @@ export function ContractSection({
         {items.length === 0 ? (
           <div className="p-6">
             <PanelEmpty
-              title="暂无合同记录"
-              description={canEdit ? "点击右上角新增合同信息" : ""}
+              title="暂无协议记录"
+              description={canEdit ? "点击右上角新增协议信息" : ""}
             />
           </div>
         ) : (
           <ArchiveRecordList>
-            {items.map((item) => {
+            {items.map((item, index) => {
               const statusLabel = STATUS_OPTIONS.find((o) => o.value === item.status)?.label ?? item.status;
-              const operationLabel =
-                item.operationType
-                  ? OPERATION_TYPE_OPTIONS.find((o) => o.value === item.operationType)?.label ?? item.operationType
-                  : "—";
-              const indefinite = isIndefiniteContractDesc(item.contractCategoryDesc);
               const legalEntityName =
                 (item.legalEntityId ? legalNameById[String(item.legalEntityId)] : undefined) ||
                 (item.legalEntityId ? String(item.legalEntityId) : "—");
-              const categoryName =
-                item.contractCategoryLabel ||
-                (item.contractCategory ? categoryNameByCode[item.contractCategory] : undefined) ||
-                item.contractCategory ||
+              const categoryLabel =
+                item.agreementCategoryLabel ||
+                (item.agreementCategory ? categoryNameByCode[item.agreementCategory] : undefined) ||
+                item.agreementCategory ||
                 "—";
-              const categoryDescName =
-                item.contractCategoryDescLabel ||
-                (item.contractCategoryDesc ? categoryDescNameByCode[item.contractCategoryDesc] : undefined) ||
-                item.contractCategoryDesc ||
-                "—";
-              const categoryDisplay = categoryName && categoryDescName ? `${categoryName} · ${categoryDescName}` : categoryName || categoryDescName;
-              const periodDisplay = `${item.startDate || "—"} ~ ${indefinite ? "无固定期限" : item.endDate || "—"}`;
+              const operationLabel =
+                item.operationType ? operationTypeNameByCode[item.operationType] || item.operationType : "—";
+              const periodDisplay = `${item.startDate || "—"} ~ ${item.endDate || "—"}`;
               const statusBadge =
                 item.status === "INVALID" ? (
                   <Badge variant="secondary" className="h-5 px-2 text-[11px] font-medium">
@@ -405,7 +361,7 @@ export function ContractSection({
               return (
                 <ArchiveRecordCard
                   key={item.id}
-                  index={item.signingTimes ?? undefined}
+                  index={items.length > 1 ? index + 1 : undefined}
                   accent={item.status === "INVALID" ? "amber" : "primary"}
                   actions={
                     <>
@@ -428,10 +384,10 @@ export function ContractSection({
                 >
                   <ArchiveRecordFieldGrid columns={4}>
                     <ArchiveRecordField
-                      label="合同/法人"
+                      label="协议/法人"
                       value={
                         <div className="min-w-0">
-                          <div className="truncate font-mono text-[11px] leading-tight">{item.contractCode || "—"}</div>
+                          <div className="truncate font-mono text-[11px] leading-tight">{item.agreementCode || "—"}</div>
                           <div className="mt-0.5 truncate text-[11px] font-medium text-muted-foreground">
                             {legalEntityName}
                           </div>
@@ -439,7 +395,7 @@ export function ContractSection({
                       }
                       compact
                     />
-                    <ArchiveRecordField label="合同类别" value={categoryDisplay} compact highlight={indefinite} />
+                    <ArchiveRecordField label="协议类别" value={categoryLabel} compact highlight />
                     <ArchiveRecordField
                       label="期限/生效"
                       value={
@@ -472,9 +428,8 @@ export function ContractSection({
 
       <ArchiveFormDialogPortal
         open={sheet.type !== "closed"}
-        title={sheet.type === "edit" ? "编辑合同信息" : "新增合同信息"}
-        description="按要求维护合同信息字段，合同签订次数将自动计算。"
-        // 约为默认弹窗宽度的 150%
+        title={sheet.type === "edit" ? "编辑协议信息" : "新增协议信息"}
+        description="按要求维护协议信息字段，附件将受控下载。"
         contentClassName="sm:max-w-3xl"
         onOpenChange={(open) => {
           if (!open) setSheet({ type: "closed" });
@@ -500,25 +455,36 @@ export function ContractSection({
             />
           </FormField>
 
-          <FormField label="合同编码" required>
+          <FormField label="协议编号" required>
             <Input
-              value={form.contractCode}
-              onChange={(e) => setForm((prev) => ({ ...prev, contractCode: e.target.value }))}
-              placeholder="请输入合同编码"
+              value={form.agreementCode}
+              onChange={(e) => setForm((prev) => ({ ...prev, agreementCode: e.target.value }))}
+              placeholder="请输入协议编号"
             />
           </FormField>
 
           <FormField label="操作类型" required>
             <OptionSelect
               value={form.operationType}
-              options={OPERATION_TYPE_OPTIONS}
-              placeholder="选择操作类型"
+              options={operationTypeOptions}
+              placeholder={operationTypeOptions.length ? "选择操作类型" : "加载选项…"}
               onValueChange={(v) => setForm((prev) => ({ ...prev, operationType: v }))}
+              disabled={operationTypeOptions.length === 0}
+            />
+          </FormField>
+
+          <FormField label="协议类别" required>
+            <OptionSelect
+              value={form.agreementCategory}
+              options={categoryOptions}
+              placeholder={categoryOptions.length ? "选择协议类别" : "加载选项…"}
+              onValueChange={(v) => setForm((prev) => ({ ...prev, agreementCategory: v }))}
+              disabled={categoryOptions.length === 0}
             />
           </FormField>
 
           <div className="md:col-span-2">
-            <FormField label="合同法人主体" required>
+            <FormField label="协议法人主体" required>
               <SearchableSelect
                 value={form.legalEntityId}
                 options={legalOptions}
@@ -531,31 +497,6 @@ export function ContractSection({
             </FormField>
           </div>
 
-          <FormField label="合同类别" required>
-            <OptionSelect
-              value={form.contractCategory}
-              options={categoryParents}
-              placeholder="选择一级合同类别"
-              onValueChange={(v) =>
-                setForm((prev) => ({
-                  ...prev,
-                  contractCategory: v,
-                  contractCategoryDesc: "",
-                }))
-              }
-            />
-          </FormField>
-
-          <FormField label="合同类别描述" required>
-            <OptionSelect
-              value={form.contractCategoryDesc}
-              options={categoryChildren}
-              placeholder={form.contractCategory ? "选择二级描述" : "请先选择合同类别"}
-              onValueChange={(v) => setForm((prev) => ({ ...prev, contractCategoryDesc: v }))}
-              disabled={!form.contractCategory}
-            />
-          </FormField>
-
           <FormField label="开始日期" required>
             <Input
               type="date"
@@ -564,7 +505,7 @@ export function ContractSection({
             />
           </FormField>
 
-          <FormField label="结束日期" required={!isIndefinite} hint={isIndefinite ? "无固定期限合同可不填" : undefined}>
+          <FormField label="结束日期" required>
             <Input
               type="date"
               value={form.endDate}
@@ -624,7 +565,7 @@ export function ContractSection({
       <ConfirmDialogPortal
         open={!!deleteTarget}
         title="确认删除"
-        description={deleteTarget ? `确认删除合同编码「${deleteTarget.contractCode ?? deleteTarget.id}」的记录吗？` : ""}
+        description={deleteTarget ? `确认删除协议编号「${deleteTarget.agreementCode ?? deleteTarget.id}」的记录吗？` : ""}
         confirmLabel="删除"
         destructive
         loading={deleting}

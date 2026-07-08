@@ -1694,11 +1694,23 @@ export type EmployeeContract = EmployeeArchiveRecordBase & {
 };
 
 export type EmployeeAgreement = EmployeeArchiveRecordBase & {
+  /** 生效日期（档案记录生效区间） */
+  effectiveStartDate?: string; // YYYY-MM-DD
+  effectiveEndDate?: string; // YYYY-MM-DD
+  /** 协议编号（手填） */
+  agreementCode?: string;
+  /** 操作类型（数据字典：AGREEMENT_OPERATION_TYPE） */
+  operationType?: string;
+  /** 协议状态：VALID / INVALID */
+  status?: string;
+  /** 协议类别（数据字典：AGREEMENT_CATEGORY） */
+  agreementCategory?: string;
+  agreementCategoryLabel?: string;
+  /** @deprecated 旧字段：协议类型（历史数据兼容） */
   agreementType?: string;
   legalEntityId?: string;
   startDate?: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
-  status?: string;
   fileAttachmentId?: string;
   remark?: string;
 };

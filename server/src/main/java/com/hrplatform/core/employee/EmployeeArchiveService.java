@@ -338,11 +338,13 @@ public class EmployeeArchiveService {
 
   @Transactional
   public EmployeeAgreementEntity createAgreement(long employeeId, EmployeeAgreementEntity entity) {
+    validateAgreement(entity);
     return create(agreementMapper, employeeId, entity, EmployeeAgreementEntity::setEmployeeId);
   }
 
   @Transactional
   public EmployeeAgreementEntity updateAgreement(long employeeId, long id, EmployeeAgreementEntity entity) {
+    validateAgreement(entity);
     return update(
         agreementMapper,
         employeeId,
@@ -1003,6 +1005,24 @@ public class EmployeeArchiveService {
       if (percentage.compareTo(BigDecimal.ZERO) < 0 || percentage.compareTo(new BigDecimal("100")) > 0) {
         throw new IllegalArgumentException("分摊比例须在 0–100 之间");
       }
+    }
+  }
+
+  private void validateAgreement(EmployeeAgreementEntity entity) {
+    if (entity.getAgreementCode() != null) {
+      entity.setAgreementCode(entity.getAgreementCode().trim());
+    }
+    if (entity.getOperationType() != null) {
+      entity.setOperationType(entity.getOperationType().trim());
+    }
+    if (entity.getAgreementCategory() != null) {
+      entity.setAgreementCategory(entity.getAgreementCategory().trim());
+    }
+    if (entity.getRemark() != null) {
+      entity.setRemark(entity.getRemark().trim());
+    }
+    if (entity.getLegalEntityId() != null) {
+      legalEntityService.require(entity.getLegalEntityId());
     }
   }
   private void mergeContract(EmployeeContractEntity current, EmployeeContractEntity patch) { mergeAll(current, patch); }
