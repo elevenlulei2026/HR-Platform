@@ -1,10 +1,8 @@
 package com.hrplatform.core.employee;
 
 import com.hrplatform.platform.auth.AuthContext;
-import com.hrplatform.platform.movement.MovementCatalogService;
-import com.hrplatform.platform.movement.MovementReasonEntity;
-import com.hrplatform.platform.movement.MovementReasonSubEntity;
-import com.hrplatform.platform.movement.MovementTypeEntity;
+import com.hrplatform.platform.parentchild.ParentChildCatalogService;
+import com.hrplatform.platform.parentchild.ParentChildItemEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,11 +13,12 @@ import java.util.List;
 @Service
 public class EmployeeMovementService {
   private final EmployeeMovementMapper movementMapper;
-  private final MovementCatalogService catalogService;
+  private final ParentChildCatalogService catalogService;
+  private static final String TYPE_CODE = "MOVEMENT_CATALOG";
 
   public EmployeeMovementService(
       EmployeeMovementMapper movementMapper,
-      MovementCatalogService catalogService
+      ParentChildCatalogService catalogService
   ) {
     this.movementMapper = movementMapper;
     this.catalogService = catalogService;
@@ -63,12 +62,27 @@ public class EmployeeMovementService {
       Long toAssignmentId,
       String sourceType
   ) {
-    MovementCatalogService.ResolvedMovement resolved =
-        catalogService.resolve(movementType, reasonCode, reasonSubCode, true);
-
-    MovementTypeEntity type = resolved.type();
-    MovementReasonEntity reason = resolved.reason();
-    MovementReasonSubEntity sub = resolved.sub();
+    ParentChildItemEntity type = catalogService.requireItemByCode(TYPE_CODE, movementType);
+    ParentChildItemEntity reason = catalogService.listChildren(TYPE_CODE, movementType).stream()
+        .filter(r -> reasonCode != null && reasonCode.equals(r.getCode()))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("无效的操作原因: " + reasonCode));
+    ParentChildItemEntity sub = null;
+    List<ParentChildItemEntity> activeSubs = catalogService.listChildren(TYPE_CODE, reason.getCode()).stream()
+        .filter(s -> "ACTIVE".equals(s.getStatus()))
+        .toList();
+    if (!activeSubs.isEmpty()) {
+      String sc = reasonSubCode == null ? "" : reasonSubCode.trim();
+      if (sc.isBlank()) {
+        throw new IllegalArgumentException("操作原因 " + reasonCode + " 必须选择原因子项");
+      }
+      sub = activeSubs.stream()
+          .filter(s -> sc.equals(s.getCode()))
+          .findFirst()
+          .orElseThrow(() -> new IllegalArgumentException("无效的原因子项: " + sc));
+    } else if (reasonSubCode != null && !reasonSubCode.isBlank()) {
+      throw new IllegalArgumentException("操作原因 " + reasonCode + " 不需要原因子项");
+    }
 
     EmployeeMovementEntity entity = new EmployeeMovementEntity();
     entity.setEmployeeId(employeeId);

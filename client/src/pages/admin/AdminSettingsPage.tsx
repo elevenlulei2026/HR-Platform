@@ -45,7 +45,6 @@ import {
   BookText,
   ChevronLeft,
   ChevronRight,
-  GitBranch,
   Hash,
   Inbox,
   Pencil,
@@ -53,7 +52,7 @@ import {
   RefreshCw,
   Search,
   Sparkles,
-  Users,
+  Tag,
 } from "lucide-react";
 import {
   Sheet,
@@ -63,8 +62,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
-import { MovementCatalogPanel } from "@/pages/admin/settings/MovementCatalogPanel";
-import { EmployeeGroupCatalogPanel } from "@/pages/admin/settings/EmployeeGroupCatalogPanel";
+import { ParentChildCatalogPanel } from "@/pages/admin/settings/ParentChildCatalogPanel";
 
 type LoadState<T> =
   | { type: "loading" }
@@ -83,9 +81,9 @@ type CodeRuleSheetMode =
   | { type: "new" }
   | { type: "edit"; item: CodeRule };
 
-type SettingsTab = "dict" | "code-rules" | "movement-catalog" | "employee-group-catalog";
+type SettingsTab = "dict" | "code-rules" | "employee-group-catalog";
 
-const SETTINGS_TABS: SettingsTab[] = ["dict", "code-rules", "movement-catalog", "employee-group-catalog"];
+const SETTINGS_TABS: SettingsTab[] = ["dict", "code-rules", "employee-group-catalog"];
 
 const RESET_OPTIONS: Array<{ id: CodeRuleSeqReset; label: string }> = [
   { id: "DAY", label: "按天" },
@@ -261,7 +259,9 @@ export function AdminSettingsPage() {
       setDictTypesState((prev) => (prev.type === "ok" ? prev : { type: "loading" }));
       const res = await listDictTypes(dictQuery);
       const items = res.data.items.filter((t) => t.code !== "MOVEMENT_REASON");
-      setDictTypesState({ type: "ok", data: { items, total: items.length } });
+      const removedOnThisPage = res.data.items.length - items.length;
+      const total = Math.max(0, res.data.total - removedOnThisPage);
+      setDictTypesState({ type: "ok", data: { items, total } });
     } catch (e: unknown) {
       const err: ApiError =
         typeof (e as any)?.message === "string"
@@ -352,12 +352,10 @@ export function AdminSettingsPage() {
       <div className="space-y-1">
         <h1 className="text-[22px] font-bold tracking-tight text-foreground">系统设置</h1>
         <p className="text-[13px] text-muted-foreground">
-          {activeTab === "dict"
-            ? "维护字典类型与字典项，供各业务模块下拉选项引用。"
-            : activeTab === "movement-catalog"
-              ? "维护职务异动操作码、原因码及原因子项，供任职记录与入转调离流程引用。"
+            {activeTab === "dict"
+              ? "维护字典类型与字典项，供各业务模块下拉选项引用。"
               : activeTab === "employee-group-catalog"
-                ? "维护员工组与员工子组，供任职信息中员工组/子组联动选择引用。"
+                ? "维护通用父子值目录；员工组/子组、职务异动类型等均在此统一维护。"
                 : "维护工号、组织编码等自动生成规则，修改后下一次生成立即生效。"}
         </p>
       </div>
@@ -376,13 +374,9 @@ export function AdminSettingsPage() {
             <Hash className="size-4" />
             编码规则
           </TabsTrigger>
-          <TabsTrigger value="movement-catalog" className="min-w-[132px] gap-1.5">
-            <GitBranch className="size-4" />
-            职务异动类型
-          </TabsTrigger>
           <TabsTrigger value="employee-group-catalog" className="min-w-[132px] gap-1.5">
-            <Users className="size-4" />
-            员工组/子组
+            <Tag className="size-4" />
+            父子值配置
           </TabsTrigger>
         </TabsList>
 
@@ -390,11 +384,13 @@ export function AdminSettingsPage() {
           <div className="overflow-hidden rounded-xl border border-t-2 border-t-primary/70 bg-card shadow-sm">
             <div className="grid gap-0 lg:grid-cols-[minmax(280px,340px)_1fr]">
               {/* 字典类型 */}
-              <div className="border-b lg:border-b-0 lg:border-r">
-                <div className="flex items-center justify-between gap-2 border-b bg-muted/20 px-4 py-3">
+              <div className="flex h-[min(72dvh,760px)] min-h-[520px] flex-col border-b lg:border-b-0 lg:border-r">
+                <div className="shrink-0 flex items-center justify-between gap-2 border-b bg-muted/20 px-4 py-3">
                   <div>
                     <div className="text-sm font-semibold text-foreground">字典类型</div>
-                    <div className="text-xs text-muted-foreground">选择类型后编辑字典项</div>
+                    <div className="text-xs text-muted-foreground">
+                      {dictTypesState.type === "ok" ? `共 ${dictTypeTotal} 项 · 选择类型后编辑字典项` : "选择类型后编辑字典项"}
+                    </div>
                   </div>
                   <Button size="sm" onClick={() => setDictSheet({ type: "type-new" })}>
                     <Plus />
@@ -402,108 +398,112 @@ export function AdminSettingsPage() {
                   </Button>
                 </div>
 
-                <div className="space-y-3 p-4">
-                  <InputGroup>
-                    <InputGroupAddon>
-                      <Search />
-                    </InputGroupAddon>
-                    <InputGroupInput
-                      value={dictKeyword}
-                      onChange={(e) => {
-                        setDictPage(1);
-                        setDictKeyword(e.target.value);
-                      }}
-                      placeholder="搜索 code / 名称"
-                    />
-                  </InputGroup>
+                <div className="min-h-0 flex-1 overflow-y-auto p-4">
+                  <div className="space-y-3">
+                    <InputGroup>
+                      <InputGroupAddon>
+                        <Search />
+                      </InputGroupAddon>
+                      <InputGroupInput
+                        value={dictKeyword}
+                        onChange={(e) => {
+                          setDictPage(1);
+                          setDictKeyword(e.target.value);
+                        }}
+                        placeholder="搜索 code / 名称"
+                      />
+                    </InputGroup>
 
-                  {dictTypesState.type === "loading" ? (
-                    <PanelLoading message="正在加载字典类型…" />
-                  ) : null}
+                    {dictTypesState.type === "loading" ? (
+                      <PanelLoading message="正在加载字典类型…" />
+                    ) : null}
 
-                  {dictTypesState.type === "error" ? (
-                    <PanelError error={dictTypesState.error} onRetry={loadDictTypes} />
-                  ) : null}
+                    {dictTypesState.type === "error" ? (
+                      <PanelError error={dictTypesState.error} onRetry={loadDictTypes} />
+                    ) : null}
 
-                  {dictTypesState.type === "ok" && dictTypes.length === 0 ? (
-                    <PanelEmpty
-                      title="暂无字典类型"
-                      description="创建第一个字典类型，例如员工状态、合同类型等。"
-                      action={
-                        <Button size="sm" onClick={() => setDictSheet({ type: "type-new" })}>
-                          <Plus />
-                          新建类型
-                        </Button>
-                      }
-                    />
-                  ) : null}
+                    {dictTypesState.type === "ok" && dictTypes.length === 0 ? (
+                      <PanelEmpty
+                        title="暂无字典类型"
+                        description="创建第一个字典类型，例如员工状态、合同类型等。"
+                        action={
+                          <Button size="sm" onClick={() => setDictSheet({ type: "type-new" })}>
+                            <Plus />
+                            新建类型
+                          </Button>
+                        }
+                      />
+                    ) : null}
 
-                  {dictTypesState.type === "ok" && dictTypes.length > 0 ? (
-                    <div className="space-y-1.5">
-                      {dictTypes.map((t) => {
-                        const active = selectedTypeCode === t.code;
-                        return (
-                          <div
-                            key={t.id}
-                            className={cn(
-                              "flex items-stretch overflow-hidden rounded-lg border transition-colors",
-                              active
-                                ? "border-primary/40 bg-primary/5 shadow-sm"
-                                : "border-transparent hover:border-border hover:bg-accent/50",
-                            )}
-                          >
-                            <button
-                              type="button"
-                              className="min-w-0 flex-1 px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
-                              onClick={() => setSelectedTypeCode(t.code)}
+                    {dictTypesState.type === "ok" && dictTypes.length > 0 ? (
+                      <div className="space-y-1.5">
+                        {dictTypes.map((t) => {
+                          const active = selectedTypeCode === t.code;
+                          return (
+                            <div
+                              key={t.id}
+                              className={cn(
+                                "flex items-stretch overflow-hidden rounded-lg border transition-colors",
+                                active
+                                  ? "border-primary/40 bg-primary/5 shadow-sm"
+                                  : "border-transparent hover:border-border hover:bg-accent/50",
+                              )}
                             >
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="truncate text-sm font-medium text-foreground">
-                                  {t.name}
-                                </span>
-                                <StatusBadge status={t.status} />
-                              </div>
-                              <div className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
-                                {t.code}
-                              </div>
-                              {t.description ? (
-                                <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                                  {t.description}
-                                </div>
-                              ) : null}
-                            </button>
-                            <div className="flex shrink-0 items-center border-l border-border/60 px-1">
-                              <Button
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`编辑 ${t.name}`}
-                                onClick={() => setDictSheet({ type: "type-edit", item: t })}
+                              <button
+                                type="button"
+                                className="min-w-0 flex-1 px-3 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
+                                onClick={() => setSelectedTypeCode(t.code)}
                               >
-                                <Pencil />
-                              </Button>
+                                <div className="flex items-center justify-between gap-2">
+                                  <span className="truncate text-sm font-medium text-foreground">
+                                    {t.name}
+                                  </span>
+                                  <StatusBadge status={t.status} />
+                                </div>
+                                <div className="mt-0.5 truncate font-mono text-xs text-muted-foreground">
+                                  {t.code}
+                                </div>
+                                {t.description ? (
+                                  <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                                    {t.description}
+                                  </div>
+                                ) : null}
+                              </button>
+                              <div className="flex shrink-0 items-center border-l border-border/60 px-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`编辑 ${t.name}`}
+                                  onClick={() => setDictSheet({ type: "type-edit", item: t })}
+                                >
+                                  <Pencil />
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : null}
+                          );
+                        })}
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
 
                 {dictTypesState.type === "ok" && dictTypes.length > 0 ? (
-                  <PaginationBar
-                    page={dictPage}
-                    pageSize={dictPageSize}
-                    total={dictTypeTotal}
-                    itemCount={dictTypes.length}
-                    onPrev={() => setDictPage((p) => Math.max(1, p - 1))}
-                    onNext={() => setDictPage((p) => p + 1)}
-                  />
+                  <div className="shrink-0">
+                    <PaginationBar
+                      page={dictPage}
+                      pageSize={dictPageSize}
+                      total={dictTypeTotal}
+                      itemCount={dictTypes.length}
+                      onPrev={() => setDictPage((p) => Math.max(1, p - 1))}
+                      onNext={() => setDictPage((p) => p + 1)}
+                    />
+                  </div>
                 ) : null}
               </div>
 
               {/* 字典项 */}
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
+              <div className="flex h-[min(72dvh,760px)] min-h-[520px] min-w-0 flex-col">
+                <div className="shrink-0 flex flex-wrap items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
                   <div className="min-w-0">
                     <div className="text-sm font-semibold text-foreground">
                       {selectedType ? selectedType.name : "字典项"}
@@ -542,96 +542,94 @@ export function AdminSettingsPage() {
                   </div>
                 </div>
 
-                {!selectedTypeCode ? (
-                  <PanelEmpty
-                    title="未选择字典类型"
-                    description="从左侧列表选择一个字典类型，即可查看和维护对应的字典项。"
-                  />
-                ) : null}
+                <div className="min-h-0 flex-1 overflow-auto">
+                  {!selectedTypeCode ? (
+                    <PanelEmpty
+                      title="未选择字典类型"
+                      description="从左侧列表选择一个字典类型，即可查看和维护对应的字典项。"
+                    />
+                  ) : null}
 
-                {selectedTypeCode && dictItemsState.type === "loading" ? (
-                  <PanelLoading message="正在加载字典项…" />
-                ) : null}
+                  {selectedTypeCode && dictItemsState.type === "loading" ? (
+                    <PanelLoading message="正在加载字典项…" />
+                  ) : null}
 
-                {selectedTypeCode && dictItemsState.type === "error" ? (
-                  <PanelError
-                    error={dictItemsState.error}
-                    onRetry={() => void loadDictItems(selectedTypeCode)}
-                  />
-                ) : null}
+                  {selectedTypeCode && dictItemsState.type === "error" ? (
+                    <PanelError
+                      error={dictItemsState.error}
+                      onRetry={() => void loadDictItems(selectedTypeCode)}
+                    />
+                  ) : null}
 
-                {selectedTypeCode &&
-                dictItemsState.type === "ok" &&
-                dictItems.length === 0 ? (
-                  <PanelEmpty
-                    title="暂无字典项"
-                    description="为该类型添加选项值，例如在职、离职等。"
-                    action={
-                      <Button
-                        size="sm"
-                        onClick={() =>
-                          setDictSheet({ type: "item-new", typeCode: selectedTypeCode })
-                        }
-                      >
-                        <Plus />
-                        新建字典项
-                      </Button>
-                    }
-                  />
-                ) : null}
-
-                {selectedTypeCode &&
-                dictItemsState.type === "ok" &&
-                dictItems.length > 0 ? (
-                  <DataTable>
-                    <thead>
-                      <tr className="border-b bg-muted/40">
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
-                          显示名
-                        </th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
-                          值
-                        </th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
-                          排序
-                        </th>
-                        <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
-                          状态
-                        </th>
-                        <th className="w-16 px-4 py-2.5 text-right text-xs font-semibold tracking-wide text-muted-foreground">
-                          操作
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {dictItems.map((it) => (
-                        <tr
-                          key={it.id}
-                          className="border-b transition-colors last:border-b-0 hover:bg-muted/30"
+                  {selectedTypeCode && dictItemsState.type === "ok" && dictItems.length === 0 ? (
+                    <PanelEmpty
+                      title="暂无字典项"
+                      description="为该类型添加选项值，例如在职、离职等。"
+                      action={
+                        <Button
+                          size="sm"
+                          onClick={() =>
+                            setDictSheet({ type: "item-new", typeCode: selectedTypeCode })
+                          }
                         >
-                          <td className="px-4 py-3 font-medium text-foreground">{it.label}</td>
-                          <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                            {it.value}
-                          </td>
-                          <td className="px-4 py-3 text-muted-foreground">{it.sort ?? 0}</td>
-                          <td className="px-4 py-3">
-                            <StatusBadge status={it.status} />
-                          </td>
-                          <td className="px-4 py-3 text-right">
-                            <Button
-                              variant="ghost"
-                              size="icon-sm"
-                              aria-label={`编辑 ${it.label}`}
-                              onClick={() => setDictSheet({ type: "item-edit", item: it })}
-                            >
-                              <Pencil />
-                            </Button>
-                          </td>
+                          <Plus />
+                          新建字典项
+                        </Button>
+                      }
+                    />
+                  ) : null}
+
+                  {selectedTypeCode && dictItemsState.type === "ok" && dictItems.length > 0 ? (
+                    <DataTable className="min-h-0">
+                      <thead className="sticky top-0 z-10 bg-muted/95 shadow-sm backdrop-blur-sm">
+                        <tr className="border-b bg-muted/40">
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                            显示名
+                          </th>
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                            值
+                          </th>
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                            排序
+                          </th>
+                          <th className="px-4 py-2.5 text-left text-xs font-semibold tracking-wide text-muted-foreground">
+                            状态
+                          </th>
+                          <th className="w-16 px-4 py-2.5 text-right text-xs font-semibold tracking-wide text-muted-foreground">
+                            操作
+                          </th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </DataTable>
-                ) : null}
+                      </thead>
+                      <tbody>
+                        {dictItems.map((it) => (
+                          <tr
+                            key={it.id}
+                            className="border-b transition-colors last:border-b-0 hover:bg-muted/30"
+                          >
+                            <td className="px-4 py-3 font-medium text-foreground">{it.label}</td>
+                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
+                              {it.value}
+                            </td>
+                            <td className="px-4 py-3 text-muted-foreground">{it.sort ?? 0}</td>
+                            <td className="px-4 py-3">
+                              <StatusBadge status={it.status} />
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label={`编辑 ${it.label}`}
+                                onClick={() => setDictSheet({ type: "item-edit", item: it })}
+                              >
+                                <Pencil />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </DataTable>
+                  ) : null}
+                </div>
               </div>
             </div>
           </div>
@@ -801,12 +799,8 @@ export function AdminSettingsPage() {
           </div>
         </TabsContent>
 
-        <TabsContent value="movement-catalog" className="mt-0 w-full outline-none">
-          <MovementCatalogPanel />
-        </TabsContent>
-
         <TabsContent value="employee-group-catalog" className="mt-0 w-full outline-none">
-          <EmployeeGroupCatalogPanel />
+          <ParentChildCatalogPanel />
         </TabsContent>
       </Tabs>
 

@@ -7,11 +7,8 @@ import com.hrplatform.platform.employeegroup.EmployeeGroupCatalogCache;
 import com.hrplatform.platform.employeegroup.EmployeeGroupCatalogService;
 import com.hrplatform.platform.employeegroup.EmployeeGroupEntity;
 import com.hrplatform.platform.employeegroup.EmployeeSubgroupEntity;
-import com.hrplatform.platform.movement.MovementCatalogCache;
-import com.hrplatform.platform.movement.MovementCatalogService;
-import com.hrplatform.platform.movement.MovementReasonEntity;
-import com.hrplatform.platform.movement.MovementReasonSubEntity;
-import com.hrplatform.platform.movement.MovementTypeEntity;
+import com.hrplatform.platform.parentchild.ParentChildCatalogService;
+import com.hrplatform.platform.parentchild.ParentChildItemEntity;
 import java.time.LocalDate;
 import java.time.Period;
 import java.time.temporal.ChronoUnit;
@@ -27,12 +24,13 @@ import org.springframework.stereotype.Component;
 @Component
 public class EmployeeAssignmentHelper {
   private final DictService dictService;
-  private final MovementCatalogService movementCatalogService;
+  private final ParentChildCatalogService movementCatalogService;
   private final EmployeeGroupCatalogService employeeGroupCatalogService;
+  private static final String MOVEMENT_TYPE_CODE = "MOVEMENT_CATALOG";
 
   public EmployeeAssignmentHelper(
       DictService dictService,
-      MovementCatalogService movementCatalogService,
+      ParentChildCatalogService movementCatalogService,
       EmployeeGroupCatalogService employeeGroupCatalogService
   ) {
     this.dictService = dictService;
@@ -348,35 +346,24 @@ public class EmployeeAssignmentHelper {
 
   private String movementTypeName(String code) {
     if (code == null || code.isBlank()) return null;
-    return movementCatalogService.loadSnapshot().stream()
-        .map(MovementCatalogCache.MovementCatalogSnapshot::type)
-        .filter(t -> code.equals(t.getCode()))
-        .map(MovementTypeEntity::getName)
-        .findFirst()
-        .orElse(code);
+    ParentChildItemEntity type = movementCatalogService.requireItemByCode(MOVEMENT_TYPE_CODE, code);
+    return type.getName() == null || type.getName().isBlank() ? code : type.getName();
   }
 
   private String movementReasonName(String movementType, String reasonCode) {
     if (movementType == null || reasonCode == null) return null;
-    return movementCatalogService.loadSnapshot().stream()
-        .filter(s -> movementType.equals(s.type().getCode()))
-        .flatMap(s -> s.reasons().stream())
-        .map(MovementCatalogCache.ReasonSnapshot::reason)
+    return movementCatalogService.listChildren(MOVEMENT_TYPE_CODE, movementType).stream()
         .filter(r -> reasonCode.equals(r.getCode()))
-        .map(MovementReasonEntity::getName)
+        .map(ParentChildItemEntity::getName)
         .findFirst()
         .orElse(reasonCode);
   }
 
   private String movementReasonSubName(String movementType, String reasonCode, String subCode) {
     if (movementType == null || reasonCode == null || subCode == null) return null;
-    return movementCatalogService.loadSnapshot().stream()
-        .filter(s -> movementType.equals(s.type().getCode()))
-        .flatMap(s -> s.reasons().stream())
-        .filter(rs -> reasonCode.equals(rs.reason().getCode()))
-        .flatMap(rs -> rs.subs().stream())
+    return movementCatalogService.listChildren(MOVEMENT_TYPE_CODE, reasonCode).stream()
         .filter(sub -> subCode.equals(sub.getCode()))
-        .map(MovementReasonSubEntity::getName)
+        .map(ParentChildItemEntity::getName)
         .findFirst()
         .orElse(subCode);
   }

@@ -1,56 +1,38 @@
 package com.hrplatform.platform.employeegroup;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.hrplatform.platform.parentchild.ParentChildCatalogService;
+import com.hrplatform.platform.parentchild.ParentChildCatalogCache;
+import com.hrplatform.platform.parentchild.ParentChildItemEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 public class EmployeeGroupCatalogService {
-  private final EmployeeGroupMapper groupMapper;
-  private final EmployeeSubgroupMapper subgroupMapper;
   private final EmployeeGroupCatalogCache cache;
+  private final ParentChildCatalogService parentChildCatalogService;
+
+  private static final String TYPE_CODE = "EMPLOYEE_GROUP";
 
   public EmployeeGroupCatalogService(
-      EmployeeGroupMapper groupMapper,
-      EmployeeSubgroupMapper subgroupMapper,
-      EmployeeGroupCatalogCache cache
+      EmployeeGroupCatalogCache cache,
+      ParentChildCatalogService parentChildCatalogService
   ) {
-    this.groupMapper = groupMapper;
-    this.subgroupMapper = subgroupMapper;
     this.cache = cache;
+    this.parentChildCatalogService = parentChildCatalogService;
   }
 
   public List<EmployeeGroupCatalogCache.GroupCatalogSnapshot> loadSnapshot() {
     List<EmployeeGroupCatalogCache.GroupCatalogSnapshot> cached = cache.get();
     if (cached != null) return cached;
 
-    List<EmployeeGroupEntity> groups = groupMapper.selectList(
-        new LambdaQueryWrapper<EmployeeGroupEntity>()
-            .orderByAsc(EmployeeGroupEntity::getSort)
-            .orderByAsc(EmployeeGroupEntity::getCode)
-    );
-    List<EmployeeSubgroupEntity> subgroups = subgroupMapper.selectList(
-        new LambdaQueryWrapper<EmployeeSubgroupEntity>()
-            .orderByAsc(EmployeeSubgroupEntity::getSort)
-            .orderByAsc(EmployeeSubgroupEntity::getCode)
-    );
-
-    Map<String, List<EmployeeSubgroupEntity>> subgroupsByGroup = subgroups.stream()
-        .collect(Collectors.groupingBy(EmployeeSubgroupEntity::getEmployeeGroupCode));
-
-    List<EmployeeGroupCatalogCache.GroupCatalogSnapshot> snapshot = groups.stream()
-        .map(group -> new EmployeeGroupCatalogCache.GroupCatalogSnapshot(
-            group,
-            subgroupsByGroup.getOrDefault(group.getCode(), List.of()).stream()
-                .sorted(Comparator.comparing(EmployeeSubgroupEntity::getSort, Comparator.nullsLast(Integer::compareTo))
-                    .thenComparing(EmployeeSubgroupEntity::getCode))
-                .toList()
+    List<ParentChildCatalogCache.CatalogSnapshot> snap = parentChildCatalogService.loadSnapshot(TYPE_CODE);
+    List<EmployeeGroupCatalogCache.GroupCatalogSnapshot> snapshot = snap.stream()
+        .map(s -> new EmployeeGroupCatalogCache.GroupCatalogSnapshot(
+            toGroupEntity(s.parent()),
+            s.children().stream().map(c -> toSubgroupEntity(s.parent().getCode(), c)).toList()
         ))
         .toList();
 
@@ -59,41 +41,34 @@ public class EmployeeGroupCatalogService {
   }
 
   public List<EmployeeGroupEntity> listGroups() {
-    return groupMapper.selectList(
-        new LambdaQueryWrapper<EmployeeGroupEntity>()
-            .orderByAsc(EmployeeGroupEntity::getSort)
-            .orderByAsc(EmployeeGroupEntity::getCode)
-    );
+    return parentChildCatalogService.listParents(TYPE_CODE).stream().map(this::toGroupEntity).toList();
   }
 
   public EmployeeGroupEntity requireGroup(long id) {
-    EmployeeGroupEntity entity = groupMapper.selectById(id);
-    if (entity == null) throw new IllegalArgumentException("员工组不存在");
-    return entity;
+    ParentChildItemEntity item = parentChildCatalogService.requireItem(id);
+    if (item.getParentCode() != null && !item.getParentCode().isBlank()) {
+      throw new IllegalArgumentException("员工组不存在");
+    }
+    return toGroupEntity(item);
   }
 
   public EmployeeGroupEntity requireGroupByCode(String code) {
-    String c = normalize(code);
-    EmployeeGroupEntity entity = groupMapper.selectOne(
-        new LambdaQueryWrapper<EmployeeGroupEntity>().eq(EmployeeGroupEntity::getCode, c)
-    );
-    if (entity == null) throw new IllegalArgumentException("员工组不存在: " + c);
-    return entity;
+    ParentChildItemEntity parent = parentChildCatalogService.requireParentByCode(TYPE_CODE, code);
+    return toGroupEntity(parent);
   }
 
   public List<EmployeeSubgroupEntity> listSubgroupsByGroupCode(String employeeGroupCode) {
-    return subgroupMapper.selectList(
-        new LambdaQueryWrapper<EmployeeSubgroupEntity>()
-            .eq(EmployeeSubgroupEntity::getEmployeeGroupCode, normalize(employeeGroupCode))
-            .orderByAsc(EmployeeSubgroupEntity::getSort)
-            .orderByAsc(EmployeeSubgroupEntity::getCode)
-    );
+    return parentChildCatalogService.listChildren(TYPE_CODE, employeeGroupCode).stream()
+        .map(c -> toSubgroupEntity(employeeGroupCode, c))
+        .toList();
   }
 
   public EmployeeSubgroupEntity requireSubgroup(long id) {
-    EmployeeSubgroupEntity entity = subgroupMapper.selectById(id);
-    if (entity == null) throw new IllegalArgumentException("员工子组不存在");
-    return entity;
+    ParentChildItemEntity item = parentChildCatalogService.requireItem(id);
+    if (item.getParentCode() == null || item.getParentCode().isBlank()) {
+      throw new IllegalArgumentException("员工子组不存在");
+    }
+    return toSubgroupEntity(item.getParentCode(), item);
   }
 
   public ResolvedEmployeeGroup resolve(String groupCode, String subgroupCode, boolean activeOnly) {
@@ -127,140 +102,128 @@ public class EmployeeGroupCatalogService {
 
   @Transactional
   public EmployeeGroupEntity createGroup(EmployeeGroupEntity entity) {
-    entity.setCode(normalize(entity.getCode()));
-    if (entity.getStatus() == null || entity.getStatus().isBlank()) entity.setStatus("ACTIVE");
-    if (entity.getSort() == null) entity.setSort(0);
-    ensureUniqueGroupCode(entity.getCode(), null);
-    groupMapper.insert(entity);
+    ParentChildItemEntity item = new ParentChildItemEntity();
+    item.setCode(entity.getCode());
+    item.setName(entity.getName());
+    item.setStatus(entity.getStatus());
+    item.setSort(entity.getSort());
+    item.setRemark(entity.getRemark());
+    ParentChildItemEntity created = parentChildCatalogService.createParent(TYPE_CODE, item);
     cache.invalidate();
-    return requireGroup(entity.getId());
+    return toGroupEntity(created);
   }
 
   @Transactional
   public EmployeeGroupEntity updateGroup(long id, EmployeeGroupEntity patch) {
-    EmployeeGroupEntity cur = requireGroup(id);
-    if (patch.getName() != null) cur.setName(patch.getName());
-    if (patch.getStatus() != null) cur.setStatus(patch.getStatus());
-    if (patch.getSort() != null) cur.setSort(patch.getSort());
-    if (patch.getRemark() != null) cur.setRemark(patch.getRemark());
-    groupMapper.updateById(cur);
+    ParentChildItemEntity itemPatch = new ParentChildItemEntity();
+    itemPatch.setName(patch.getName());
+    itemPatch.setStatus(patch.getStatus());
+    itemPatch.setSort(patch.getSort());
+    itemPatch.setRemark(patch.getRemark());
+    ParentChildItemEntity updated = parentChildCatalogService.updateParent(id, itemPatch);
     cache.invalidate();
-    return requireGroup(id);
+    return toGroupEntity(updated);
   }
 
   @Transactional
   public EmployeeGroupEntity updateGroupStatus(long id, String status) {
-    EmployeeGroupEntity cur = requireGroup(id);
-    cur.setStatus(status);
-    groupMapper.updateById(cur);
+    ParentChildItemEntity updated = parentChildCatalogService.updateItemStatus(id, status);
     cache.invalidate();
-    return requireGroup(id);
+    return toGroupEntity(updated);
   }
 
   @Transactional
   public EmployeeSubgroupEntity createSubgroup(EmployeeSubgroupEntity entity) {
-    entity.setEmployeeGroupCode(normalize(entity.getEmployeeGroupCode()));
-    entity.setCode(normalize(entity.getCode()));
-    requireGroupByCode(entity.getEmployeeGroupCode());
-    if (entity.getStatus() == null || entity.getStatus().isBlank()) entity.setStatus("ACTIVE");
-    if (entity.getSort() == null) entity.setSort(0);
-    ensureUniqueSubgroupCode(entity.getEmployeeGroupCode(), entity.getCode(), null);
-    subgroupMapper.insert(entity);
+    ParentChildItemEntity item = new ParentChildItemEntity();
+    item.setCode(entity.getCode());
+    item.setName(entity.getName());
+    item.setStatus(entity.getStatus());
+    item.setSort(entity.getSort());
+    item.setRemark(entity.getRemark());
+    ParentChildItemEntity created = parentChildCatalogService.createChild(
+        TYPE_CODE,
+        entity.getEmployeeGroupCode(),
+        item
+    );
     cache.invalidate();
-    return requireSubgroup(entity.getId());
+    return toSubgroupEntity(entity.getEmployeeGroupCode(), created);
   }
 
   @Transactional
   public EmployeeSubgroupEntity updateSubgroup(long id, EmployeeSubgroupEntity patch) {
-    EmployeeSubgroupEntity cur = requireSubgroup(id);
-    if (patch.getName() != null) cur.setName(patch.getName());
-    if (patch.getStatus() != null) cur.setStatus(patch.getStatus());
-    if (patch.getSort() != null) cur.setSort(patch.getSort());
-    if (patch.getRemark() != null) cur.setRemark(patch.getRemark());
-    subgroupMapper.updateById(cur);
+    ParentChildItemEntity itemPatch = new ParentChildItemEntity();
+    itemPatch.setName(patch.getName());
+    itemPatch.setStatus(patch.getStatus());
+    itemPatch.setSort(patch.getSort());
+    itemPatch.setRemark(patch.getRemark());
+    ParentChildItemEntity updated = parentChildCatalogService.updateChild(id, itemPatch);
     cache.invalidate();
-    return requireSubgroup(id);
+    return toSubgroupEntity(updated.getParentCode(), updated);
   }
 
   @Transactional
   public EmployeeSubgroupEntity updateSubgroupStatus(long id, String status) {
-    EmployeeSubgroupEntity cur = requireSubgroup(id);
-    cur.setStatus(status);
-    subgroupMapper.updateById(cur);
+    ParentChildItemEntity updated = parentChildCatalogService.updateItemStatus(id, status);
     cache.invalidate();
-    return requireSubgroup(id);
+    return toSubgroupEntity(updated.getParentCode(), updated);
   }
 
   public List<Map<String, Object>> buildTreeRows() {
-    List<Map<String, Object>> rows = new ArrayList<>();
-    for (EmployeeGroupCatalogCache.GroupCatalogSnapshot snap : loadSnapshot()) {
-      EmployeeGroupEntity group = snap.group();
-      if (snap.subgroups().isEmpty()) {
-        rows.add(treeRow(group, null));
-        continue;
-      }
-      for (EmployeeSubgroupEntity sub : snap.subgroups()) {
-        rows.add(treeRow(group, sub));
-      }
-    }
-    return rows;
+    return parentChildCatalogService.buildTreeRows(TYPE_CODE).stream()
+        .map(row -> {
+          Map<String, Object> out = new java.util.LinkedHashMap<>();
+          out.put("employeeGroupCode", row.get("parentCode"));
+          out.put("employeeGroupName", row.get("parentName"));
+          out.put("employeeGroupStatus", row.get("parentStatus"));
+          out.put("employeeSubgroupCode", row.get("childCode"));
+          out.put("employeeSubgroupName", row.get("childName"));
+          out.put("employeeSubgroupStatus", row.get("childStatus"));
+          return out;
+        })
+        .toList();
   }
 
   public List<Map<String, Object>> buildActiveOptions() {
-    List<Map<String, Object>> options = new ArrayList<>();
-    for (EmployeeGroupCatalogCache.GroupCatalogSnapshot snap : loadSnapshot()) {
-      EmployeeGroupEntity group = snap.group();
-      if (!"ACTIVE".equals(group.getStatus())) continue;
-
-      List<Map<String, Object>> subgroupOptions = snap.subgroups().stream()
-          .filter(sub -> "ACTIVE".equals(sub.getStatus()))
-          .map(sub -> Map.<String, Object>of("code", sub.getCode(), "name", sub.getName()))
-          .toList();
-
-      Map<String, Object> groupOption = new java.util.LinkedHashMap<>();
-      groupOption.put("employeeGroupCode", group.getCode());
-      groupOption.put("employeeGroupName", group.getName());
-      groupOption.put("subgroups", subgroupOptions);
-      options.add(groupOption);
-    }
-    return options;
-  }
-
-  private Map<String, Object> treeRow(EmployeeGroupEntity group, EmployeeSubgroupEntity sub) {
-    Map<String, Object> row = new java.util.LinkedHashMap<>();
-    row.put("employeeGroupCode", group.getCode());
-    row.put("employeeGroupName", group.getName());
-    row.put("employeeGroupStatus", group.getStatus());
-    if (sub != null) {
-      row.put("employeeSubgroupCode", sub.getCode());
-      row.put("employeeSubgroupName", sub.getName());
-      row.put("employeeSubgroupStatus", sub.getStatus());
-    }
-    return row;
-  }
-
-  private void ensureUniqueGroupCode(String code, Long excludeId) {
-    EmployeeGroupEntity existing = groupMapper.selectOne(
-        new LambdaQueryWrapper<EmployeeGroupEntity>().eq(EmployeeGroupEntity::getCode, code)
-    );
-    if (existing != null && (excludeId == null || !excludeId.equals(existing.getId()))) {
-      throw new IllegalArgumentException("员工组编码已存在: " + code);
-    }
-  }
-
-  private void ensureUniqueSubgroupCode(String groupCode, String code, Long excludeId) {
-    EmployeeSubgroupEntity existing = subgroupMapper.selectOne(
-        new LambdaQueryWrapper<EmployeeSubgroupEntity>()
-            .eq(EmployeeSubgroupEntity::getEmployeeGroupCode, groupCode)
-            .eq(EmployeeSubgroupEntity::getCode, code)
-    );
-    if (existing != null && (excludeId == null || !excludeId.equals(existing.getId()))) {
-      throw new IllegalArgumentException("员工子组编码已存在: " + code);
-    }
+    return parentChildCatalogService.buildActiveOptions(TYPE_CODE).stream()
+        .map(opt -> {
+          Map<String, Object> out = new java.util.LinkedHashMap<>();
+          out.put("employeeGroupCode", opt.get("parentCode"));
+          out.put("employeeGroupName", opt.get("parentName"));
+          out.put("subgroups", opt.get("children"));
+          return out;
+        })
+        .toList();
   }
 
   private static String normalize(String value) {
     return value == null ? "" : value.trim();
+  }
+
+  private EmployeeGroupEntity toGroupEntity(ParentChildItemEntity item) {
+    EmployeeGroupEntity e = new EmployeeGroupEntity();
+    e.setId(item.getId());
+    e.setCode(item.getCode());
+    e.setName(item.getName());
+    e.setStatus(item.getStatus());
+    e.setSort(item.getSort());
+    e.setRemark(item.getRemark());
+    e.setCreatedAt(item.getCreatedAt());
+    e.setUpdatedAt(item.getUpdatedAt());
+    return e;
+  }
+
+  private EmployeeSubgroupEntity toSubgroupEntity(String groupCode, ParentChildItemEntity item) {
+    EmployeeSubgroupEntity e = new EmployeeSubgroupEntity();
+    e.setId(item.getId());
+    e.setEmployeeGroupCode(groupCode);
+    e.setCode(item.getCode());
+    e.setName(item.getName());
+    e.setStatus(item.getStatus());
+    e.setSort(item.getSort());
+    e.setRemark(item.getRemark());
+    e.setCreatedAt(item.getCreatedAt());
+    e.setUpdatedAt(item.getUpdatedAt());
+    return e;
   }
 
   public record ResolvedEmployeeGroup(

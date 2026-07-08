@@ -1,0 +1,11 @@
+## 统一换行，避免 Flyway checksum 因 CRLF/LF 波动
+*.sql text eol=lf
+
+## Maven wrapper
+/server/mvnw text eol=lf
+/server/mvnw.cmd text eol=crlf
+
+## Windows 脚本
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+

@@ -20,7 +20,6 @@ import type {
 } from "@shared/api.interface";
 
 import { deleteJson, getJson, postJson, putJson } from "@/api/http";
-import { normalizeNumericId } from "@/lib/numeric-id";
 
 function pageQuery(params: Record<string, string | number | undefined>): string {
   const qs = new URLSearchParams();

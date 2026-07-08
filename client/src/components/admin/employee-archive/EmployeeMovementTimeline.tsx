@@ -1,8 +1,8 @@
-import type { EmployeeMovement, MovementCatalogOption } from "@shared/api.interface";
+import type { EmployeeMovement, ParentChildOption3 } from "@shared/api.interface";
 
 import { useEffect, useMemo, useState } from "react";
 
-import { getMovementCatalogOptions } from "@/api/movement-catalog";
+import { getParentChildOptions3 } from "@/api/parent-child-catalog";
 import { PanelEmpty } from "@/components/admin/page-shell";
 import {
   MOVEMENT_TYPE_VISUALS,
@@ -29,11 +29,11 @@ type EmployeeMovementTimelineProps = {
 };
 
 export function EmployeeMovementTimeline({ movements }: EmployeeMovementTimelineProps) {
-  const [catalogOptions, setCatalogOptions] = useState<MovementCatalogOption[]>([]);
+  const [catalogOptions, setCatalogOptions] = useState<ParentChildOption3[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-    void getMovementCatalogOptions()
+    void getParentChildOptions3("MOVEMENT_CATALOG")
       .then((res) => {
         if (!cancelled) setCatalogOptions(res.data);
       })
@@ -54,13 +54,14 @@ export function EmployeeMovementTimeline({ movements }: EmployeeMovementTimeline
       }));
     }
     return catalogOptions.map((opt) => {
-      const visual = MOVEMENT_VISUAL_MAP[opt.movementType as keyof typeof MOVEMENT_VISUAL_MAP];
+      const phase = typeof opt.meta?.phase === "string" ? opt.meta.phase : "CHANGE";
+      const visual = MOVEMENT_VISUAL_MAP[opt.parentCode as keyof typeof MOVEMENT_VISUAL_MAP];
       return {
-        code: opt.movementType,
-        label: opt.movementTypeName,
+        code: opt.parentCode,
+        label: opt.parentName,
         visual: visual
-          ? { ...visual, phase: phaseFromApi(opt.phase) }
-          : visualForMovement(opt.movementType, opt.movementTypeName),
+          ? { ...visual, phase: phaseFromApi(phase) }
+          : visualForMovement(opt.parentCode, opt.parentName),
       };
     });
   }, [catalogOptions]);

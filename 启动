@@ -6,8 +6,28 @@ netstat -ano | findstr :8087
 # 结束对应 PID（把 8812 换成实际 PID）
 taskkill /PID 8812 /F
 
-
-
 cd "D:\文档\HR Platform\client"
 npm run dev
 
+# ============================================================
+# Flyway 迁移排错（最近常见启动失败原因）
+# ============================================================
+# 真因不是业务代码，而是「已执行的迁移脚本被再次改动」：
+#   Migration checksum mismatch for migration version XX
+#
+# 铁律：
+# 1) 已在任意环境执行过的 Vn 禁止再改内容（含空格/换行/注释）
+# 2) 需要补数据或改结构：一律新增 V(n+1)__xxx.sql
+# 3) Windows 下务必保持 *.sql 为 LF（仓库已配置 .gitattributes）
+#
+# 开发库紧急修复（只修 checksum，不重跑脚本）：
+cd "D:\文档\HR Platform\server"
+./mvnw flyway:repair
+./mvnw flyway:validate
+./mvnw flyway:info
+#
+# 说明：
+# - spring-boot:run 若显示 “Process terminated with exit code: 1”
+#   但日志里已有 “Started HrPlatformApplication”，多为你手动停止进程或端口接管，
+#   不是应用启动失败。
+# - 若是 checksum mismatch：先 repair，再重启。

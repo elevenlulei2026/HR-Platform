@@ -24,6 +24,8 @@ type ArchiveFormDialogProps = {
   wide?: boolean;
   /** 更宽表单（花名册主档编辑，约为 wide 的 150%） */
   extraWide?: boolean;
+  /** 自定义 DialogContent 宽度/样式（仅在个别页面使用） */
+  contentClassName?: string;
 };
 
 /** 档案子模块新建/编辑：在详情抽屉之上居中弹窗 */
@@ -38,6 +40,7 @@ export function ArchiveFormDialog({
   saveLabel = "保存",
   wide,
   extraWide,
+  contentClassName,
 }: ArchiveFormDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -49,6 +52,7 @@ export function ArchiveFormDialog({
           wide && !extraWide && "sm:max-w-2xl",
           // extraWide ≈ 比 wide 再大约 20%，用于任职等信息密集表单
           extraWide && "sm:max-w-[min(1200px,calc(100vw-2rem))]",
+          contentClassName,
         )}
       >
         <DialogHeader className="shrink-0 border-b bg-gradient-to-r from-muted/30 via-background to-muted/20 px-6 py-4 pr-12 text-left">

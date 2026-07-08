@@ -13,6 +13,7 @@ import { toast } from "sonner";
 
 import type { ApiError } from "@/api/http";
 import { getEmployeeGroupCatalogOptions } from "@/api/employee-group-catalog";
+import { getParentChildOptions3 } from "@/api/parent-child-catalog";
 import {
   ASSIGNMENT_INDICATOR_OPTIONS,
   ASSIGNMENT_STATUS_OPTIONS,
@@ -23,7 +24,6 @@ import {
   listEmployees,
   updateEmployeeAssignment,
 } from "@/api/employee";
-import { getMovementCatalogOptions } from "@/api/movement-catalog";
 import { defaultDepartmentId, filterAssignableDepartments, flattenOrgTree, getPosition, resolveOrganizationIdForAssignment } from "@/api/organization";
 import { ArchiveFormDialogPortal } from "@/components/admin/employee-archive/ArchiveFormDialogPortal";
 import { AssignmentIndicatorSection } from "@/components/admin/employee-archive/AssignmentIndicatorSection";
@@ -643,12 +643,27 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
   useEffect(() => {
     void Promise.all([
       getEmployeeAssignmentFormOptions(),
-      getMovementCatalogOptions(),
+      getParentChildOptions3("MOVEMENT_CATALOG"),
       getEmployeeGroupCatalogOptions(),
     ])
       .then(([dictRes, movementRes, groupRes]) => {
         setDictOptions(dictRes.data);
-        setMovementOptions(movementRes.data);
+        const movementOptions: MovementCatalogOption[] = movementRes.data.map((lvl1) => {
+          const phase = typeof lvl1.meta?.phase === "string" ? (lvl1.meta.phase as any) : "CHANGE";
+          const reasons = lvl1.children.map((lvl2) => ({
+            code: lvl2.code,
+            name: lvl2.name,
+            requiresSub: lvl2.children.length > 0,
+            subs: lvl2.children.map((s) => ({ code: s.code, name: s.name })),
+          }));
+          return {
+            movementType: lvl1.parentCode,
+            movementTypeName: lvl1.parentName,
+            phase,
+            reasons,
+          };
+        });
+        setMovementOptions(movementOptions);
         setEmployeeGroupOptions(groupRes.data);
       })
       .catch(() => {

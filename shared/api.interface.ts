@@ -197,56 +197,6 @@ export type DictApi = {
 
 export type MovementPhase = "HIRE" | "CHANGE" | "LEAVE";
 
-export type MovementTypeDef = {
-  id: string;
-  code: string;
-  name: string;
-  phase: MovementPhase;
-  phaseLabel?: string;
-  status: DictStatus;
-  sort: number;
-  remark?: string;
-  reasonCount?: number;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-export type MovementReasonDef = {
-  id: string;
-  movementTypeCode: string;
-  code: string;
-  name: string;
-  status: DictStatus;
-  sort: number;
-  remark?: string;
-  subCount?: number;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-export type MovementReasonSubDef = {
-  id: string;
-  reasonId: string;
-  code: string;
-  name: string;
-  status: DictStatus;
-  sort: number;
-  createdAt?: string;
-  updatedAt?: string;
-};
-
-export type MovementCatalogTreeRow = {
-  movementTypeCode: string;
-  movementTypeName: string;
-  movementTypeStatus: DictStatus;
-  reasonCode?: string;
-  reasonName?: string;
-  reasonStatus?: DictStatus;
-  reasonSubCode?: string;
-  reasonSubName?: string;
-  reasonSubStatus?: DictStatus;
-};
-
 export type MovementCatalogOptionReason = {
   code: string;
   name: string;
@@ -259,101 +209,6 @@ export type MovementCatalogOption = {
   movementTypeName: string;
   phase: MovementPhase;
   reasons: MovementCatalogOptionReason[];
-};
-
-export type MovementTypeCreateRequest = {
-  code: string;
-  name: string;
-  phase: MovementPhase;
-  status?: DictStatus;
-  sort?: number;
-  remark?: string;
-};
-
-export type MovementTypeUpdateRequest = {
-  name?: string;
-  phase?: MovementPhase;
-  status?: DictStatus;
-  sort?: number;
-  remark?: string;
-};
-
-export type MovementReasonCreateRequest = {
-  movementTypeCode: string;
-  code: string;
-  name: string;
-  status?: DictStatus;
-  sort?: number;
-  remark?: string;
-};
-
-export type MovementReasonUpdateRequest = {
-  name?: string;
-  status?: DictStatus;
-  sort?: number;
-  remark?: string;
-};
-
-export type MovementReasonSubCreateRequest = {
-  reasonId: string;
-  code: string;
-  name: string;
-  status?: DictStatus;
-  sort?: number;
-};
-
-export type MovementReasonSubUpdateRequest = {
-  name?: string;
-  status?: DictStatus;
-  sort?: number;
-};
-
-export type MovementCatalogApi = {
-  /** GET /api/v1/movement-types */
-  listMovementTypes: () => Promise<ApiResponse<MovementTypeDef[]>>;
-  /** POST /api/v1/movement-types */
-  createMovementType: (req: MovementTypeCreateRequest) => Promise<ApiResponse<MovementTypeDef>>;
-  /** PUT /api/v1/movement-types/{id} */
-  updateMovementType: (id: string, req: MovementTypeUpdateRequest) => Promise<ApiResponse<MovementTypeDef>>;
-  /** PATCH /api/v1/movement-types/{id}/status */
-  updateMovementTypeStatus: (
-    id: string,
-    status: DictStatus,
-  ) => Promise<ApiResponse<MovementTypeDef>>;
-  /** GET /api/v1/movement-types/{code}/reasons */
-  listMovementReasons: (movementTypeCode: string) => Promise<ApiResponse<MovementReasonDef[]>>;
-  /** POST /api/v1/movement-reasons */
-  createMovementReason: (req: MovementReasonCreateRequest) => Promise<ApiResponse<MovementReasonDef>>;
-  /** PUT /api/v1/movement-reasons/{id} */
-  updateMovementReason: (
-    id: string,
-    req: MovementReasonUpdateRequest,
-  ) => Promise<ApiResponse<MovementReasonDef>>;
-  /** PATCH /api/v1/movement-reasons/{id}/status */
-  updateMovementReasonStatus: (
-    id: string,
-    status: DictStatus,
-  ) => Promise<ApiResponse<MovementReasonDef>>;
-  /** GET /api/v1/movement-reasons/{id}/subs */
-  listMovementReasonSubs: (reasonId: string) => Promise<ApiResponse<MovementReasonSubDef[]>>;
-  /** POST /api/v1/movement-reason-subs */
-  createMovementReasonSub: (
-    req: MovementReasonSubCreateRequest,
-  ) => Promise<ApiResponse<MovementReasonSubDef>>;
-  /** PUT /api/v1/movement-reason-subs/{id} */
-  updateMovementReasonSub: (
-    id: string,
-    req: MovementReasonSubUpdateRequest,
-  ) => Promise<ApiResponse<MovementReasonSubDef>>;
-  /** PATCH /api/v1/movement-reason-subs/{id}/status */
-  updateMovementReasonSubStatus: (
-    id: string,
-    status: DictStatus,
-  ) => Promise<ApiResponse<MovementReasonSubDef>>;
-  /** GET /api/v1/movement-catalog/options */
-  getMovementCatalogOptions: () => Promise<ApiResponse<MovementCatalogOption[]>>;
-  /** GET /api/v1/movement-catalog/tree */
-  getMovementCatalogTree: () => Promise<ApiResponse<MovementCatalogTreeRow[]>>;
 };
 
 // -----------------------------
@@ -465,6 +320,164 @@ export type EmployeeGroupCatalogApi = {
   getEmployeeGroupCatalogOptions: () => Promise<ApiResponse<EmployeeGroupCatalogOption[]>>;
   /** GET /api/v1/employee-group-catalog/tree */
   getEmployeeGroupCatalogTree: () => Promise<ApiResponse<EmployeeGroupCatalogTreeRow[]>>;
+};
+
+// -----------------------------
+// 父子值配置（通用两级目录）
+// -----------------------------
+
+export type ParentChildTypeDef = {
+  id: string;
+  code: string;
+  name: string;
+  description?: string;
+  status: DictStatus;
+  sort: number;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ParentChildItemDef = {
+  id: string;
+  typeCode: string;
+  parentCode?: string | null;
+  code: string;
+  name: string;
+  status: DictStatus;
+  sort: number;
+  remark?: string;
+  extJson?: Record<string, unknown>;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ParentChildTreeRow = {
+  typeCode: string;
+  parentCode: string;
+  parentName: string;
+  parentStatus: DictStatus;
+  childCode?: string;
+  childName?: string;
+  childStatus?: DictStatus;
+};
+
+export type ParentChildOption = {
+  parentCode: string;
+  parentName: string;
+  children: Array<{ code: string; name: string }>;
+};
+
+export type ParentChildTreeRow3 = {
+  typeCode: string;
+  level1Code: string;
+  level1Name: string;
+  level1Status: DictStatus;
+  level2Code?: string;
+  level2Name?: string;
+  level2Status?: DictStatus;
+  level3Code?: string;
+  level3Name?: string;
+  level3Status?: DictStatus;
+};
+
+export type ParentChildOption3 = {
+  parentCode: string;
+  parentName: string;
+  meta?: Record<string, unknown>;
+  children: Array<{
+    code: string;
+    name: string;
+    children: Array<{ code: string; name: string }>;
+  }>;
+};
+
+export type ParentChildTypeCreateRequest = {
+  code: string;
+  name: string;
+  description?: string;
+  status?: DictStatus;
+  sort?: number;
+};
+
+export type ParentChildTypeUpdateRequest = {
+  name?: string;
+  description?: string;
+  status?: DictStatus;
+  sort?: number;
+};
+
+export type ParentCreateRequest = {
+  typeCode: string;
+  code: string;
+  name: string;
+  status?: DictStatus;
+  sort?: number;
+  remark?: string;
+};
+
+export type ChildCreateRequest = {
+  typeCode: string;
+  parentCode: string;
+  code: string;
+  name: string;
+  status?: DictStatus;
+  sort?: number;
+  remark?: string;
+};
+
+export type ParentChildItemUpdateRequest = {
+  name?: string;
+  status?: DictStatus;
+  sort?: number;
+  remark?: string;
+};
+
+export type ParentChildCatalogApi = {
+  /** GET /api/v1/parent-child-types */
+  listParentChildTypes: () => Promise<ApiResponse<ParentChildTypeDef[]>>;
+  /** POST /api/v1/parent-child-types */
+  createParentChildType: (
+    req: ParentChildTypeCreateRequest,
+  ) => Promise<ApiResponse<ParentChildTypeDef>>;
+  /** PUT /api/v1/parent-child-types/{id} */
+  updateParentChildType: (
+    id: string,
+    req: ParentChildTypeUpdateRequest,
+  ) => Promise<ApiResponse<ParentChildTypeDef>>;
+  /** GET /api/v1/parent-child-types/{typeCode}/parents */
+  listParentsByType: (typeCode: string) => Promise<ApiResponse<ParentChildItemDef[]>>;
+  /** GET /api/v1/parent-child-types/{typeCode}/parents/{parentCode}/children */
+  listChildrenByParent: (
+    typeCode: string,
+    parentCode: string,
+  ) => Promise<ApiResponse<ParentChildItemDef[]>>;
+  /** POST /api/v1/parent-child-parents */
+  createParent: (req: ParentCreateRequest) => Promise<ApiResponse<ParentChildItemDef>>;
+  /** PUT /api/v1/parent-child-parents/{id} */
+  updateParent: (
+    id: string,
+    req: ParentChildItemUpdateRequest,
+  ) => Promise<ApiResponse<ParentChildItemDef>>;
+  /** POST /api/v1/parent-child-children */
+  createChild: (req: ChildCreateRequest) => Promise<ApiResponse<ParentChildItemDef>>;
+  /** PUT /api/v1/parent-child-children/{id} */
+  updateChild: (
+    id: string,
+    req: ParentChildItemUpdateRequest,
+  ) => Promise<ApiResponse<ParentChildItemDef>>;
+  /** PATCH /api/v1/parent-child-items/{id}/status */
+  updateParentChildItemStatus: (
+    id: string,
+    status: DictStatus,
+  ) => Promise<ApiResponse<ParentChildItemDef>>;
+  /** GET /api/v1/parent-child-types/{typeCode}/tree */
+  getParentChildTree: (typeCode: string) => Promise<ApiResponse<ParentChildTreeRow[]>>;
+  /** GET /api/v1/parent-child-types/{typeCode}/tree3 */
+  getParentChildTree3: (typeCode: string) => Promise<ApiResponse<ParentChildTreeRow3[]>>;
+  /** GET /api/v1/parent-child-types/{typeCode}/options */
+  getParentChildOptions: (typeCode: string) => Promise<ApiResponse<ParentChildOption[]>>;
+  /** GET /api/v1/parent-child-types/{typeCode}/options3 */
+  getParentChildOptions3: (typeCode: string) => Promise<ApiResponse<ParentChildOption3[]>>;
 };
 
 export type CodeRuleSeqReset = "DAY" | "MONTH" | "YEAR" | "NEVER";
@@ -1655,15 +1668,28 @@ export type EmployeeCostCenterAllocation = EmployeeArchiveRecordBase & {
 };
 
 export type EmployeeContract = EmployeeArchiveRecordBase & {
+  /** 生效日期（档案记录生效区间） */
+  effectiveStartDate?: string; // YYYY-MM-DD
+  effectiveEndDate?: string; // YYYY-MM-DD
   contractCode?: string;
+  /** @deprecated 旧字段：合同类型（已迁移为合同类别父子联动） */
   contractType?: string;
+  /** 合同类别（父子值配置：CONTRACT_CATEGORY 一级） */
+  contractCategory?: string;
+  contractCategoryLabel?: string;
+  /** 合同类别描述（父子值配置：CONTRACT_CATEGORY 二级，受一级联动） */
+  contractCategoryDesc?: string;
+  contractCategoryDescLabel?: string;
   legalEntityId?: string;
   operationType?: string;
   startDate?: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
+  /** @deprecated 旧字段：生效日期（已迁移为 effectiveStartDate/effectiveEndDate） */
   effectiveDate?: string; // YYYY-MM-DD
   status?: string;
   fileAttachmentId?: string;
+  /** 合同签订次数（同员工合同按时间排序自动计算，只读） */
+  signingTimes?: number;
   remark?: string;
 };
 

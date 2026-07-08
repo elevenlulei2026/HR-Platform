@@ -277,7 +277,36 @@ public class EmployeeArchiveService {
   }
 
   public List<EmployeeContractEntity> listContracts(long employeeId) {
-    return listByEmployee(contractMapper, EmployeeContractEntity::getEmployeeId, employeeId);
+    List<EmployeeContractEntity> list = listByEmployee(contractMapper, EmployeeContractEntity::getEmployeeId, employeeId);
+    // 合同签订次数：按开始日期（合同期限）升序，同日再按 createdAt / id 稳定排序
+    list.sort((a, b) -> {
+      java.time.LocalDate ad = a.getStartDate();
+      java.time.LocalDate bd = b.getStartDate();
+      if (ad == null && bd != null) return 1;
+      if (ad != null && bd == null) return -1;
+      if (ad != null && bd != null) {
+        int c = ad.compareTo(bd);
+        if (c != 0) return c;
+      }
+      java.time.LocalDateTime ac = a.getCreatedAt();
+      java.time.LocalDateTime bc = b.getCreatedAt();
+      if (ac == null && bc != null) return 1;
+      if (ac != null && bc == null) return -1;
+      if (ac != null && bc != null) {
+        int c = ac.compareTo(bc);
+        if (c != 0) return c;
+      }
+      Long aid = a.getId();
+      Long bid = b.getId();
+      if (aid == null && bid != null) return 1;
+      if (aid != null && bid == null) return -1;
+      if (aid != null && bid != null) return aid.compareTo(bid);
+      return 0;
+    });
+    for (int i = 0; i < list.size(); i++) {
+      list.get(i).setSigningTimes(i + 1);
+    }
+    return list;
   }
 
   @Transactional
