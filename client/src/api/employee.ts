@@ -2,6 +2,7 @@ import type {
   Employee,
   EmployeeAssignment,
   EmployeeAssignmentCreateRequest,
+  EmployeeAssignmentFormOptions,
   EmployeeAssignmentUpdateRequest,
   EmployeeCreateRequest,
   EmployeeFormOptions,
@@ -61,8 +62,16 @@ export async function updateEmployee(id: string, req: EmployeeUpdateRequest) {
   return putJson<Employee, EmployeeUpdateRequest>(`/api/v1/employees/${id}`, req);
 }
 
-export async function listEmployeeAssignments(employeeId: string) {
-  return getJson<EmployeeAssignment[]>(`/api/v1/employees/${employeeId}/assignments`);
+export async function getEmployeeAssignmentFormOptions() {
+  return getJson<EmployeeAssignmentFormOptions>("/api/v1/employees/assignment-form-options");
+}
+
+export async function listEmployeeAssignments(
+  employeeId: string,
+  query?: { asOfDate?: string },
+) {
+  const qs = query?.asOfDate ? `?asOfDate=${encodeURIComponent(query.asOfDate)}` : "";
+  return getJson<EmployeeAssignment[]>(`/api/v1/employees/${employeeId}/assignments${qs}`);
 }
 
 export async function createEmployeeAssignment(
@@ -173,13 +182,29 @@ export const ASSIGNMENT_STATUS_OPTIONS = [
   { id: "ENDED" as const, label: "已结束" },
 ];
 
+export const EMPTY_EMPLOYEE_ASSIGNMENT_FORM_OPTIONS: EmployeeAssignmentFormOptions = {
+  suppliers: [],
+  probationPeriods: [],
+  contractLocations: [],
+  workLocations: [],
+  approvalAuthorities: [],
+  jobGrades: [],
+  employeeNatures: [],
+  groupAttrLevels: [],
+  salaryGroups: [],
+  legalCompanies: [],
+  payrollCompanies: [],
+};
+
+export const ASSIGNMENT_INDICATOR_OPTIONS = [
+  { id: "PRIMARY" as const, label: "主要职务" },
+  { id: "SECONDARY" as const, label: "次要职务" },
+];
+
 const ASSIGNMENT_ID_FIELDS = [
   "organizationId",
   "positionId",
-  "jobId",
-  "payrollCompanyId",
-  "costLegalEntityId",
-  "legalEntityId",
+  "handoverEmployeeId",
 ] as const;
 
 function normalizeAssignmentBody<T extends Record<string, unknown>>(req: T) {
@@ -188,6 +213,9 @@ function normalizeAssignmentBody<T extends Record<string, unknown>>(req: T) {
     const value = body[key];
     if (value === undefined || value === "") continue;
     body[key] = Number(value);
+  }
+  if (req.editMode !== undefined) {
+    body.editMode = req.editMode;
   }
   return body as T;
 }

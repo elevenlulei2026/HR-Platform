@@ -94,6 +94,24 @@ public class EmployeeController {
     return ApiResponse.ok(result);
   }
 
+  @GetMapping("/employees/assignment-form-options")
+  public ApiResponse<Map<String, Object>> getAssignmentFormOptions() {
+    requireRosterView();
+    Map<String, Object> out = new HashMap<>();
+    out.put("suppliers", toDictOptions(employeeService.dictLabels("SUPPLIER")));
+    out.put("probationPeriods", toDictOptions(employeeService.dictLabels("PROBATION_PERIOD")));
+    out.put("contractLocations", toDictOptions(employeeService.dictLabels("CONTRACT_LOCATION")));
+    out.put("workLocations", toDictOptions(employeeService.dictLabels("WORK_LOCATION")));
+    out.put("approvalAuthorities", toDictOptions(employeeService.dictLabels("APPROVAL_AUTHORITY")));
+    out.put("jobGrades", toDictOptions(employeeService.dictLabels("JOB_GRADE")));
+    out.put("employeeNatures", toDictOptions(employeeService.dictLabels("EMPLOYEE_NATURE")));
+    out.put("groupAttrLevels", toDictOptions(employeeService.dictLabels("GROUP_ATTR_LEVEL")));
+    out.put("salaryGroups", toDictOptions(employeeService.dictLabels("SALARY_GROUP")));
+    out.put("legalCompanies", toDictOptions(employeeService.dictLabels("LEGAL_COMPANY")));
+    out.put("payrollCompanies", toDictOptions(employeeService.dictLabels("PAYROLL_COMPANY")));
+    return ApiResponse.ok(out);
+  }
+
   @GetMapping("/employees/form-options")
   public ApiResponse<Map<String, Object>> getEmployeeFormOptions() {
     requireRosterView();
@@ -236,16 +254,15 @@ public class EmployeeController {
   }
 
   @GetMapping("/employees/{id}/assignments")
-  public ApiResponse<List<Map<String, Object>>> listAssignments(@PathVariable("id") long id) {
+  public ApiResponse<List<Map<String, Object>>> listAssignments(
+      @PathVariable("id") long id,
+      @RequestParam(required = false) String asOfDate
+  ) {
     requireRosterView();
-    List<EmployeeAssignmentEntity> list = employeeService.listAssignments(id);
-    Map<Long, OrganizationEntity> orgMap = employeeService.organizationMap(
-        list.stream().map(EmployeeAssignmentEntity::getOrganizationId).distinct().toList()
-    );
-    Map<Long, PositionEntity> posMap = employeeService.positionMap(
-        list.stream().map(EmployeeAssignmentEntity::getPositionId).distinct().toList()
-    );
-    return ApiResponse.ok(list.stream().map(a -> toAssignmentDto(a, orgMap, posMap)).toList());
+    LocalDate snapshot = asOfDate == null || asOfDate.isBlank()
+        ? LocalDate.now()
+        : LocalDate.parse(asOfDate.trim());
+    return ApiResponse.ok(employeeService.listAssignmentDtos(id, snapshot));
   }
 
   @PostMapping("/employees/{id}/assignments")
@@ -255,9 +272,14 @@ public class EmployeeController {
   ) {
     requireEdit();
     EmployeeAssignmentEntity created = employeeService.createAssignmentFromBody(id, body);
-    Map<Long, OrganizationEntity> orgMap = employeeService.organizationMap(List.of(created.getOrganizationId()));
-    Map<Long, PositionEntity> posMap = employeeService.positionMap(List.of(created.getPositionId()));
-    return ApiResponse.ok(toAssignmentDto(created, orgMap, posMap));
+    return ApiResponse.ok(employeeService.listAssignmentDtos(id, LocalDate.now()).stream()
+        .filter(d -> created.getId().toString().equals(d.get("id")))
+        .findFirst()
+        .orElseGet(() -> {
+          Map<Long, OrganizationEntity> orgMap = employeeService.organizationMap(List.of(created.getOrganizationId()));
+          Map<Long, PositionEntity> posMap = employeeService.positionMap(List.of(created.getPositionId()));
+          return toAssignmentDto(created, orgMap, posMap);
+        }));
   }
 
   @PutMapping("/employees/{employeeId}/assignments/{assignmentId}")
@@ -268,9 +290,10 @@ public class EmployeeController {
   ) {
     requireEdit();
     EmployeeAssignmentEntity updated = employeeService.updateAssignmentFromBody(employeeId, assignmentId, body);
-    Map<Long, OrganizationEntity> orgMap = employeeService.organizationMap(List.of(updated.getOrganizationId()));
-    Map<Long, PositionEntity> posMap = employeeService.positionMap(List.of(updated.getPositionId()));
-    return ApiResponse.ok(toAssignmentDto(updated, orgMap, posMap));
+    return ApiResponse.ok(employeeService.listAssignmentDtos(employeeId, LocalDate.now()).stream()
+        .filter(d -> String.valueOf(updated.getId()).equals(d.get("id")))
+        .findFirst()
+        .orElseThrow(() -> new IllegalArgumentException("任职记录不存在")));
   }
 
   @GetMapping("/employees/{id}/movements")

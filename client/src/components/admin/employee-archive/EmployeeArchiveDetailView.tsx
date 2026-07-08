@@ -1,7 +1,6 @@
 import type {
   Employee,
   EmployeeArchive,
-  EmployeeAssignment,
   EmployeeFormOptions,
   EmployeeMasterVersion,
   EmployeeMovement,
@@ -180,7 +179,6 @@ type EmployeeArchiveDetailViewProps = {
   /** 主档版本变更后触发刷新（用于“新增生效版本”即时可见） */
   masterVersionsRefreshSeq?: number;
   archive: EmployeeArchive | null;
-  assignments: EmployeeAssignment[];
   movements: EmployeeMovement[];
   detailLoading: boolean;
   canEdit: boolean;
@@ -268,7 +266,6 @@ export function EmployeeArchiveDetailView({
   asOfDate,
   masterVersionsRefreshSeq,
   archive,
-  assignments,
   movements,
   detailLoading,
   canEdit,
@@ -337,7 +334,6 @@ export function EmployeeArchiveDetailView({
       "id-documents": archive.idDocuments.length,
       "family-members": archive.familyMembers.length,
       "internal-relatives": archive.internalRelatives.length,
-      assignments: assignments.length,
       "cost-center-allocations": archive.costCenterAllocations.length,
       contracts: archive.contracts.length,
       agreements: archive.agreements.length,
@@ -360,7 +356,7 @@ export function EmployeeArchiveDetailView({
       "agent-assignments": archive.agentAssignments.length,
       movements: movements.length,
     };
-  }, [archive, assignments.length, movements.length]);
+  }, [archive, movements.length]);
 
   const jumpToCategory = (categoryId: string) => {
     const cat = ARCHIVE_NAV.find((c) => c.id === categoryId);
@@ -599,8 +595,7 @@ export function EmployeeArchiveDetailView({
 
                   <ArchiveSectionAnchor id="assignments">
                     <AssignmentSection
-                      employeeId={employee.id}
-                      assignments={assignments}
+                      employee={employee}
                       orgs={orgs}
                       canEdit={canEdit}
                       onChanged={onAssignmentsChanged}

@@ -1,5 +1,6 @@
 package com.hrplatform.core.employee;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.time.LocalDate;
@@ -53,6 +54,27 @@ public class EmployeeAssignmentEntity {
   private String hrCoordinatorNo;
   private String hrbpNo;
   private String sscNo;
+  private LocalDate hireDate;
+  private Boolean isRehire;
+  private String movementType;
+  private String reasonCode;
+  private String reasonSubCode;
+  private String employeeGroupCode;
+  private String employeeSubgroupCode;
+  private String legalEntityCode;
+  private String payrollCompanyCode;
+  private String costLegalEntityCode;
+  private LocalDate positionStartDate;
+  private String trueResignationReasonHrbp;
+  private String trueResignationReasonSubHrbp;
+  private Long handoverEmployeeId;
+  private String resignationDestination;
+  private Boolean nonCompeteCompanySuggest;
+  private Boolean nonCompeteWithPay;
+  private String assignmentIndicator;
+  /** API 入参：CURRENT | NEW_VERSION，非持久化字段 */
+  @TableField(exist = false)
+  private String editMode;
   private LocalDate effectiveStartDate;
   private LocalDate effectiveEndDate;
   private String status;
@@ -181,6 +203,66 @@ public class EmployeeAssignmentEntity {
   public void setHrbpNo(String hrbpNo) { this.hrbpNo = hrbpNo; }
   public String getSscNo() { return sscNo; }
   public void setSscNo(String sscNo) { this.sscNo = sscNo; }
+  public LocalDate getHireDate() { return hireDate; }
+  public void setHireDate(LocalDate hireDate) { this.hireDate = hireDate; }
+  public Boolean getIsRehire() { return isRehire; }
+  public void setIsRehire(Boolean isRehire) { this.isRehire = isRehire; }
+  public String getMovementType() { return movementType; }
+  public void setMovementType(String movementType) { this.movementType = movementType; }
+  public String getReasonCode() { return reasonCode; }
+  public void setReasonCode(String reasonCode) { this.reasonCode = reasonCode; }
+  public String getReasonSubCode() { return reasonSubCode; }
+  public void setReasonSubCode(String reasonSubCode) { this.reasonSubCode = reasonSubCode; }
+  public String getEmployeeGroupCode() { return employeeGroupCode; }
+  public void setEmployeeGroupCode(String employeeGroupCode) { this.employeeGroupCode = employeeGroupCode; }
+  public String getEmployeeSubgroupCode() { return employeeSubgroupCode; }
+  public void setEmployeeSubgroupCode(String employeeSubgroupCode) {
+    this.employeeSubgroupCode = employeeSubgroupCode;
+  }
+  public String getLegalEntityCode() { return legalEntityCode; }
+  public void setLegalEntityCode(String legalEntityCode) { this.legalEntityCode = legalEntityCode; }
+  public String getPayrollCompanyCode() { return payrollCompanyCode; }
+  public void setPayrollCompanyCode(String payrollCompanyCode) {
+    this.payrollCompanyCode = payrollCompanyCode;
+  }
+  public String getCostLegalEntityCode() { return costLegalEntityCode; }
+  public void setCostLegalEntityCode(String costLegalEntityCode) {
+    this.costLegalEntityCode = costLegalEntityCode;
+  }
+  public LocalDate getPositionStartDate() { return positionStartDate; }
+  public void setPositionStartDate(LocalDate positionStartDate) {
+    this.positionStartDate = positionStartDate;
+  }
+  public String getTrueResignationReasonHrbp() { return trueResignationReasonHrbp; }
+  public void setTrueResignationReasonHrbp(String trueResignationReasonHrbp) {
+    this.trueResignationReasonHrbp = trueResignationReasonHrbp;
+  }
+  public String getTrueResignationReasonSubHrbp() { return trueResignationReasonSubHrbp; }
+  public void setTrueResignationReasonSubHrbp(String trueResignationReasonSubHrbp) {
+    this.trueResignationReasonSubHrbp = trueResignationReasonSubHrbp;
+  }
+  public Long getHandoverEmployeeId() { return handoverEmployeeId; }
+  public void setHandoverEmployeeId(Long handoverEmployeeId) {
+    this.handoverEmployeeId = handoverEmployeeId;
+  }
+  public String getResignationDestination() { return resignationDestination; }
+  public void setResignationDestination(String resignationDestination) {
+    this.resignationDestination = resignationDestination;
+  }
+  public Boolean getNonCompeteCompanySuggest() { return nonCompeteCompanySuggest; }
+  public void setNonCompeteCompanySuggest(Boolean nonCompeteCompanySuggest) {
+    this.nonCompeteCompanySuggest = nonCompeteCompanySuggest;
+  }
+  public Boolean getNonCompeteWithPay() { return nonCompeteWithPay; }
+  public void setNonCompeteWithPay(Boolean nonCompeteWithPay) {
+    this.nonCompeteWithPay = nonCompeteWithPay;
+  }
+  public String getAssignmentIndicator() { return assignmentIndicator; }
+  public void setAssignmentIndicator(String assignmentIndicator) {
+    this.assignmentIndicator = assignmentIndicator;
+  }
+  public String getEditMode() { return editMode; }
+  public void setEditMode(String editMode) { this.editMode = editMode; }
   public LocalDate getEffectiveStartDate() { return effectiveStartDate; }
   public void setEffectiveStartDate(LocalDate effectiveStartDate) { this.effectiveStartDate = effectiveStartDate; }
   public LocalDate getEffectiveEndDate() { return effectiveEndDate; }

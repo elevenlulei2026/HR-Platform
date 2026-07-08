@@ -42,6 +42,7 @@ public class EmployeeService {
   private final DictService dictService;
   private final EmployeeMovementService movementService;
   private final RbacService rbacService;
+  private final EmployeeAssignmentHelper assignmentHelper;
 
   public EmployeeService(
       EmployeeMapper employeeMapper,
@@ -55,7 +56,8 @@ public class EmployeeService {
       FieldCryptoService fieldCryptoService,
       DictService dictService,
       EmployeeMovementService movementService,
-      RbacService rbacService
+      RbacService rbacService,
+      EmployeeAssignmentHelper assignmentHelper
   ) {
     this.employeeMapper = employeeMapper;
     this.assignmentMapper = assignmentMapper;
@@ -69,6 +71,7 @@ public class EmployeeService {
     this.dictService = dictService;
     this.movementService = movementService;
     this.rbacService = rbacService;
+    this.assignmentHelper = assignmentHelper;
   }
 
   public PageResult page(String keyword, String status, Long organizationId, long page, long pageSize) {
@@ -477,27 +480,75 @@ public class EmployeeService {
     );
   }
 
+  public List<Map<String, Object>> listAssignmentDtos(long employeeId, LocalDate asOfDate) {
+    require(employeeId);
+    LocalDate snapshot = asOfDate == null ? LocalDate.now() : asOfDate;
+    List<EmployeeAssignmentEntity> list = listAssignments(employeeId);
+    for (EmployeeAssignmentEntity a : list) {
+      assignmentHelper.computeDerivedFields(a, list, snapshot);
+    }
+    Map<Long, OrganizationEntity> orgMap = organizationMap(
+        list.stream().map(EmployeeAssignmentEntity::getOrganizationId).distinct().toList()
+    );
+    Map<Long, PositionEntity> posMap = positionMap(
+        list.stream().map(EmployeeAssignmentEntity::getPositionId).distinct().toList()
+    );
+    Map<Long, EmployeeEntity> handoverMap = employeeMap(
+        list.stream().map(EmployeeAssignmentEntity::getHandoverEmployeeId)
+            .filter(id -> id != null)
+            .distinct()
+            .toList()
+    );
+    return list.stream().map(a -> {
+      Map<String, Object> dto = assignmentHelper.enrichDto(a, handoverMap, this::dictLabel);
+      dto.put("organizationName",
+          orgMap.get(a.getOrganizationId()) == null ? null : orgMap.get(a.getOrganizationId()).getName());
+      dto.put("organizationCode",
+          orgMap.get(a.getOrganizationId()) == null ? null : orgMap.get(a.getOrganizationId()).getCode());
+      PositionEntity pos = posMap.get(a.getPositionId());
+      dto.put("positionName", pos == null ? null : pos.getName());
+      dto.put("positionCode", pos == null ? null : pos.getCode());
+      dto.put("activeAsOf", assignmentHelper.isActiveAsOf(a, snapshot));
+      return dto;
+    }).toList();
+  }
+
+  public Map<Long, EmployeeEntity> employeeMap(List<Long> employeeIds) {
+    if (employeeIds == null || employeeIds.isEmpty()) return Map.of();
+    return employeeMapper.selectBatchIds(employeeIds).stream()
+        .collect(Collectors.toMap(EmployeeEntity::getId, e -> e, (a, b) -> a));
+  }
+
   @Transactional
   public EmployeeAssignmentEntity createAssignmentFromBody(long employeeId, EmployeeAssignmentEntity body) {
     require(employeeId);
-    if (body.getOrganizationId() == null) throw new IllegalArgumentException("组织不能为空");
+    if (body.getOrganizationId() == null) throw new IllegalArgumentException("部门不能为空");
     if (body.getPositionId() == null) throw new IllegalArgumentException("岗位不能为空");
-    if (body.getEffectiveStartDate() == null) throw new IllegalArgumentException("生效开始日期不能为空");
+    if (body.getEffectiveStartDate() == null) throw new IllegalArgumentException("生效日期不能为空");
     body.setId(null);
     body.setEmployeeId(employeeId);
-    if (body.getIsPrimary() == null) body.setIsPrimary(true);
+    assignmentHelper.normalizeIndicator(body);
     if (body.getStatus() == null || body.getStatus().isBlank()) {
-      LocalDate end = body.getEffectiveEndDate();
-      body.setStatus(end != null && end.isBefore(LocalDate.now()) ? "ENDED" : "ACTIVE");
+      body.setStatus("ACTIVE");
     }
     if (organizationMapper.selectById(body.getOrganizationId()) == null) {
       throw new IllegalArgumentException("组织不存在");
     }
-    if (positionMapper.selectById(body.getPositionId()) == null) {
+    PositionEntity position = positionMapper.selectById(body.getPositionId());
+    if (position == null) {
       throw new IllegalArgumentException("岗位不存在");
     }
+    assignmentHelper.applyPositionDefaults(body, position);
+    List<EmployeeAssignmentEntity> existing = listAssignments(employeeId);
+    EmployeeAssignmentHelper.AssignmentVersionSpliceResult splice =
+        assignmentHelper.resolveVersionSplice(body, existing, body.getEffectiveStartDate());
+    for (EmployeeAssignmentEntity prev : splice.toUpdate()) {
+      assignmentMapper.updateById(prev);
+    }
     validatePrimaryOverlap(body);
+    assignmentHelper.computeDerivedFields(body, existing, body.getEffectiveStartDate());
     assignmentMapper.insert(body);
+    recordAssignmentMovement(body);
     return requireAssignment(employeeId, body.getId());
   }
 
@@ -508,59 +559,140 @@ public class EmployeeService {
       EmployeeAssignmentEntity patch
   ) {
     EmployeeAssignmentEntity cur = requireAssignment(employeeId, assignmentId);
-    if (patch.getOrganizationId() != null) cur.setOrganizationId(patch.getOrganizationId());
-    if (patch.getPositionId() != null) cur.setPositionId(patch.getPositionId());
-    if (patch.getJobId() != null) cur.setJobId(patch.getJobId());
-    if (patch.getJobGradeCode() != null) cur.setJobGradeCode(patch.getJobGradeCode());
-    if (patch.getJobSequence() != null) cur.setJobSequence(patch.getJobSequence());
-    if (patch.getEmploymentType() != null) cur.setEmploymentType(patch.getEmploymentType());
-    if (patch.getEmploymentSubType() != null) cur.setEmploymentSubType(patch.getEmploymentSubType());
-    if (patch.getEmployeeNature() != null) cur.setEmployeeNature(patch.getEmployeeNature());
-    if (patch.getContractLocation() != null) cur.setContractLocation(patch.getContractLocation());
-    if (patch.getWorkLocation() != null) cur.setWorkLocation(patch.getWorkLocation());
-    if (patch.getIsPrimary() != null) cur.setIsPrimary(patch.getIsPrimary());
-    if (patch.getIsResponsibilitySystem() != null) cur.setIsResponsibilitySystem(patch.getIsResponsibilitySystem());
-    if (patch.getApprovalAuthority() != null) cur.setApprovalAuthority(patch.getApprovalAuthority());
-    if (patch.getIsManagementCadre() != null) cur.setIsManagementCadre(patch.getIsManagementCadre());
-    if (patch.getIsCoreTalent() != null) cur.setIsCoreTalent(patch.getIsCoreTalent());
-    if (patch.getSpecialTags() != null) cur.setSpecialTags(patch.getSpecialTags());
-    if (patch.getGroupAttrLevel() != null) cur.setGroupAttrLevel(patch.getGroupAttrLevel());
-    if (patch.getPayrollCompanyId() != null) cur.setPayrollCompanyId(patch.getPayrollCompanyId());
-    if (patch.getCostLegalEntityId() != null) cur.setCostLegalEntityId(patch.getCostLegalEntityId());
-    if (patch.getSalaryGroup() != null) cur.setSalaryGroup(patch.getSalaryGroup());
-    if (patch.getBusinessUnit() != null) cur.setBusinessUnit(patch.getBusinessUnit());
-    if (patch.getLegalEntityId() != null) cur.setLegalEntityId(patch.getLegalEntityId());
-    if (patch.getGroupName() != null) cur.setGroupName(patch.getGroupName());
-    if (patch.getBusinessGroup() != null) cur.setBusinessGroup(patch.getBusinessGroup());
-    if (patch.getSystemName() != null) cur.setSystemName(patch.getSystemName());
-    if (patch.getSecondarySystem() != null) cur.setSecondarySystem(patch.getSecondarySystem());
-    if (patch.getCenterName() != null) cur.setCenterName(patch.getCenterName());
-    if (patch.getDepartmentName() != null) cur.setDepartmentName(patch.getDepartmentName());
-    if (patch.getModuleName() != null) cur.setModuleName(patch.getModuleName());
-    if (patch.getTeamName() != null) cur.setTeamName(patch.getTeamName());
-    if (patch.getSecondaryTeam() != null) cur.setSecondaryTeam(patch.getSecondaryTeam());
-    if (patch.getLineOrStore() != null) cur.setLineOrStore(patch.getLineOrStore());
-    if (patch.getSupplier() != null) cur.setSupplier(patch.getSupplier());
-    if (patch.getProbationPeriod() != null) cur.setProbationPeriod(patch.getProbationPeriod());
-    if (patch.getExpectedRegularizationDate() != null) {
-      cur.setExpectedRegularizationDate(patch.getExpectedRegularizationDate());
+    String mode = patch.getEditMode() == null || patch.getEditMode().isBlank()
+        ? "CURRENT"
+        : patch.getEditMode().trim().toUpperCase();
+    if (!"CURRENT".equals(mode) && !"NEW_VERSION".equals(mode)) {
+      throw new IllegalArgumentException("无效的 editMode");
     }
-    if (patch.getRegularizationOpinion() != null) cur.setRegularizationOpinion(patch.getRegularizationOpinion());
-    if (patch.getActualRegularizationDate() != null) {
-      cur.setActualRegularizationDate(patch.getActualRegularizationDate());
+
+    LocalDate patchStart = patch.getEffectiveStartDate();
+    if (patchStart != null
+        && cur.getEffectiveStartDate() != null
+        && !patchStart.equals(cur.getEffectiveStartDate())) {
+      return createAssignmentNewVersion(employeeId, cur, patch);
     }
-    if (patch.getGroupResponsibilityStartDate() != null) {
-      cur.setGroupResponsibilityStartDate(patch.getGroupResponsibilityStartDate());
+
+    if ("NEW_VERSION".equals(mode)) {
+      return createAssignmentNewVersion(employeeId, cur, patch);
     }
-    if (patch.getHrCoordinatorNo() != null) cur.setHrCoordinatorNo(patch.getHrCoordinatorNo());
-    if (patch.getHrbpNo() != null) cur.setHrbpNo(patch.getHrbpNo());
-    if (patch.getSscNo() != null) cur.setSscNo(patch.getSscNo());
-    if (patch.getEffectiveStartDate() != null) cur.setEffectiveStartDate(patch.getEffectiveStartDate());
-    if (patch.getEffectiveEndDate() != null) cur.setEffectiveEndDate(patch.getEffectiveEndDate());
-    if (patch.getStatus() != null) cur.setStatus(patch.getStatus());
+
+    applyAssignmentPatch(cur, patch);
+    assignmentHelper.normalizeIndicator(cur);
+    PositionEntity position = cur.getPositionId() == null ? null : positionMapper.selectById(cur.getPositionId());
+    assignmentHelper.applyPositionDefaults(cur, position);
+    List<EmployeeAssignmentEntity> all = listAssignments(employeeId);
+    assignmentHelper.computeDerivedFields(cur, all, LocalDate.now());
     validatePrimaryOverlap(cur);
     assignmentMapper.updateById(cur);
     return requireAssignment(employeeId, assignmentId);
+  }
+
+  private EmployeeAssignmentEntity createAssignmentNewVersion(
+      long employeeId,
+      EmployeeAssignmentEntity base,
+      EmployeeAssignmentEntity patch
+  ) {
+    if (patch.getEffectiveStartDate() == null) {
+      throw new IllegalArgumentException("新增生效版本时必须填写生效日期");
+    }
+    LocalDate newStart = patch.getEffectiveStartDate();
+    if (newStart.equals(base.getEffectiveStartDate())) {
+      throw new IllegalArgumentException("新生效日不能与当前版本相同");
+    }
+
+    EmployeeAssignmentEntity newRow = assignmentHelper.cloneAssignment(base);
+    newRow.setId(null);
+    newRow.setEmployeeId(employeeId);
+    applyAssignmentPatch(newRow, patch);
+    assignmentHelper.normalizeIndicator(newRow);
+    if (newRow.getStatus() == null || newRow.getStatus().isBlank()) {
+      newRow.setStatus("ACTIVE");
+    }
+
+    if (organizationMapper.selectById(newRow.getOrganizationId()) == null) {
+      throw new IllegalArgumentException("组织不存在");
+    }
+    PositionEntity position = positionMapper.selectById(newRow.getPositionId());
+    if (position == null) {
+      throw new IllegalArgumentException("岗位不存在");
+    }
+    assignmentHelper.applyPositionDefaults(newRow, position);
+
+    List<EmployeeAssignmentEntity> existing = listAssignments(employeeId);
+    EmployeeAssignmentHelper.AssignmentVersionSpliceResult splice =
+        assignmentHelper.resolveVersionSplice(newRow, existing, newStart);
+    for (EmployeeAssignmentEntity prev : splice.toUpdate()) {
+      assignmentMapper.updateById(prev);
+    }
+    validatePrimaryOverlap(newRow);
+    assignmentHelper.computeDerivedFields(newRow, existing, newStart);
+    assignmentMapper.insert(newRow);
+    recordAssignmentMovement(newRow);
+    return requireAssignment(employeeId, newRow.getId());
+  }
+
+  private void applyAssignmentPatch(EmployeeAssignmentEntity cur, EmployeeAssignmentEntity patch) {
+    if (patch.getOrganizationId() != null) cur.setOrganizationId(patch.getOrganizationId());
+    if (patch.getPositionId() != null) cur.setPositionId(patch.getPositionId());
+    if (patch.getJobGradeCode() != null) cur.setJobGradeCode(patch.getJobGradeCode());
+    if (patch.getJobSequence() != null) cur.setJobSequence(patch.getJobSequence());
+    if (patch.getEmployeeNature() != null) cur.setEmployeeNature(patch.getEmployeeNature());
+    if (patch.getContractLocation() != null) cur.setContractLocation(patch.getContractLocation());
+    if (patch.getWorkLocation() != null) cur.setWorkLocation(patch.getWorkLocation());
+    if (patch.getAssignmentIndicator() != null) cur.setAssignmentIndicator(patch.getAssignmentIndicator());
+    if (patch.getIsPrimary() != null) cur.setIsPrimary(patch.getIsPrimary());
+    if (patch.getIsResponsibilitySystem() != null) cur.setIsResponsibilitySystem(patch.getIsResponsibilitySystem());
+    if (patch.getApprovalAuthority() != null) cur.setApprovalAuthority(patch.getApprovalAuthority());
+    if (patch.getGroupAttrLevel() != null) cur.setGroupAttrLevel(patch.getGroupAttrLevel());
+    if (patch.getSalaryGroup() != null) cur.setSalaryGroup(patch.getSalaryGroup());
+    if (patch.getSupplier() != null) cur.setSupplier(patch.getSupplier());
+    if (patch.getProbationPeriod() != null) cur.setProbationPeriod(patch.getProbationPeriod());
+    if (patch.getActualRegularizationDate() != null) cur.setActualRegularizationDate(patch.getActualRegularizationDate());
+    if (patch.getGroupResponsibilityStartDate() != null) {
+      cur.setGroupResponsibilityStartDate(patch.getGroupResponsibilityStartDate());
+    }
+    if (patch.getGroupSeniorityStartDate() != null) {
+      cur.setGroupSeniorityStartDate(patch.getGroupSeniorityStartDate());
+    }
+    if (patch.getStatus() != null) cur.setStatus(patch.getStatus());
+    if (patch.getHireDate() != null) cur.setHireDate(patch.getHireDate());
+    if (patch.getIsRehire() != null) cur.setIsRehire(patch.getIsRehire());
+    if (patch.getMovementType() != null) cur.setMovementType(patch.getMovementType());
+    if (patch.getReasonCode() != null) cur.setReasonCode(patch.getReasonCode());
+    if (patch.getReasonSubCode() != null) cur.setReasonSubCode(patch.getReasonSubCode());
+    if (patch.getEmployeeGroupCode() != null) cur.setEmployeeGroupCode(patch.getEmployeeGroupCode());
+    if (patch.getEmployeeSubgroupCode() != null) cur.setEmployeeSubgroupCode(patch.getEmployeeSubgroupCode());
+    if (patch.getLegalEntityCode() != null) cur.setLegalEntityCode(patch.getLegalEntityCode());
+    if (patch.getPayrollCompanyCode() != null) cur.setPayrollCompanyCode(patch.getPayrollCompanyCode());
+    if (patch.getCostLegalEntityCode() != null) cur.setCostLegalEntityCode(patch.getCostLegalEntityCode());
+    if (patch.getTrueResignationReasonHrbp() != null) {
+      cur.setTrueResignationReasonHrbp(patch.getTrueResignationReasonHrbp());
+    }
+    if (patch.getTrueResignationReasonSubHrbp() != null) {
+      cur.setTrueResignationReasonSubHrbp(patch.getTrueResignationReasonSubHrbp());
+    }
+    if (patch.getHandoverEmployeeId() != null) cur.setHandoverEmployeeId(patch.getHandoverEmployeeId());
+    if (patch.getResignationDestination() != null) cur.setResignationDestination(patch.getResignationDestination());
+    if (patch.getNonCompeteCompanySuggest() != null) {
+      cur.setNonCompeteCompanySuggest(patch.getNonCompeteCompanySuggest());
+    }
+    if (patch.getNonCompeteWithPay() != null) cur.setNonCompeteWithPay(patch.getNonCompeteWithPay());
+  }
+
+  private void recordAssignmentMovement(EmployeeAssignmentEntity body) {
+    if (body.getMovementType() == null || body.getMovementType().isBlank()) return;
+    if (body.getReasonCode() == null || body.getReasonCode().isBlank()) return;
+    movementService.insert(
+        body.getMovementType(),
+        body.getReasonCode(),
+        body.getReasonSubCode(),
+        body.getEffectiveStartDate(),
+        body.getEmployeeId(),
+        null,
+        body.getId(),
+        "assignment_manual"
+    );
   }
 
   @Transactional
@@ -613,6 +745,7 @@ public class EmployeeService {
     entity.setPositionId(positionId);
     entity.setEmploymentType(employmentType);
     entity.setIsPrimary(isPrimary);
+    assignmentHelper.normalizeIndicator(entity);
     entity.setEffectiveStartDate(effectiveStartDate);
     entity.setEffectiveEndDate(effectiveEndDate);
     entity.setStatus(effectiveEndDate != null && effectiveEndDate.isBefore(LocalDate.now()) ? "ENDED" : "ACTIVE");
@@ -622,14 +755,17 @@ public class EmployeeService {
   }
 
   private void validatePrimaryOverlap(EmployeeAssignmentEntity candidate) {
-    if (!Boolean.TRUE.equals(candidate.getIsPrimary())) return;
+    assignmentHelper.normalizeIndicator(candidate);
+    if (!assignmentHelper.isPrimaryIndicator(candidate)) return;
     if (candidate.getEffectiveStartDate() == null) {
       throw new IllegalArgumentException("主任职生效开始日期不能为空");
     }
     List<EmployeeAssignmentEntity> existing = assignmentMapper.selectList(
         new LambdaQueryWrapper<EmployeeAssignmentEntity>()
             .eq(EmployeeAssignmentEntity::getEmployeeId, candidate.getEmployeeId())
-            .eq(EmployeeAssignmentEntity::getIsPrimary, true)
+            .and(w -> w.eq(EmployeeAssignmentEntity::getIsPrimary, true)
+                .or()
+                .eq(EmployeeAssignmentEntity::getAssignmentIndicator, "PRIMARY"))
             .ne(candidate.getId() != null, EmployeeAssignmentEntity::getId, candidate.getId())
     );
     LocalDate start = candidate.getEffectiveStartDate();

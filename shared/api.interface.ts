@@ -1167,6 +1167,9 @@ export type EmployeeStatus = "CANDIDATE" | "PROBATION" | "ACTIVE" | "TERMINATED"
 
 export type EmployeeMasterEditMode = "CURRENT" | "NEW_VERSION";
 
+/** 任职记录编辑模式（对齐个人主档） */
+export type EmployeeAssignmentEditMode = "CURRENT" | "NEW_VERSION";
+
 /** 同一员工下的个人主档生效版本摘要 */
 export type EmployeeMasterVersion = {
   id: string;
@@ -1181,6 +1184,9 @@ export type EmployeeMasterVersion = {
 };
 
 export type AssignmentStatus = "ACTIVE" | "ENDED";
+
+/** 职务指示：主要职务 / 次要职务 */
+export type AssignmentIndicator = "PRIMARY" | "SECONDARY";
 
 export type ReportingLineType = "DIRECT" | "DOTTED";
 
@@ -1277,6 +1283,21 @@ export type EmployeeFormOptions = {
   idTypes: DictOption[];
 };
 
+/** 任职记录表单字典选项（GET /api/v1/employees/assignment-form-options） */
+export type EmployeeAssignmentFormOptions = {
+  suppliers: DictOption[];
+  probationPeriods: DictOption[];
+  contractLocations: DictOption[];
+  workLocations: DictOption[];
+  approvalAuthorities: DictOption[];
+  jobGrades: DictOption[];
+  employeeNatures: DictOption[];
+  groupAttrLevels: DictOption[];
+  salaryGroups: DictOption[];
+  legalCompanies: DictOption[];
+  payrollCompanies: DictOption[];
+};
+
 export type EmployeeIdDocument = {
   id: string;
   employeeId: string;
@@ -1294,59 +1315,86 @@ export type EmployeeIdDocument = {
 export type EmployeeAssignment = {
   id: string;
   employeeId: string;
+  /** 生效日期 */
+  effectiveStartDate: string;
+  effectiveEndDate?: string;
+  /** 创建日期（系统） */
+  createdAt?: string;
+  /** 入职日期 */
+  hireDate?: string;
+  /** 司龄（根据集团工龄开始日期计算，只读） */
+  companyTenure?: string;
+  isRehire?: boolean;
+  groupResponsibilityStartDate?: string;
+  groupSeniorityStartDate?: string;
+  supplier?: string;
+  supplierLabel?: string;
+  probationPeriod?: string;
+  probationPeriodLabel?: string;
+  /** 预计转正日期（入职日期 + 试用期，只读） */
+  expectedRegularizationDate?: string;
+  actualRegularizationDate?: string;
+  /** 职务异动：操作 / 原因 / 原因子项 */
+  movementType?: MovementType;
+  movementTypeName?: string;
+  reasonCode?: string;
+  reasonDescription?: string;
+  reasonSubCode?: string;
+  reasonSubDescription?: string;
+  /** 职务指示 */
+  assignmentIndicator: AssignmentIndicator;
+  assignmentIndicatorLabel?: string;
+  /** @deprecated 与 assignmentIndicator 同步，兼容旧数据 */
+  isPrimary: boolean;
+  legalEntityCode?: string;
+  legalEntityLabel?: string;
   organizationId: string;
   organizationName?: string;
   organizationCode?: string;
   positionId: string;
   positionName?: string;
   positionCode?: string;
-  jobId?: string;
-  jobGradeCode?: string;
+  /** 岗位序列（选择岗位后带出，只读） */
   jobSequence?: string;
-  employmentType?: string;
-  employmentTypeLabel?: string;
-  employmentSubType?: string;
-  employeeNature?: string;
+  jobSequenceLabel?: string;
+  jobGradeCode?: string;
+  jobGradeLabel?: string;
   contractLocation?: string;
+  contractLocationLabel?: string;
   workLocation?: string;
-  isPrimary: boolean;
+  workLocationLabel?: string;
   isResponsibilitySystem?: boolean;
   approvalAuthority?: string;
-  isManagementCadre?: boolean;
-  isCoreTalent?: boolean;
-  specialTags?: string;
-  groupAttrLevel?: string;
-  payrollCompanyId?: string;
-  costLegalEntityId?: string;
-  salaryGroup?: string;
-  businessUnit?: string;
-  legalEntityId?: string;
-  groupName?: string;
-  businessGroup?: string;
-  systemName?: string;
-  secondarySystem?: string;
-  centerName?: string;
-  departmentName?: string;
-  moduleName?: string;
-  teamName?: string;
-  secondaryTeam?: string;
-  lineOrStore?: string;
-  supplier?: string;
-  probationPeriod?: string;
-  expectedRegularizationDate?: string;
-  regularizationOpinion?: string;
-  actualRegularizationDate?: string;
-  groupResponsibilityStartDate?: string;
-  groupSeniorityStartDate?: string;
+  approvalAuthorityLabel?: string;
+  employeeGroupCode?: string;
+  employeeGroupName?: string;
+  employeeSubgroupCode?: string;
+  employeeSubgroupName?: string;
+  /** 该岗位开始日期（只读） */
+  positionStartDate?: string;
+  /** 在岗时间（只读） */
   tenureOnPosition?: string;
-  companyTenure?: string;
-  hrCoordinatorNo?: string;
-  hrbpNo?: string;
-  sscNo?: string;
-  effectiveStartDate: string;
-  effectiveEndDate?: string;
+  employeeNature?: string;
+  employeeNatureLabel?: string;
+  groupAttrLevel?: string;
+  groupAttrLevelLabel?: string;
+  payrollCompanyCode?: string;
+  payrollCompanyLabel?: string;
+  costLegalEntityCode?: string;
+  costLegalEntityLabel?: string;
+  trueResignationReasonHrbp?: string;
+  trueResignationReasonSubHrbp?: string;
+  handoverEmployeeId?: string;
+  handoverEmployeeName?: string;
+  handoverEmployeeNo?: string;
+  resignationDestination?: string;
+  nonCompeteCompanySuggest?: boolean;
+  nonCompeteWithPay?: boolean;
+  salaryGroup?: string;
+  salaryGroupLabel?: string;
   status: AssignmentStatus;
-  createdAt?: string;
+  /** 在 asOfDate 快照下是否有效 */
+  activeAsOf?: boolean;
   updatedAt?: string;
 };
 
@@ -1479,56 +1527,50 @@ export type EmployeeUpdateRequest = {
 };
 
 export type EmployeeAssignmentCreateRequest = {
-  organizationId: string;
-  positionId: string;
-  jobId?: string;
-  jobGradeCode?: string;
-  jobSequence?: string;
-  employmentType?: string;
-  employmentSubType?: string;
-  employeeNature?: string;
-  contractLocation?: string;
-  workLocation?: string;
-  isPrimary?: boolean;
-  isResponsibilitySystem?: boolean;
-  approvalAuthority?: string;
-  isManagementCadre?: boolean;
-  isCoreTalent?: boolean;
-  specialTags?: string;
-  groupAttrLevel?: string;
-  payrollCompanyId?: string;
-  costLegalEntityId?: string;
-  salaryGroup?: string;
-  businessUnit?: string;
-  legalEntityId?: string;
-  groupName?: string;
-  businessGroup?: string;
-  systemName?: string;
-  secondarySystem?: string;
-  centerName?: string;
-  departmentName?: string;
-  moduleName?: string;
-  teamName?: string;
-  secondaryTeam?: string;
-  lineOrStore?: string;
-  supplier?: string;
-  probationPeriod?: string;
-  expectedRegularizationDate?: string;
-  regularizationOpinion?: string;
-  actualRegularizationDate?: string;
-  groupResponsibilityStartDate?: string;
-  groupSeniorityStartDate?: string;
-  tenureOnPosition?: string;
-  companyTenure?: string;
-  hrCoordinatorNo?: string;
-  hrbpNo?: string;
-  sscNo?: string;
   effectiveStartDate: string;
   effectiveEndDate?: string;
+  hireDate?: string;
+  isRehire?: boolean;
+  groupResponsibilityStartDate?: string;
+  groupSeniorityStartDate?: string;
+  supplier?: string;
+  probationPeriod?: string;
+  actualRegularizationDate?: string;
+  movementType?: MovementType;
+  reasonCode?: string;
+  reasonSubCode?: string;
+  assignmentIndicator?: AssignmentIndicator;
+  legalEntityCode?: string;
+  organizationId: string;
+  positionId: string;
+  jobGradeCode?: string;
+  contractLocation?: string;
+  workLocation?: string;
+  isResponsibilitySystem?: boolean;
+  approvalAuthority?: string;
+  employeeGroupCode?: string;
+  employeeSubgroupCode?: string;
+  employeeNature?: string;
+  groupAttrLevel?: string;
+  payrollCompanyCode?: string;
+  costLegalEntityCode?: string;
+  trueResignationReasonHrbp?: string;
+  trueResignationReasonSubHrbp?: string;
+  handoverEmployeeId?: string;
+  resignationDestination?: string;
+  nonCompeteCompanySuggest?: boolean;
+  nonCompeteWithPay?: boolean;
+  salaryGroup?: string;
 };
 
 export type EmployeeAssignmentUpdateRequest = Partial<EmployeeAssignmentCreateRequest> & {
   status?: AssignmentStatus;
+  /** 修改当前版本 / 按新生效日创建版本 */
+  editMode?: EmployeeAssignmentEditMode;
+};
+
+export type EmployeeAssignmentListQuery = {
+  asOfDate?: string;
 };
 
 export type ReportingLineListQuery = {
@@ -1933,8 +1975,13 @@ export type EmployeeApi = {
   updateEmployee: (id: string, req: EmployeeUpdateRequest) => Promise<ApiResponse<Employee>>;
   /** GET /api/v1/employees/{id}/id-documents */
   listEmployeeIdDocuments: (employeeId: string) => Promise<ApiResponse<EmployeeIdDocument[]>>;
-  /** GET /api/v1/employees/{id}/assignments */
-  listEmployeeAssignments: (employeeId: string) => Promise<ApiResponse<EmployeeAssignment[]>>;
+  /** GET /api/v1/employees/assignment-form-options */
+  getEmployeeAssignmentFormOptions: () => Promise<ApiResponse<EmployeeAssignmentFormOptions>>;
+  /** GET /api/v1/employees/{id}/assignments?asOfDate= */
+  listEmployeeAssignments: (
+    employeeId: string,
+    query?: EmployeeAssignmentListQuery,
+  ) => Promise<ApiResponse<EmployeeAssignment[]>>;
   /** POST /api/v1/employees/{id}/assignments */
   createEmployeeAssignment: (
     employeeId: string,

@@ -1,7 +1,6 @@
 import type {
   Employee,
   EmployeeArchive,
-  EmployeeAssignment,
   EmployeeFormOptions,
   EmployeeImportResult,
   EmployeeMovement,
@@ -27,7 +26,6 @@ import {
   getEmployeeSnapshot,
   getEmployeeFormOptions,
   importEmployees,
-  listEmployeeAssignments,
   listEmployeeMovements,
   listEmployees,
   statusBadgeClass,
@@ -138,7 +136,6 @@ export function AdminEmployeesRosterPage() {
   const [saving, setSaving] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [archive, setArchive] = useState<EmployeeArchive | null>(null);
-  const [assignments, setAssignments] = useState<EmployeeAssignment[]>([]);
   const [movements, setMovements] = useState<EmployeeMovement[]>([]);
   const [importResult, setImportResult] = useState<EmployeeImportResult | null>(null);
   const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
@@ -197,21 +194,14 @@ export function AdminEmployeesRosterPage() {
     setArchive(res.data);
   }, []);
 
-  const reloadAssignments = useCallback(async (employeeId: string) => {
-    const assignmentRes = await listEmployeeAssignments(employeeId);
-    setAssignments(assignmentRes.data);
-  }, []);
-
   const loadDetailTabs = useCallback(
     async (employeeId: string) => {
       setDetailLoading(true);
       try {
-        const [assignmentRes, movementRes, archiveRes] = await Promise.all([
-          listEmployeeAssignments(employeeId),
+        const [movementRes, archiveRes] = await Promise.all([
           listEmployeeMovements(employeeId),
           getEmployeeArchive(employeeId),
         ]);
-        setAssignments(assignmentRes.data);
         setMovements(movementRes.data);
         setArchive(archiveRes.data);
       } catch (e: unknown) {
@@ -624,7 +614,6 @@ export function AdminEmployeesRosterPage() {
               asOfDate={detailAsOfDate}
               masterVersionsRefreshSeq={masterVersionsRefreshSeq}
               archive={archive}
-              assignments={assignments}
               movements={movements}
               detailLoading={detailLoading}
               canEdit={canEdit}
@@ -644,7 +633,12 @@ export function AdminEmployeesRosterPage() {
               }}
               onArchiveChanged={() => void loadArchiveOnly(sheet.employee.id)}
               onAssignmentsChanged={async () => {
-                await reloadAssignments(sheet.employee.id);
+                try {
+                  const res = await getEmployeeSnapshot(sheet.employee.id, { asOfDate: detailAsOfDate });
+                  setSheet({ type: "view", employee: res.data });
+                } catch {
+                  // 刷新主任职摘要失败不阻断
+                }
                 void load();
               }}
             />

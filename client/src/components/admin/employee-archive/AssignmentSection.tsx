@@ -1,218 +1,77 @@
 import type {
-  AssignmentStatus,
+  AssignmentIndicator,
+  Employee,
   EmployeeAssignment,
-  EmployeeAssignmentCreateRequest,
+  EmployeeAssignmentEditMode,
+  EmployeeAssignmentFormOptions,
   EmployeeAssignmentUpdateRequest,
+  MovementCatalogOption,
   OrganizationTreeNode,
 } from "@shared/api.interface";
-import { useState, type Dispatch, type SetStateAction } from "react";
-import { Edit, Briefcase } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import type { ApiError } from "@/api/http";
+import { getEmployeeGroupCatalogOptions } from "@/api/employee-group-catalog";
 import {
+  ASSIGNMENT_INDICATOR_OPTIONS,
   ASSIGNMENT_STATUS_OPTIONS,
-  EMPLOYMENT_TYPE_OPTIONS,
-  assignmentStatusLabel,
+  EMPTY_EMPLOYEE_ASSIGNMENT_FORM_OPTIONS,
   createEmployeeAssignment,
+  getEmployeeAssignmentFormOptions,
+  listEmployeeAssignments,
+  listEmployees,
   updateEmployeeAssignment,
 } from "@/api/employee";
-import { defaultDepartmentId, flattenOrgTree } from "@/api/organization";
+import { getMovementCatalogOptions } from "@/api/movement-catalog";
+import { defaultDepartmentId, flattenOrgTree, getPosition } from "@/api/organization";
 import { ArchiveFormDialogPortal } from "@/components/admin/employee-archive/ArchiveFormDialogPortal";
+import { AssignmentIndicatorSection } from "@/components/admin/employee-archive/AssignmentIndicatorSection";
+import {
+  ASSIGNMENT_INDICATOR_ZONES,
+  assignmentIndicatorOf,
+  filterAssignmentsByIndicator,
+  pickPresentAssignmentId,
+} from "@/components/admin/employee-archive/assignment-indicator";
 import {
   ArchiveAddButton,
   ArchiveFormSection,
-  ArchiveRecordActionButton,
-  ArchiveRecordCard,
-  ArchiveRecordField,
-  ArchiveRecordFieldGrid,
-  ArchiveRecordList,
 } from "@/components/admin/employee-archive/archive-record-ui";
+import {
+  buildAssignmentPayload,
+  computeExpectedRegularizationPreview,
+  emptyAssignmentForm,
+  formFromAssignment,
+  todayStr,
+  type AssignmentForm,
+} from "@/components/admin/employee-archive/assignment-form";
 import { DepartmentPositionFields } from "@/components/admin/employee-archive/DepartmentPositionFields";
-import { FormField } from "@/components/admin/form-field";
+import { FormField, OptionToggle } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
+import {
+  SearchableSelect,
+  type SearchableSelectOption,
+} from "@/components/admin/searchable-select";
 import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
+import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 
 const BOOLEAN_OPTIONS = [
   { value: "true", label: "是" },
   { value: "false", label: "否" },
 ];
 
-type AssignmentForm = {
-  organizationId: string;
-  positionId: string;
-  jobId: string;
-  jobGradeCode: string;
-  jobSequence: string;
-  employmentType: string;
-  employmentSubType: string;
-  employeeNature: string;
-  contractLocation: string;
-  workLocation: string;
-  isPrimary: string;
-  isResponsibilitySystem: string;
-  approvalAuthority: string;
-  isManagementCadre: string;
-  isCoreTalent: string;
-  specialTags: string;
-  groupAttrLevel: string;
-  payrollCompanyId: string;
-  costLegalEntityId: string;
-  salaryGroup: string;
-  businessUnit: string;
-  legalEntityId: string;
-  groupName: string;
-  businessGroup: string;
-  systemName: string;
-  secondarySystem: string;
-  centerName: string;
-  departmentName: string;
-  moduleName: string;
-  teamName: string;
-  secondaryTeam: string;
-  lineOrStore: string;
-  supplier: string;
-  probationPeriod: string;
-  expectedRegularizationDate: string;
-  regularizationOpinion: string;
-  actualRegularizationDate: string;
-  groupResponsibilityStartDate: string;
-  groupSeniorityStartDate: string;
-  tenureOnPosition: string;
-  companyTenure: string;
-  hrCoordinatorNo: string;
-  hrbpNo: string;
-  sscNo: string;
-  effectiveStartDate: string;
-  effectiveEndDate: string;
-  status: AssignmentStatus;
-};
-
-type SheetState = { type: "closed" } | { type: "new" } | { type: "edit"; item: EmployeeAssignment };
+type SheetState =
+  | { type: "closed" }
+  | { type: "new" }
+  | { type: "edit"; item: EmployeeAssignment; editMode: EmployeeAssignmentEditMode };
 
 type AssignmentSectionProps = {
-  employeeId: string;
-  assignments: EmployeeAssignment[];
+  employee: Employee;
   orgs: OrganizationTreeNode[];
   canEdit: boolean;
   onChanged: () => Promise<void> | void;
 };
-
-function todayStr() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function emptyAssignmentForm(): AssignmentForm {
-  return {
-    organizationId: "",
-    positionId: "",
-    jobId: "",
-    jobGradeCode: "",
-    jobSequence: "",
-    employmentType: "FULL_TIME",
-    employmentSubType: "",
-    employeeNature: "",
-    contractLocation: "",
-    workLocation: "",
-    isPrimary: "true",
-    isResponsibilitySystem: "",
-    approvalAuthority: "",
-    isManagementCadre: "",
-    isCoreTalent: "",
-    specialTags: "",
-    groupAttrLevel: "",
-    payrollCompanyId: "",
-    costLegalEntityId: "",
-    salaryGroup: "",
-    businessUnit: "",
-    legalEntityId: "",
-    groupName: "",
-    businessGroup: "",
-    systemName: "",
-    secondarySystem: "",
-    centerName: "",
-    departmentName: "",
-    moduleName: "",
-    teamName: "",
-    secondaryTeam: "",
-    lineOrStore: "",
-    supplier: "",
-    probationPeriod: "",
-    expectedRegularizationDate: "",
-    regularizationOpinion: "",
-    actualRegularizationDate: "",
-    groupResponsibilityStartDate: "",
-    groupSeniorityStartDate: "",
-    tenureOnPosition: "",
-    companyTenure: "",
-    hrCoordinatorNo: "",
-    hrbpNo: "",
-    sscNo: "",
-    effectiveStartDate: todayStr(),
-    effectiveEndDate: "",
-    status: "ACTIVE",
-  };
-}
-
-function boolToForm(value?: boolean) {
-  if (value === undefined) return "";
-  return value ? "true" : "false";
-}
-
-function formFromAssignment(assignment: EmployeeAssignment): AssignmentForm {
-  return {
-    organizationId: assignment.organizationId,
-    positionId: assignment.positionId,
-    jobId: assignment.jobId ?? "",
-    jobGradeCode: assignment.jobGradeCode ?? "",
-    jobSequence: assignment.jobSequence ?? "",
-    employmentType: assignment.employmentType ?? "FULL_TIME",
-    employmentSubType: assignment.employmentSubType ?? "",
-    employeeNature: assignment.employeeNature ?? "",
-    contractLocation: assignment.contractLocation ?? "",
-    workLocation: assignment.workLocation ?? "",
-    isPrimary: boolToForm(assignment.isPrimary),
-    isResponsibilitySystem: boolToForm(assignment.isResponsibilitySystem),
-    approvalAuthority: assignment.approvalAuthority ?? "",
-    isManagementCadre: boolToForm(assignment.isManagementCadre),
-    isCoreTalent: boolToForm(assignment.isCoreTalent),
-    specialTags: assignment.specialTags ?? "",
-    groupAttrLevel: assignment.groupAttrLevel ?? "",
-    payrollCompanyId: assignment.payrollCompanyId ?? "",
-    costLegalEntityId: assignment.costLegalEntityId ?? "",
-    salaryGroup: assignment.salaryGroup ?? "",
-    businessUnit: assignment.businessUnit ?? "",
-    legalEntityId: assignment.legalEntityId ?? "",
-    groupName: assignment.groupName ?? "",
-    businessGroup: assignment.businessGroup ?? "",
-    systemName: assignment.systemName ?? "",
-    secondarySystem: assignment.secondarySystem ?? "",
-    centerName: assignment.centerName ?? "",
-    departmentName: assignment.departmentName ?? "",
-    moduleName: assignment.moduleName ?? "",
-    teamName: assignment.teamName ?? "",
-    secondaryTeam: assignment.secondaryTeam ?? "",
-    lineOrStore: assignment.lineOrStore ?? "",
-    supplier: assignment.supplier ?? "",
-    probationPeriod: assignment.probationPeriod ?? "",
-    expectedRegularizationDate: assignment.expectedRegularizationDate ?? "",
-    regularizationOpinion: assignment.regularizationOpinion ?? "",
-    actualRegularizationDate: assignment.actualRegularizationDate ?? "",
-    groupResponsibilityStartDate: assignment.groupResponsibilityStartDate ?? "",
-    groupSeniorityStartDate: assignment.groupSeniorityStartDate ?? "",
-    tenureOnPosition: assignment.tenureOnPosition ?? "",
-    companyTenure: assignment.companyTenure ?? "",
-    hrCoordinatorNo: assignment.hrCoordinatorNo ?? "",
-    hrbpNo: assignment.hrbpNo ?? "",
-    sscNo: assignment.sscNo ?? "",
-    effectiveStartDate: assignment.effectiveStartDate,
-    effectiveEndDate: assignment.effectiveEndDate ?? "",
-    status: assignment.status,
-  };
-}
 
 function toApiError(e: unknown): ApiError {
   if (
@@ -226,291 +85,155 @@ function toApiError(e: unknown): ApiError {
   return { message: "请求失败，请稍后重试" };
 }
 
-function strOrUndefined(value: string) {
-  const trimmed = value.trim();
-  return trimmed || undefined;
-}
-
-function numOrUndefined(value: string) {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const num = Number(trimmed);
-  return Number.isNaN(num) ? undefined : num;
-}
-
-function boolOrUndefined(value: string) {
-  if (!value) return undefined;
-  return value === "true";
-}
-
-function buildAssignmentPayload(form: AssignmentForm) {
-  const payload: Record<string, string | number | boolean | undefined> = {
-    organizationId: numOrUndefined(form.organizationId),
-    positionId: numOrUndefined(form.positionId),
-    jobId: numOrUndefined(form.jobId),
-    jobGradeCode: strOrUndefined(form.jobGradeCode),
-    jobSequence: strOrUndefined(form.jobSequence),
-    employmentType: strOrUndefined(form.employmentType),
-    employmentSubType: strOrUndefined(form.employmentSubType),
-    employeeNature: strOrUndefined(form.employeeNature),
-    contractLocation: strOrUndefined(form.contractLocation),
-    workLocation: strOrUndefined(form.workLocation),
-    isPrimary: boolOrUndefined(form.isPrimary),
-    isResponsibilitySystem: boolOrUndefined(form.isResponsibilitySystem),
-    approvalAuthority: strOrUndefined(form.approvalAuthority),
-    isManagementCadre: boolOrUndefined(form.isManagementCadre),
-    isCoreTalent: boolOrUndefined(form.isCoreTalent),
-    specialTags: strOrUndefined(form.specialTags),
-    groupAttrLevel: strOrUndefined(form.groupAttrLevel),
-    payrollCompanyId: numOrUndefined(form.payrollCompanyId),
-    costLegalEntityId: numOrUndefined(form.costLegalEntityId),
-    salaryGroup: strOrUndefined(form.salaryGroup),
-    businessUnit: strOrUndefined(form.businessUnit),
-    legalEntityId: numOrUndefined(form.legalEntityId),
-    groupName: strOrUndefined(form.groupName),
-    businessGroup: strOrUndefined(form.businessGroup),
-    systemName: strOrUndefined(form.systemName),
-    secondarySystem: strOrUndefined(form.secondarySystem),
-    centerName: strOrUndefined(form.centerName),
-    departmentName: strOrUndefined(form.departmentName),
-    moduleName: strOrUndefined(form.moduleName),
-    teamName: strOrUndefined(form.teamName),
-    secondaryTeam: strOrUndefined(form.secondaryTeam),
-    lineOrStore: strOrUndefined(form.lineOrStore),
-    supplier: strOrUndefined(form.supplier),
-    probationPeriod: strOrUndefined(form.probationPeriod),
-    expectedRegularizationDate: strOrUndefined(form.expectedRegularizationDate),
-    regularizationOpinion: strOrUndefined(form.regularizationOpinion),
-    actualRegularizationDate: strOrUndefined(form.actualRegularizationDate),
-    groupResponsibilityStartDate: strOrUndefined(form.groupResponsibilityStartDate),
-    groupSeniorityStartDate: strOrUndefined(form.groupSeniorityStartDate),
-    tenureOnPosition: strOrUndefined(form.tenureOnPosition),
-    companyTenure: strOrUndefined(form.companyTenure),
-    hrCoordinatorNo: strOrUndefined(form.hrCoordinatorNo),
-    hrbpNo: strOrUndefined(form.hrbpNo),
-    sscNo: strOrUndefined(form.sscNo),
-    effectiveStartDate: form.effectiveStartDate,
-    effectiveEndDate: strOrUndefined(form.effectiveEndDate),
-    status: form.status,
-  };
-  return payload;
-}
-
 function AssignmentFormFields({
   form,
   setForm,
   flatOrgs,
+  dictOptions,
+  movementOptions,
+  employeeGroupOptions,
+  employeeOptions,
+  employeeLoading,
+  onEmployeeSearch,
+  readOnlyComputed,
   isNew,
+  versioningHint = false,
+  editMode,
+  onEditModeChange,
 }: {
   form: AssignmentForm;
-  setForm: Dispatch<SetStateAction<AssignmentForm>>;
+  setForm: React.Dispatch<React.SetStateAction<AssignmentForm>>;
   flatOrgs: ReturnType<typeof flattenOrgTree>;
+  dictOptions: EmployeeAssignmentFormOptions;
+  movementOptions: MovementCatalogOption[];
+  employeeGroupOptions: Array<{ employeeGroupCode: string; employeeGroupName: string; subgroups: Array<{ code: string; name: string }> }>;
+  employeeOptions: SearchableSelectOption[];
+  employeeLoading: boolean;
+  onEmployeeSearch: (keyword: string) => void;
+  readOnlyComputed: {
+    expectedRegularizationDate: string;
+    companyTenure: string;
+    positionStartDate: string;
+    tenureOnPosition: string;
+    createdAt: string;
+  };
   isNew: boolean;
+  versioningHint?: boolean;
+  editMode?: EmployeeAssignmentEditMode;
+  onEditModeChange?: (mode: EmployeeAssignmentEditMode) => void;
 }) {
   const set = (key: keyof AssignmentForm, value: string) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  const selectedMovement = movementOptions.find((m) => m.movementType === form.movementType);
+  const selectedReason = selectedMovement?.reasons.find((r) => r.code === form.reasonCode);
+  const subgroupOptions = useMemo(() => {
+    const group = employeeGroupOptions.find((g) => g.employeeGroupCode === form.employeeGroupCode);
+    return group?.subgroups ?? [];
+  }, [employeeGroupOptions, form.employeeGroupCode]);
+
+  const handlePositionChange = useCallback(
+    async (positionId: string) => {
+      set("positionId", positionId);
+      if (!positionId) {
+        setForm((prev) => ({ ...prev, jobSequence: "", jobGradeCode: "" }));
+        return;
+      }
+      try {
+        const res = await getPosition(positionId);
+        const pos = res.data;
+        setForm((prev) => ({
+          ...prev,
+          positionId,
+          jobSequence: pos.positionSequence ?? prev.jobSequence,
+          jobGradeCode: pos.positionLevel ?? prev.jobGradeCode,
+        }));
+      } catch {
+        set("positionId", positionId);
+      }
+    },
+    [setForm],
+  );
+
+  const expectedPreview =
+    readOnlyComputed.expectedRegularizationDate ||
+    computeExpectedRegularizationPreview(form.hireDate, form.probationPeriod, dictOptions.probationPeriods);
+
+  const effectiveStartLocked = !isNew && editMode === "CURRENT";
+
   return (
     <div className="space-y-4">
-      <ArchiveFormSection title="岗位与组织" columns={2}>
-        <DepartmentPositionFields
-          organizationId={form.organizationId}
-          positionId={form.positionId}
-          departments={flatOrgs}
-          organizationRequired
-          positionRequired
-          onOrganizationChange={(organizationId, positionId) => {
-            setForm((prev) => ({ ...prev, organizationId, positionId }));
-          }}
-          onPositionChange={(positionId) => set("positionId", positionId)}
-        />
-        <FormField label="职务 ID">
-          <Input value={form.jobId} onChange={(e) => set("jobId", e.target.value)} />
-        </FormField>
-        <FormField label="职级编码">
-          <Input value={form.jobGradeCode} onChange={(e) => set("jobGradeCode", e.target.value)} />
-        </FormField>
-        <FormField label="职位序列">
-          <Input value={form.jobSequence} onChange={(e) => set("jobSequence", e.target.value)} />
-        </FormField>
-        <FormField label="雇佣类型">
-          <OptionSelect
-            value={form.employmentType}
-            onValueChange={(value) => set("employmentType", value)}
-            options={EMPLOYMENT_TYPE_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
-            className="w-full"
-          />
-        </FormField>
-        <FormField label="员工子类">
-          <Input value={form.employmentSubType} onChange={(e) => set("employmentSubType", e.target.value)} />
-        </FormField>
-        <FormField label="员工性质">
-          <Input value={form.employeeNature} onChange={(e) => set("employeeNature", e.target.value)} />
-        </FormField>
-        <FormField label="主任职">
-          <OptionSelect
-            value={form.isPrimary}
-            onValueChange={(value) => set("isPrimary", value)}
-            options={BOOLEAN_OPTIONS}
-            className="w-full"
-          />
-        </FormField>
-      </ArchiveFormSection>
-
-      <ArchiveFormSection title="生效与状态" columns={2}>
-        <FormField label="生效开始日期" required>
+      <ArchiveFormSection title="生效期" columns={4}>
+        {isNew ? (
+          <FormField label="职务指示" required hint="默认主要职务，兼岗请选择次要职务">
+            <OptionToggle
+              value={form.assignmentIndicator}
+              onChange={(value) => set("assignmentIndicator", value)}
+              options={ASSIGNMENT_INDICATOR_OPTIONS}
+            />
+          </FormField>
+        ) : (
+          <FormField label="职务指示">
+            <Input
+              disabled
+              value={form.assignmentIndicator === "PRIMARY" ? "主要职务" : "次要职务"}
+            />
+          </FormField>
+        )}
+        {!isNew && editMode && onEditModeChange ? (
+          <FormField label="编辑方式" required>
+            <OptionToggle
+              value={editMode}
+              onChange={(value) => onEditModeChange(value as EmployeeAssignmentEditMode)}
+              options={[
+                { id: "CURRENT", label: "修改当前版本" },
+                { id: "NEW_VERSION", label: "新增生效版本" },
+              ]}
+            />
+          </FormField>
+        ) : null}
+        <FormField
+          label="生效日期"
+          required
+          hint={
+            isNew && versioningHint
+              ? "同职务类型已有任职时，将按新生效日创建版本"
+              : effectiveStartLocked
+                ? "修改当前版本时生效日期不可变更"
+                : editMode === "NEW_VERSION"
+                  ? "指定新版本的生效开始日"
+                  : "版本按生效日期区分过去、当前、将来"
+          }
+        >
           <Input
             type="date"
             value={form.effectiveStartDate}
+            disabled={effectiveStartLocked}
             onChange={(e) => set("effectiveStartDate", e.target.value)}
           />
         </FormField>
-        <FormField label="生效结束日期">
-          <Input
-            type="date"
-            value={form.effectiveEndDate}
-            onChange={(e) => set("effectiveEndDate", e.target.value)}
-          />
-        </FormField>
         {!isNew ? (
-          <FormField label="状态">
-            <OptionSelect
-              value={form.status}
-              onValueChange={(value) => set("status", value as AssignmentStatus)}
-              options={ASSIGNMENT_STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
-              className="w-full"
-            />
+          <FormField label="创建日期">
+            <Input value={readOnlyComputed.createdAt || "—"} disabled />
           </FormField>
         ) : null}
       </ArchiveFormSection>
 
-      <ArchiveFormSection title="工作地点" columns={2}>
-        <FormField label="合同地点">
-          <Input value={form.contractLocation} onChange={(e) => set("contractLocation", e.target.value)} />
+      <ArchiveFormSection title="生效与雇工" columns={4}>
+        <FormField label="入职日期">
+          <Input type="date" value={form.hireDate} onChange={(e) => set("hireDate", e.target.value)} />
         </FormField>
-        <FormField label="工作地点">
-          <Input value={form.workLocation} onChange={(e) => set("workLocation", e.target.value)} />
+        <FormField label="司龄">
+          <Input value={readOnlyComputed.companyTenure || "—"} disabled />
         </FormField>
-      </ArchiveFormSection>
-
-      <ArchiveFormSection title="岗位属性" columns={2}>
-        <FormField label="是否责任制">
+        <FormField label="是否重新雇佣">
           <OptionSelect
-            value={form.isResponsibilitySystem}
-            onValueChange={(value) => set("isResponsibilitySystem", value)}
+            value={form.isRehire}
+            onValueChange={(value) => set("isRehire", value)}
             allowEmpty
             emptyLabel="不填写"
             options={BOOLEAN_OPTIONS}
             className="w-full"
-          />
-        </FormField>
-        <FormField label="审批权限">
-          <Input value={form.approvalAuthority} onChange={(e) => set("approvalAuthority", e.target.value)} />
-        </FormField>
-        <FormField label="管理干部">
-          <OptionSelect
-            value={form.isManagementCadre}
-            onValueChange={(value) => set("isManagementCadre", value)}
-            allowEmpty
-            emptyLabel="不填写"
-            options={BOOLEAN_OPTIONS}
-            className="w-full"
-          />
-        </FormField>
-        <FormField label="核心人才">
-          <OptionSelect
-            value={form.isCoreTalent}
-            onValueChange={(value) => set("isCoreTalent", value)}
-            allowEmpty
-            emptyLabel="不填写"
-            options={BOOLEAN_OPTIONS}
-            className="w-full"
-          />
-        </FormField>
-        <FormField label="特殊标签">
-          <Input value={form.specialTags} onChange={(e) => set("specialTags", e.target.value)} />
-        </FormField>
-        <FormField label="集团属性分级">
-          <Input value={form.groupAttrLevel} onChange={(e) => set("groupAttrLevel", e.target.value)} />
-        </FormField>
-      </ArchiveFormSection>
-
-      <ArchiveFormSection title="组织层级（冗余展示）" description="用于展示与检索，通常由组织主数据同步" columns={2}>
-        <FormField label="业务单位">
-          <Input value={form.businessUnit} onChange={(e) => set("businessUnit", e.target.value)} />
-        </FormField>
-        <FormField label="法人实体 ID">
-          <Input value={form.legalEntityId} onChange={(e) => set("legalEntityId", e.target.value)} />
-        </FormField>
-        <FormField label="集团">
-          <Input value={form.groupName} onChange={(e) => set("groupName", e.target.value)} />
-        </FormField>
-        <FormField label="事业群">
-          <Input value={form.businessGroup} onChange={(e) => set("businessGroup", e.target.value)} />
-        </FormField>
-        <FormField label="体系">
-          <Input value={form.systemName} onChange={(e) => set("systemName", e.target.value)} />
-        </FormField>
-        <FormField label="二级体系">
-          <Input value={form.secondarySystem} onChange={(e) => set("secondarySystem", e.target.value)} />
-        </FormField>
-        <FormField label="中心">
-          <Input value={form.centerName} onChange={(e) => set("centerName", e.target.value)} />
-        </FormField>
-        <FormField label="部门">
-          <Input value={form.departmentName} onChange={(e) => set("departmentName", e.target.value)} />
-        </FormField>
-        <FormField label="模块">
-          <Input value={form.moduleName} onChange={(e) => set("moduleName", e.target.value)} />
-        </FormField>
-        <FormField label="组">
-          <Input value={form.teamName} onChange={(e) => set("teamName", e.target.value)} />
-        </FormField>
-        <FormField label="二级组">
-          <Input value={form.secondaryTeam} onChange={(e) => set("secondaryTeam", e.target.value)} />
-        </FormField>
-        <FormField label="线/店">
-          <Input value={form.lineOrStore} onChange={(e) => set("lineOrStore", e.target.value)} />
-        </FormField>
-      </ArchiveFormSection>
-
-      <ArchiveFormSection title="薪酬与法人" columns={2}>
-        <FormField label="发薪公司 ID">
-          <Input value={form.payrollCompanyId} onChange={(e) => set("payrollCompanyId", e.target.value)} />
-        </FormField>
-        <FormField label="成本归属法人 ID">
-          <Input value={form.costLegalEntityId} onChange={(e) => set("costLegalEntityId", e.target.value)} />
-        </FormField>
-        <FormField label="薪资组">
-          <Input value={form.salaryGroup} onChange={(e) => set("salaryGroup", e.target.value)} />
-        </FormField>
-      </ArchiveFormSection>
-
-      <ArchiveFormSection title="雇工与试用期" columns={2}>
-        <FormField label="供应商">
-          <Input value={form.supplier} onChange={(e) => set("supplier", e.target.value)} />
-        </FormField>
-        <FormField label="试用期期限">
-          <Input value={form.probationPeriod} onChange={(e) => set("probationPeriod", e.target.value)} />
-        </FormField>
-        <FormField label="预计转正日期">
-          <Input
-            type="date"
-            value={form.expectedRegularizationDate}
-            onChange={(e) => set("expectedRegularizationDate", e.target.value)}
-          />
-        </FormField>
-        <FormField label="转正意见">
-          <Input
-            value={form.regularizationOpinion}
-            onChange={(e) => set("regularizationOpinion", e.target.value)}
-          />
-        </FormField>
-        <FormField label="实际转正日期">
-          <Input
-            type="date"
-            value={form.actualRegularizationDate}
-            onChange={(e) => set("actualRegularizationDate", e.target.value)}
           />
         </FormField>
         <FormField label="集团责任制开始日期">
@@ -527,89 +250,527 @@ function AssignmentFormFields({
             onChange={(e) => set("groupSeniorityStartDate", e.target.value)}
           />
         </FormField>
-        <FormField label="在岗时间">
-          <Input
-            value={form.tenureOnPosition}
-            onChange={(e) => set("tenureOnPosition", e.target.value)}
-            placeholder="如 2年3个月"
+        <FormField label="供应商">
+          <OptionSelect
+            value={form.supplier}
+            onValueChange={(value) => set("supplier", value)}
+            allowEmpty
+            emptyLabel="请选择"
+            options={dictOptions.suppliers.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
           />
         </FormField>
-        <FormField label="司龄">
+        <FormField label="试用期期限">
+          <OptionSelect
+            value={form.probationPeriod}
+            onValueChange={(value) => set("probationPeriod", value)}
+            allowEmpty
+            emptyLabel="请选择"
+            options={dictOptions.probationPeriods.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="预计转正日期">
+          <Input value={expectedPreview || "—"} disabled />
+        </FormField>
+        <FormField label="实际转正日期">
           <Input
-            value={form.companyTenure}
-            onChange={(e) => set("companyTenure", e.target.value)}
-            placeholder="如 5年"
+            type="date"
+            value={form.actualRegularizationDate}
+            onChange={(e) => set("actualRegularizationDate", e.target.value)}
           />
         </FormField>
       </ArchiveFormSection>
 
-      <ArchiveFormSection title="工作关系" columns={2}>
-        <FormField label="人资协调员工号">
-          <Input value={form.hrCoordinatorNo} onChange={(e) => set("hrCoordinatorNo", e.target.value)} />
+      <ArchiveFormSection title="职务异动" columns={4}>
+        <FormField label="操作">
+          <OptionSelect
+            value={form.movementType}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, movementType: value, reasonCode: "", reasonSubCode: "" }))
+            }
+            allowEmpty
+            emptyLabel="请选择"
+            options={movementOptions.map((m) => ({
+              value: m.movementType,
+              label: `${m.movementType} ${m.movementTypeName}`,
+            }))}
+            className="w-full"
+          />
         </FormField>
-        <FormField label="HRBP 工号">
-          <Input value={form.hrbpNo} onChange={(e) => set("hrbpNo", e.target.value)} />
+        <FormField label="原因">
+          <OptionSelect
+            value={form.reasonCode}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, reasonCode: value, reasonSubCode: "" }))
+            }
+            allowEmpty
+            emptyLabel="请先选择操作"
+            options={(selectedMovement?.reasons ?? []).map((r) => ({
+              value: r.code,
+              label: `${r.code} ${r.name}`,
+            }))}
+            className="w-full"
+            disabled={!form.movementType}
+          />
         </FormField>
-        <FormField label="SSC 工号">
-          <Input value={form.sscNo} onChange={(e) => set("sscNo", e.target.value)} />
+        <FormField label="原因子项">
+          <OptionSelect
+            value={form.reasonSubCode}
+            onValueChange={(value) => set("reasonSubCode", value)}
+            allowEmpty
+            emptyLabel={selectedReason?.requiresSub ? "请选择" : "无子项"}
+            options={(selectedReason?.subs ?? []).map((s) => ({
+              value: s.code,
+              label: `${s.code} ${s.name}`,
+            }))}
+            className="w-full"
+            disabled={!form.reasonCode || !(selectedReason?.subs.length)}
+          />
+        </FormField>
+      </ArchiveFormSection>
+
+      <ArchiveFormSection title="岗位与组织" columns={4}>
+        <FormField label="法人实体">
+          <OptionSelect
+            value={form.legalEntityCode}
+            onValueChange={(value) => set("legalEntityCode", value)}
+            allowEmpty
+            emptyLabel="请选择"
+            options={dictOptions.legalCompanies.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
+          />
+        </FormField>
+        <DepartmentPositionFields
+          organizationId={form.organizationId}
+          positionId={form.positionId}
+          departments={flatOrgs}
+          organizationRequired
+          positionRequired
+          onOrganizationChange={(organizationId) => {
+            setForm((prev) => ({ ...prev, organizationId, positionId: "" }));
+          }}
+          onPositionChange={(positionId) => void handlePositionChange(positionId)}
+        />
+        <FormField label="岗位序列">
+          <Input value={form.jobSequence || "—"} disabled />
+        </FormField>
+        <FormField label="职级">
+          <OptionSelect
+            value={form.jobGradeCode}
+            onValueChange={(value) => set("jobGradeCode", value)}
+            allowEmpty
+            emptyLabel="请选择或手选"
+            options={dictOptions.jobGrades.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="合同地点">
+          <OptionSelect
+            value={form.contractLocation}
+            onValueChange={(value) => set("contractLocation", value)}
+            allowEmpty
+            emptyLabel="请选择"
+            options={dictOptions.contractLocations.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="工作地点">
+          <OptionSelect
+            value={form.workLocation}
+            onValueChange={(value) => set("workLocation", value)}
+            allowEmpty
+            emptyLabel="请选择"
+            options={dictOptions.workLocations.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="责任制">
+          <OptionSelect
+            value={form.isResponsibilitySystem}
+            onValueChange={(value) => set("isResponsibilitySystem", value)}
+            allowEmpty
+            emptyLabel="不填写"
+            options={BOOLEAN_OPTIONS}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="审批权限">
+          <OptionSelect
+            value={form.approvalAuthority}
+            onValueChange={(value) => set("approvalAuthority", value)}
+            allowEmpty
+            emptyLabel="请选择"
+            options={dictOptions.approvalAuthorities.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="员工组">
+          <OptionSelect
+            value={form.employeeGroupCode}
+            onValueChange={(value) =>
+              setForm((prev) => ({ ...prev, employeeGroupCode: value, employeeSubgroupCode: "" }))
+            }
+            allowEmpty
+            emptyLabel="请选择"
+            options={employeeGroupOptions.map((g) => ({
+              value: g.employeeGroupCode,
+              label: `${g.employeeGroupCode} ${g.employeeGroupName}`,
+            }))}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="员工子组">
+          <OptionSelect
+            value={form.employeeSubgroupCode}
+            onValueChange={(value) => set("employeeSubgroupCode", value)}
+            allowEmpty
+            emptyLabel="请先选择员工组"
+            options={subgroupOptions.map((s) => ({
+              value: s.code,
+              label: `${s.code} ${s.name}`,
+            }))}
+            className="w-full"
+            disabled={!form.employeeGroupCode}
+          />
+        </FormField>
+        <FormField label="该岗位开始日期">
+          <Input value={readOnlyComputed.positionStartDate || "—"} disabled />
+        </FormField>
+        <FormField label="在岗时间">
+          <Input value={readOnlyComputed.tenureOnPosition || "—"} disabled />
+        </FormField>
+        <FormField label="员工性质">
+          <OptionSelect
+            value={form.employeeNature}
+            onValueChange={(value) => set("employeeNature", value)}
+            allowEmpty
+            emptyLabel="请选择"
+            options={dictOptions.employeeNatures.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="集团属性分级">
+          <OptionSelect
+            value={form.groupAttrLevel}
+            onValueChange={(value) => set("groupAttrLevel", value)}
+            allowEmpty
+            emptyLabel="请选择"
+            options={dictOptions.groupAttrLevels.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
+          />
+        </FormField>
+      </ArchiveFormSection>
+
+      <ArchiveFormSection title="薪酬与法人" columns={4}>
+        <FormField label="发薪公司">
+          <OptionSelect
+            value={form.payrollCompanyCode}
+            onValueChange={(value) => set("payrollCompanyCode", value)}
+            allowEmpty
+            emptyLabel="请选择"
+            options={dictOptions.payrollCompanies.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="成本归属法人">
+          <OptionSelect
+            value={form.costLegalEntityCode}
+            onValueChange={(value) => set("costLegalEntityCode", value)}
+            allowEmpty
+            emptyLabel="请选择"
+            options={dictOptions.legalCompanies.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="薪资组">
+          <OptionSelect
+            value={form.salaryGroup}
+            onValueChange={(value) => set("salaryGroup", value)}
+            allowEmpty
+            emptyLabel="请选择"
+            options={dictOptions.salaryGroups.map((o) => ({ value: o.value, label: o.label }))}
+            className="w-full"
+          />
+        </FormField>
+        {!isNew ? (
+          <FormField label="状态">
+            <OptionSelect
+              value={form.status}
+              onValueChange={(value) => set("status", value)}
+              options={ASSIGNMENT_STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
+              className="w-full"
+            />
+          </FormField>
+        ) : null}
+      </ArchiveFormSection>
+
+      <ArchiveFormSection title="离职信息" columns={4}>
+        <FormField label="真实离职原因(HRBP)">
+          <Input
+            value={form.trueResignationReasonHrbp}
+            onChange={(e) => set("trueResignationReasonHrbp", e.target.value)}
+          />
+        </FormField>
+        <FormField label="真实离职原因子类(HRBP)">
+          <Input
+            value={form.trueResignationReasonSubHrbp}
+            onChange={(e) => set("trueResignationReasonSubHrbp", e.target.value)}
+          />
+        </FormField>
+        <FormField label="交接人">
+          <SearchableSelect
+            value={form.handoverEmployeeId}
+            onChange={(value) => set("handoverEmployeeId", value)}
+            options={employeeOptions}
+            variant="entity"
+            placeholder="搜索员工姓名或工号"
+            entityEmptyTitle="搜索员工"
+            entityEmptyHint="输入姓名或工号"
+            entitySelectedHint="已选择交接人"
+            searchPlaceholder="搜索员工…"
+            loading={employeeLoading}
+            shouldFilter={false}
+            onSearchChange={onEmployeeSearch}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="离职去向">
+          <Input
+            value={form.resignationDestination}
+            onChange={(e) => set("resignationDestination", e.target.value)}
+          />
+        </FormField>
+        <FormField label="是否启动竞业限制-公司建议">
+          <OptionSelect
+            value={form.nonCompeteCompanySuggest}
+            onValueChange={(value) => set("nonCompeteCompanySuggest", value)}
+            allowEmpty
+            emptyLabel="不填写"
+            options={BOOLEAN_OPTIONS}
+            className="w-full"
+          />
+        </FormField>
+        <FormField label="是否给薪">
+          <OptionSelect
+            value={form.nonCompeteWithPay}
+            onValueChange={(value) => set("nonCompeteWithPay", value)}
+            allowEmpty
+            emptyLabel="不填写"
+            options={BOOLEAN_OPTIONS}
+            className="w-full"
+          />
         </FormField>
       </ArchiveFormSection>
     </div>
   );
 }
 
-export function AssignmentSection({
-  employeeId,
-  assignments,
-  orgs,
-  canEdit,
-  onChanged,
-}: AssignmentSectionProps) {
+export function AssignmentSection({ employee, orgs, canEdit, onChanged }: AssignmentSectionProps) {
   const flatOrgs = flattenOrgTree(orgs);
+  const [assignments, setAssignments] = useState<EmployeeAssignment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [dictOptions, setDictOptions] = useState<EmployeeAssignmentFormOptions>(
+    EMPTY_EMPLOYEE_ASSIGNMENT_FORM_OPTIONS,
+  );
+  const [movementOptions, setMovementOptions] = useState<MovementCatalogOption[]>([]);
+  const [employeeGroupOptions, setEmployeeGroupOptions] = useState<
+    Array<{ employeeGroupCode: string; employeeGroupName: string; subgroups: Array<{ code: string; name: string }> }>
+  >([]);
   const [sheet, setSheet] = useState<SheetState>({ type: "closed" });
-  const [form, setForm] = useState<AssignmentForm>(() => emptyAssignmentForm());
+  const [form, setForm] = useState<AssignmentForm>(() => emptyAssignmentForm(employee));
   const [saving, setSaving] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [employeeOptions, setEmployeeOptions] = useState<SearchableSelectOption[]>([]);
+  const [employeeLoading, setEmployeeLoading] = useState(false);
+  const [focusedByIndicator, setFocusedByIndicator] = useState<
+    Partial<Record<AssignmentIndicator, string>>
+  >({});
+  const debouncedEmployeeSearch = useDebouncedValue(employeeSearch, 280);
+
+  const syncFocusedByIndicator = useCallback(
+    (
+      items: EmployeeAssignment[],
+      prev: Partial<Record<AssignmentIndicator, string>>,
+    ): Partial<Record<AssignmentIndicator, string>> => {
+      const next: Partial<Record<AssignmentIndicator, string>> = { ...prev };
+      for (const zone of ASSIGNMENT_INDICATOR_ZONES) {
+        const group = filterAssignmentsByIndicator(items, zone.indicator);
+        const kept = prev[zone.indicator];
+        next[zone.indicator] =
+          kept && group.some((item) => item.id === kept)
+            ? kept
+            : pickPresentAssignmentId(group);
+      }
+      return next;
+    },
+    [],
+  );
+
+  const loadAssignments = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await listEmployeeAssignments(employee.id);
+      setAssignments(res.data);
+      setFocusedByIndicator((prev) => syncFocusedByIndicator(res.data, prev));
+    } catch (e: unknown) {
+      const err = toApiError(e);
+      toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [employee.id, syncFocusedByIndicator]);
+
+  useEffect(() => {
+    void loadAssignments();
+  }, [loadAssignments]);
+
+  useEffect(() => {
+    void Promise.all([
+      getEmployeeAssignmentFormOptions(),
+      getMovementCatalogOptions(),
+      getEmployeeGroupCatalogOptions(),
+    ])
+      .then(([dictRes, movementRes, groupRes]) => {
+        setDictOptions(dictRes.data);
+        setMovementOptions(movementRes.data);
+        setEmployeeGroupOptions(groupRes.data);
+      })
+      .catch(() => {
+        // 字典加载失败不阻断页面
+      });
+  }, []);
+
+  useEffect(() => {
+    if (sheet.type === "closed") return;
+    setEmployeeLoading(true);
+    void listEmployees({
+      page: 1,
+      pageSize: 20,
+      keyword: debouncedEmployeeSearch || undefined,
+    })
+      .then((res) => {
+        setEmployeeOptions(
+          res.data.items
+            .filter((item) => item.id !== employee.id)
+            .map((item) => ({
+              value: item.id,
+              label: item.fullName,
+              code: item.employeeNo,
+              keywords: `${item.employeeNo} ${item.fullName}`,
+            })),
+        );
+      })
+      .catch(() => setEmployeeOptions([]))
+      .finally(() => setEmployeeLoading(false));
+  }, [debouncedEmployeeSearch, employee.id, sheet.type]);
+
+  const editingItem = sheet.type === "edit" ? sheet.item : null;
+  const editMode = sheet.type === "edit" ? sheet.editMode : undefined;
+  const createVersioningHint =
+    sheet.type === "new" &&
+    filterAssignmentsByIndicator(assignments, form.assignmentIndicator).length > 0;
+  const readOnlyComputed = {
+    expectedRegularizationDate: editingItem?.expectedRegularizationDate ?? "",
+    companyTenure: editingItem?.companyTenure ?? "",
+    positionStartDate: editingItem?.positionStartDate ?? "",
+    tenureOnPosition: editingItem?.tenureOnPosition ?? "",
+    createdAt: editingItem?.createdAt?.slice(0, 10) ?? "",
+  };
 
   const openCreate = () => {
-    const next = emptyAssignmentForm();
+    const next = emptyAssignmentForm(employee);
     next.organizationId = defaultDepartmentId(flatOrgs);
     setForm(next);
     setSheet({ type: "new" });
   };
 
-  const openEdit = (item: EmployeeAssignment) => {
-    setForm(formFromAssignment(item));
-    setSheet({ type: "edit", item });
+  const visibleZones = useMemo(
+    () =>
+      ASSIGNMENT_INDICATOR_ZONES.filter((zone) =>
+        filterAssignmentsByIndicator(assignments, zone.indicator).length > 0,
+      ),
+    [assignments],
+  );
+
+  const openEdit = (item: EmployeeAssignment, mode: EmployeeAssignmentEditMode = "CURRENT") => {
+    const next = formFromAssignment(item);
+    if (mode === "NEW_VERSION") {
+      next.effectiveStartDate = todayStr();
+    }
+    setForm(next);
+    setSheet({ type: "edit", item, editMode: mode });
+  };
+
+  const handleEditModeChange = (mode: EmployeeAssignmentEditMode) => {
+    if (sheet.type !== "edit") return;
+    const base = formFromAssignment(sheet.item);
+    if (mode === "CURRENT") {
+      base.effectiveStartDate = sheet.item.effectiveStartDate;
+    } else {
+      base.effectiveStartDate = todayStr();
+    }
+    setForm(base);
+    setSheet({ type: "edit", item: sheet.item, editMode: mode });
   };
 
   const save = async () => {
     if (!form.organizationId || !form.positionId) {
-      toast.error("请选择组织与岗位");
+      toast.error("请选择部门与岗位");
       return;
     }
     if (!form.effectiveStartDate) {
-      toast.error("请填写生效开始日期");
+      toast.error("请填写生效日期");
       return;
+    }
+
+    const payload = buildAssignmentPayload(form);
+
+    if (sheet.type === "new") {
+      const sameGroup = filterAssignmentsByIndicator(assignments, form.assignmentIndicator);
+      const presentId = pickPresentAssignmentId(sameGroup);
+      const present = presentId ? sameGroup.find((item) => item.id === presentId) : undefined;
+      if (present && form.effectiveStartDate === present.effectiveStartDate) {
+        toast.error("同职务类型下该生效日期已存在，请修改生效日期");
+        return;
+      }
     }
 
     setSaving(true);
     try {
-      const payload = buildAssignmentPayload(form);
       if (sheet.type === "new") {
-        await createEmployeeAssignment(
-          employeeId,
-          payload as EmployeeAssignmentCreateRequest,
-        );
-        toast.success("任职已新增");
+        const sameGroup = filterAssignmentsByIndicator(assignments, form.assignmentIndicator);
+        const presentId = pickPresentAssignmentId(sameGroup);
+        const present = presentId ? sameGroup.find((item) => item.id === presentId) : undefined;
+
+        if (present) {
+          const updatePayload: EmployeeAssignmentUpdateRequest = {
+            editMode: "NEW_VERSION",
+            ...payload,
+          };
+          const res = await updateEmployeeAssignment(employee.id, present.id, updatePayload);
+          toast.success("已新增生效版本");
+          const indicator = assignmentIndicatorOf(res.data);
+          setFocusedByIndicator((prev) => ({ ...prev, [indicator]: res.data.id }));
+        } else {
+          const res = await createEmployeeAssignment(employee.id, payload);
+          toast.success("任职记录已新增");
+          const indicator = assignmentIndicatorOf(res.data);
+          setFocusedByIndicator((prev) => ({ ...prev, [indicator]: res.data.id }));
+        }
       } else if (sheet.type === "edit") {
-        await updateEmployeeAssignment(
-          employeeId,
-          sheet.item.id,
-          payload as EmployeeAssignmentUpdateRequest,
-        );
-        toast.success("任职已更新");
+        const updatePayload: EmployeeAssignmentUpdateRequest = {
+          editMode: sheet.editMode,
+          ...payload,
+          status: form.status as EmployeeAssignmentUpdateRequest["status"],
+        };
+        const res = await updateEmployeeAssignment(employee.id, sheet.item.id, updatePayload);
+        toast.success(sheet.editMode === "NEW_VERSION" ? "已新增生效版本" : "任职记录已更新");
+        const indicator = assignmentIndicatorOf(res.data);
+        setFocusedByIndicator((prev) => ({ ...prev, [indicator]: res.data.id }));
       }
       setSheet({ type: "closed" });
+      await loadAssignments();
       await onChanged();
     } catch (e: unknown) {
       const err = toApiError(e);
@@ -623,81 +784,53 @@ export function AssignmentSection({
     <>
       <PanelCard
         title="任职记录"
-        toolbar={
-          canEdit ? <ArchiveAddButton label="新增任职" onClick={openCreate} /> : null
-        }
+        description="按职务类型与生效日期维护任职版本"
+        toolbar={canEdit ? <ArchiveAddButton label="新增任职" onClick={openCreate} /> : null}
       >
-        {assignments.length === 0 ? (
-          <PanelEmpty compact title="暂无任职记录" description="可通过新增任职维护岗位与组织信息" />
+        {loading ? (
+          <p className="px-4 py-8 text-center text-sm text-muted-foreground">加载任职记录…</p>
+        ) : assignments.length === 0 ? (
+          <PanelEmpty
+            compact
+            title="暂无任职记录"
+            description="点击「新增任职」维护岗位与组织信息"
+          />
         ) : (
-          <ArchiveRecordList>
-            {assignments.map((assignment, index) => (
-              <ArchiveRecordCard
-                key={assignment.id}
-                index={index + 1}
-                accent="sky"
-                actions={
-                  canEdit ? (
-                    <ArchiveRecordActionButton
-                      icon={Edit}
-                      label="编辑任职"
-                      onClick={() => openEdit(assignment)}
-                    />
-                  ) : null
+          <div className="space-y-3 p-2.5">
+            {visibleZones.map((zone) => (
+              <AssignmentIndicatorSection
+                key={zone.indicator}
+                indicator={zone.indicator}
+                indicatorShortLabel={zone.shortLabel}
+                accent={zone.accent}
+                assignments={filterAssignmentsByIndicator(assignments, zone.indicator)}
+                focusedId={focusedByIndicator[zone.indicator]}
+                canEdit={canEdit}
+                onFocus={(assignmentId) =>
+                  setFocusedByIndicator((prev) => ({
+                    ...prev,
+                    [zone.indicator]: assignmentId,
+                  }))
                 }
-              >
-                <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
-                  <div className="flex size-6 items-center justify-center rounded-md bg-sky-500/10 text-sky-600 ring-1 ring-sky-500/20 dark:text-sky-400">
-                    <Briefcase className="size-3" />
-                  </div>
-                  <span className="text-sm font-semibold tracking-tight">
-                    {assignment.organizationName ?? "—"} · {assignment.positionName ?? "—"}
-                  </span>
-                  {assignment.isPrimary ? (
-                    <Badge variant="secondary" className="h-5 text-[10px]">
-                      主任职
-                    </Badge>
-                  ) : null}
-                  <Badge
-                    variant="outline"
-                    className={cn(
-                      "h-5 text-[10px]",
-                      assignment.status === "ACTIVE"
-                        ? "border-emerald-500/30 text-emerald-700 dark:text-emerald-400"
-                        : "text-muted-foreground",
-                    )}
-                  >
-                    {assignmentStatusLabel(assignment.status)}
-                  </Badge>
-                </div>
-                <ArchiveRecordFieldGrid>
-                  <ArchiveRecordField
-                    label="生效区间"
-                    value={`${assignment.effectiveStartDate}${assignment.effectiveEndDate ? ` → ${assignment.effectiveEndDate}` : " → 至今"}`}
-                    mono
-                    highlight
-                  />
-                  <ArchiveRecordField
-                    label="雇佣类型"
-                    value={assignment.employmentTypeLabel ?? assignment.employmentType ?? null}
-                  />
-                  <ArchiveRecordField label="工作地点" value={assignment.workLocation} />
-                  <ArchiveRecordField label="部门" value={assignment.departmentName} />
-                  <ArchiveRecordField label="业务单位" value={assignment.businessUnit} />
-                  <ArchiveRecordField label="HRBP" value={assignment.hrbpNo} mono />
-                </ArchiveRecordFieldGrid>
-              </ArchiveRecordCard>
+                onEdit={openEdit}
+              />
             ))}
-          </ArchiveRecordList>
+          </div>
         )}
       </PanelCard>
 
       <ArchiveFormDialogPortal
         open={sheet.type !== "closed"}
         onOpenChange={(open) => !open && !saving && setSheet({ type: "closed" })}
-        title={sheet.type === "new" ? "新增任职" : "编辑任职"}
-        description="维护岗位、组织层级、雇工属性与工作关系"
-        wide
+        title={
+          sheet.type === "new"
+            ? "新增任职记录"
+            : sheet.type === "edit" && sheet.editMode === "NEW_VERSION"
+              ? "新增任职生效版本"
+              : "编辑任职记录"
+        }
+        description="维护任职生效期、岗位组织、雇工属性与职务异动信息"
+        extraWide
         saving={saving}
         onSave={() => void save()}
       >
@@ -705,7 +838,17 @@ export function AssignmentSection({
           form={form}
           setForm={setForm}
           flatOrgs={flatOrgs}
+          dictOptions={dictOptions}
+          movementOptions={movementOptions}
+          employeeGroupOptions={employeeGroupOptions}
+          employeeOptions={employeeOptions}
+          employeeLoading={employeeLoading}
+          onEmployeeSearch={setEmployeeSearch}
+          readOnlyComputed={readOnlyComputed}
           isNew={sheet.type === "new"}
+          versioningHint={createVersioningHint}
+          editMode={editMode}
+          onEditModeChange={sheet.type === "edit" ? handleEditModeChange : undefined}
         />
       </ArchiveFormDialogPortal>
     </>

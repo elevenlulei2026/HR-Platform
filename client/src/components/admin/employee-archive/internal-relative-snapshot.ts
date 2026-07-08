@@ -28,7 +28,7 @@ export async function fetchInternalRelativeSnapshot(
     .sort((a, b) => b.effectiveDate.localeCompare(a.effectiveDate))[0];
 
   return {
-    departmentName: primary?.organizationName ?? primary?.departmentName ?? "",
+    departmentName: primary?.organizationName ?? "",
     positionName: primary?.positionName ?? "",
     jobGradeName: primary?.jobGradeCode ?? "",
     hireDate: employee.hireDate ?? "",

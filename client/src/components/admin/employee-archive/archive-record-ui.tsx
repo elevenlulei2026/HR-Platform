@@ -71,7 +71,9 @@ export function ArchiveRecordCard({
           </span>
         </div>
       ) : null}
-      <div className="min-w-0 flex-1 py-2 pr-1">{children}</div>
+      <div className={cn("min-w-0 flex-1 py-2.5", index !== undefined ? "pr-1" : "px-3")}>
+        {children}
+      </div>
       {actions ? (
         <div className="flex shrink-0 items-center gap-0.5 py-2 pr-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
           {actions}
@@ -176,10 +178,16 @@ export function ArchiveFormSection({
   title: string;
   description?: string;
   children: ReactNode;
-  columns?: 1 | 2 | 3;
+  columns?: 1 | 2 | 3 | 4;
 }) {
   const colClass =
-    columns === 1 ? "grid-cols-1" : columns === 3 ? "md:grid-cols-3" : "md:grid-cols-2";
+    columns === 1
+      ? "grid-cols-1"
+      : columns === 3
+        ? "md:grid-cols-3"
+        : columns === 4
+          ? "md:grid-cols-4"
+          : "md:grid-cols-2";
   return (
     <section className="overflow-hidden rounded-xl border border-border/50 bg-card/60 shadow-sm">
       <div className="border-b border-border/40 bg-muted/20 px-4 py-3">
