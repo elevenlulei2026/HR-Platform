@@ -115,7 +115,7 @@ public class EmployeeController {
 
   @GetMapping("/employees/form-options")
   public ApiResponse<Map<String, Object>> getEmployeeFormOptions() {
-    requireRosterView();
+    requireFormOptionsAccess();
     Map<String, Object> out = new HashMap<>();
     out.put("maritalStatuses", toDictOptions(employeeService.dictLabels("MARITAL_STATUS")));
     out.put("politicalAffiliations", toDictOptions(employeeService.dictLabels("POLITICAL_AFFILIATION")));
@@ -132,6 +132,8 @@ public class EmployeeController {
     out.put("bankIds", toDictOptions(employeeService.dictLabels("BANK_ID")));
     out.put("branchIds", toDictOptions(employeeService.dictLabels("BRANCH_ID")));
     out.put("currencies", toDictOptions(employeeService.dictLabels("CURRENCY")));
+    out.put("payrollCompanies", toDictOptions(employeeService.dictLabels("PAYROLL_COMPANY")));
+    out.put("insuranceRegions", toDictOptions(employeeService.dictLabels("INSURANCE_REGION")));
     return ApiResponse.ok(out);
   }
 
@@ -367,6 +369,14 @@ public class EmployeeController {
   }
 
   private void requireRosterView() { rbacService.requirePermission("employee:roster:view"); }
+  private void requireFormOptionsAccess() {
+    rbacService.requireAnyPermission(
+        "employee:roster:view",
+        "employee:archive:service:view",
+        "employee:archive:service:edit",
+        "employee:edit"
+    );
+  }
   private void requireCreate() {
     rbacService.requireAnyPermission("employee:roster:create", "employee:edit");
   }

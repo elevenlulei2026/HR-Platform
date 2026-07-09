@@ -1403,6 +1403,10 @@ export type EmployeeFormOptions = {
   bankIds: DictOption[];
   branchIds: DictOption[];
   currencies: DictOption[];
+  /** 发薪公司（数据字典：PAYROLL_COMPANY） */
+  payrollCompanies: DictOption[];
+  /** 参保地区（数据字典：INSURANCE_REGION） */
+  insuranceRegions: DictOption[];
 };
 
 /** 任职记录表单字典选项（GET /api/v1/employees/assignment-form-options） */

@@ -159,20 +159,33 @@ export function AdminEmployeesRosterPage() {
   );
 
   const loadRefs = useCallback(async () => {
-    try {
-      const [tree, optionsRes] = await Promise.all([
-        getOrganizationTree(),
-        canEdit ? getEmployeeFormOptions() : Promise.resolve(null),
-      ]);
-      setOrgs(tree.data);
-      if (optionsRes) {
-        setFormOptions(optionsRes.data);
-      }
-    } catch (e: unknown) {
-      const err = toApiError(e);
-      toast.error(err.traceId ? `部门数据加载失败：${err.message}（traceId: ${err.traceId}）` : `部门数据加载失败：${err.message}`);
+    const [treeRes, optionsRes] = await Promise.allSettled([
+      getOrganizationTree(),
+      getEmployeeFormOptions(),
+    ]);
+
+    if (treeRes.status === "fulfilled") {
+      setOrgs(treeRes.value.data);
+    } else {
+      const err = toApiError(treeRes.reason);
+      toast.error(
+        err.traceId
+          ? `部门数据加载失败：${err.message}（traceId: ${err.traceId}）`
+          : `部门数据加载失败：${err.message}`,
+      );
     }
-  }, [canEdit]);
+
+    if (optionsRes.status === "fulfilled") {
+      setFormOptions(optionsRes.value.data);
+    } else {
+      const err = toApiError(optionsRes.reason);
+      toast.error(
+        err.traceId
+          ? `字典选项加载失败：${err.message}（traceId: ${err.traceId}）`
+          : `字典选项加载失败：${err.message}`,
+      );
+    }
+  }, []);
 
   const load = useCallback(async () => {
     if (!canView) return;

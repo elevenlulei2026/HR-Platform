@@ -64,6 +64,8 @@ export type ArchiveDictKey = keyof Pick<
   | "bankIds"
   | "branchIds"
   | "currencies"
+  | "payrollCompanies"
+  | "insuranceRegions"
 >;
 
 export type ArchiveDictOptions = Pick<EmployeeFormOptions, ArchiveDictKey>;
@@ -604,12 +606,12 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
       );
     }
 
-    if (field.dictKey && dictOptions) {
+    if (field.dictKey) {
       return (
         <OptionSelect
           value={form[field.key] ?? ""}
           onValueChange={(value) => setForm((prev) => ({ ...prev, [field.key]: value }))}
-          options={dictOptions[field.dictKey] ?? []}
+          options={dictOptions?.[field.dictKey] ?? []}
           allowEmpty={!field.required}
           emptyLabel="不填写"
           placeholder={dictOptions ? "请选择" : "加载选项…"}
@@ -754,7 +756,15 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
     <>
       <PanelCard
         title={title}
-        toolbar={canEdit ? <ArchiveAddButton label="新增" onClick={openCreate} /> : null}
+        toolbar={
+          canEdit ? (
+            <ArchiveAddButton
+              label="新增"
+              onClick={openCreate}
+              disabled={resourcePath === "social-insurances" && archiveItems.length > 0}
+            />
+          ) : null
+        }
       >
         {archiveItems.length === 0 ? (
           <PanelEmpty compact title={`暂无${title}`} description="可通过新增按钮维护档案信息" />
@@ -785,6 +795,30 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
                 {resourcePath === "cost-center-allocations" ? (
                   <div className="overflow-x-auto">
                     <ArchiveRecordFieldGrid columns={5} className="min-w-[860px] gap-0.5">
+                      {displayFields.map((field) => {
+                        const masked = isMaskedField(field, item);
+                        const display = formatDisplayValue(field, item, dictOptions);
+                        return (
+                          <ArchiveRecordField
+                            key={field.key}
+                            label={field.label}
+                            value={display}
+                            masked={masked}
+                            highlight={field.key === highlightKey}
+                            compact
+                            mono={
+                              field.type === "date" ||
+                              field.key.includes("No") ||
+                              field.reference === "employee"
+                            }
+                          />
+                        );
+                      })}
+                    </ArchiveRecordFieldGrid>
+                  </div>
+                ) : resourcePath === "social-insurances" ? (
+                  <div className="overflow-x-auto">
+                    <ArchiveRecordFieldGrid columns={7} className="min-w-[980px] gap-0.5">
                       {displayFields.map((field) => {
                         const masked = isMaskedField(field, item);
                         const display = formatDisplayValue(field, item, dictOptions);

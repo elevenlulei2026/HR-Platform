@@ -91,7 +91,7 @@ export function ArchiveRecordFieldGrid({
   className,
 }: {
   children: ReactNode;
-  columns?: 2 | 3 | 4 | 5 | 6;
+  columns?: 2 | 3 | 4 | 5 | 6 | 7;
   className?: string;
 }) {
   const colClass =
@@ -99,6 +99,8 @@ export function ArchiveRecordFieldGrid({
       ? "grid-cols-2"
       : columns === 3
         ? "grid-cols-3"
+        : columns === 7
+          ? "grid-cols-7"
         : columns === 5
           ? "grid-cols-5"
           : columns === 6

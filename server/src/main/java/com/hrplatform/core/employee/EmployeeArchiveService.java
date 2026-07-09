@@ -528,6 +528,11 @@ public class EmployeeArchiveService {
 
   @Transactional
   public EmployeeSocialInsuranceEntity createSocialInsurance(long employeeId, EmployeeSocialInsuranceEntity entity) {
+    employeeService.require(employeeId);
+    List<EmployeeSocialInsuranceEntity> existing = listSocialInsurances(employeeId);
+    if (!existing.isEmpty()) {
+      throw new IllegalArgumentException("该员工已存在社保公积金信息，请编辑已有记录");
+    }
     encryptSocialInsurance(entity);
     EmployeeSocialInsuranceEntity created = create(
         socialInsuranceMapper,

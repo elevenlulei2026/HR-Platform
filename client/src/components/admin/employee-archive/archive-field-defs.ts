@@ -135,9 +135,17 @@ export const SERVICE_SOCIAL_FIELDS: ArchiveFieldDef[] = [
   { key: "socialBase", label: "社保基数", type: "number" },
   { key: "housingFundNo", label: "公积金账号" },
   { key: "housingBase", label: "公积金基数", type: "number" },
-  { key: "company", label: "参保公司" },
-  { key: "insuranceRegion", label: "参保地区" },
-  { key: "isCompanyPayroll", label: "公司代缴", type: "boolean", options: BOOLEAN_OPTIONS },
+  { key: "company", label: "公司", dictKey: "payrollCompanies" },
+  { key: "insuranceRegion", label: "参保地区", dictKey: "insuranceRegions" },
+  {
+    key: "isCompanyPayroll",
+    label: "公司代缴",
+    type: "toggle",
+    options: [
+      { value: "true", label: "是" },
+      { value: "false", label: "否" },
+    ],
+  },
 ];
 
 export const SERVICE_BENEFIT_FIELDS: ArchiveFieldDef[] = [

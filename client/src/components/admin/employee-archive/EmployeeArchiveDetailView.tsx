@@ -8,6 +8,7 @@ import type {
   OrganizationTreeNode,
 } from "@shared/api.interface";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
 import { EmployeeMovementTimeline } from "@/components/admin/employee-archive/EmployeeMovementTimeline";
 import type { LucideIcon } from "lucide-react";
 import {
@@ -76,6 +77,7 @@ import { AssignmentSection } from "@/components/admin/employee-archive/Assignmen
 import { PanelCard, PanelLoading } from "@/components/admin/page-shell";
 import { listEmployeeMasterVersions } from "@/api/employee";
 import { employeeStatusLabel, statusBadgeClass } from "@/api/employee";
+import { getEmployeeFormOptions } from "@/api/employee";
 import { EmployeeAvatar } from "@/components/admin/employee-archive/EmployeeAvatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -292,6 +294,36 @@ export function EmployeeArchiveDetailView({
 
   const [versions, setVersions] = useState<EmployeeMasterVersion[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
+  const [dictOptions, setDictOptions] = useState<EmployeeFormOptions | null>(archiveDictOptions ?? null);
+
+  useEffect(() => {
+    setDictOptions(archiveDictOptions ?? null);
+  }, [archiveDictOptions]);
+
+  useEffect(() => {
+    if (dictOptions) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await getEmployeeFormOptions();
+        if (!cancelled) setDictOptions(res.data);
+      } catch (e: unknown) {
+        if (cancelled) return;
+        const msg =
+          typeof e === "object" && e !== null && "message" in e && typeof (e as { message: unknown }).message === "string"
+            ? (e as { message: string }).message
+            : "字典选项加载失败";
+        const traceId =
+          typeof e === "object" && e !== null && "traceId" in e && typeof (e as { traceId: unknown }).traceId === "string"
+            ? (e as { traceId: string }).traceId
+            : undefined;
+        toast.error(traceId ? `${msg}（traceId: ${traceId}）` : msg);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dictOptions]);
 
   const activeVersionId = useMemo(() => {
     const date = asOfDate;
@@ -323,18 +355,20 @@ export function EmployeeArchiveDetailView({
 
   const sectionDictOptions = useMemo(
     () =>
-      archiveDictOptions
+      dictOptions
         ? {
-            countryRegions: archiveDictOptions.countryRegions,
-            idTypes: archiveDictOptions.idTypes,
-            employeeRelations: archiveDictOptions.employeeRelations,
-            bankAccountTypes: archiveDictOptions.bankAccountTypes,
-            bankIds: archiveDictOptions.bankIds,
-            branchIds: archiveDictOptions.branchIds,
-            currencies: archiveDictOptions.currencies,
+            countryRegions: dictOptions.countryRegions,
+            idTypes: dictOptions.idTypes,
+            employeeRelations: dictOptions.employeeRelations,
+            bankAccountTypes: dictOptions.bankAccountTypes,
+            bankIds: dictOptions.bankIds,
+            branchIds: dictOptions.branchIds,
+            currencies: dictOptions.currencies,
+            payrollCompanies: dictOptions.payrollCompanies,
+            insuranceRegions: dictOptions.insuranceRegions,
           }
         : null,
-    [archiveDictOptions],
+    [dictOptions],
   );
 
   const sectionCounts = useMemo(() => {
@@ -668,6 +702,7 @@ export function EmployeeArchiveDetailView({
                       items={archive.socialInsurances}
                       fieldDefs={SERVICE_SOCIAL_FIELDS}
                       canEdit={sectionEdit("service")}
+                      dictOptions={sectionDictOptions}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
