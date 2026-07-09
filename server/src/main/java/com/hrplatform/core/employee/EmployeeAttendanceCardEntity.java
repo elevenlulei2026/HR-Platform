@@ -1,5 +1,6 @@
 package com.hrplatform.core.employee;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 
 import java.time.LocalDate;
@@ -10,16 +11,18 @@ public class EmployeeAttendanceCardEntity {
   private Long id;
   private Long employeeId;
   private String cardNo;
-  private String deviceId;
-  private String workLocation;
   private LocalDate effectiveStartDate;
   private LocalDate effectiveEndDate;
   private String status;
+  private String participateInAttendance;
   private String remark;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
   private Long createdBy;
   private Long updatedBy;
+  /** API 入参：CURRENT | NEW_VERSION，非持久化字段 */
+  @TableField(exist = false)
+  private String editMode;
 
   public Long getId() { return id; }
   public void setId(Long id) { this.id = id; }
@@ -27,16 +30,14 @@ public class EmployeeAttendanceCardEntity {
   public void setEmployeeId(Long employeeId) { this.employeeId = employeeId; }
   public String getCardNo() { return cardNo; }
   public void setCardNo(String cardNo) { this.cardNo = cardNo; }
-  public String getDeviceId() { return deviceId; }
-  public void setDeviceId(String deviceId) { this.deviceId = deviceId; }
-  public String getWorkLocation() { return workLocation; }
-  public void setWorkLocation(String workLocation) { this.workLocation = workLocation; }
   public LocalDate getEffectiveStartDate() { return effectiveStartDate; }
   public void setEffectiveStartDate(LocalDate effectiveStartDate) { this.effectiveStartDate = effectiveStartDate; }
   public LocalDate getEffectiveEndDate() { return effectiveEndDate; }
   public void setEffectiveEndDate(LocalDate effectiveEndDate) { this.effectiveEndDate = effectiveEndDate; }
   public String getStatus() { return status; }
   public void setStatus(String status) { this.status = status; }
+  public String getParticipateInAttendance() { return participateInAttendance; }
+  public void setParticipateInAttendance(String participateInAttendance) { this.participateInAttendance = participateInAttendance; }
   public String getRemark() { return remark; }
   public void setRemark(String remark) { this.remark = remark; }
   public LocalDateTime getCreatedAt() { return createdAt; }
@@ -47,4 +48,6 @@ public class EmployeeAttendanceCardEntity {
   public void setCreatedBy(Long createdBy) { this.createdBy = createdBy; }
   public Long getUpdatedBy() { return updatedBy; }
   public void setUpdatedBy(Long updatedBy) { this.updatedBy = updatedBy; }
+  public String getEditMode() { return editMode; }
+  public void setEditMode(String editMode) { this.editMode = editMode; }
 }

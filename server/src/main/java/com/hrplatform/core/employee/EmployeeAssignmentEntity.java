@@ -77,7 +77,6 @@ public class EmployeeAssignmentEntity {
   private String editMode;
   private LocalDate effectiveStartDate;
   private LocalDate effectiveEndDate;
-  private String status;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
   private Long createdBy;
@@ -267,8 +266,6 @@ public class EmployeeAssignmentEntity {
   public void setEffectiveStartDate(LocalDate effectiveStartDate) { this.effectiveStartDate = effectiveStartDate; }
   public LocalDate getEffectiveEndDate() { return effectiveEndDate; }
   public void setEffectiveEndDate(LocalDate effectiveEndDate) { this.effectiveEndDate = effectiveEndDate; }
-  public String getStatus() { return status; }
-  public void setStatus(String status) { this.status = status; }
   public LocalDateTime getCreatedAt() { return createdAt; }
   public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
   public LocalDateTime getUpdatedAt() { return updatedAt; }

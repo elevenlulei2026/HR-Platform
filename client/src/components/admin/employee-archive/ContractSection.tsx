@@ -14,6 +14,12 @@ import {
 } from "@/api/employee-archive";
 import { listLegalEntities } from "@/api/organization";
 import { listChildrenByParent, listParentsByType } from "@/api/parent-child-catalog";
+import {
+  ARCHIVE_VALIDITY_STATUS_OPTIONS,
+  ArchiveStatusBadge,
+  archiveValidityStatusLabel,
+  isArchiveValidityActive,
+} from "@/components/admin/employee-archive/archive-status-ui";
 import { ArchiveFormDialogPortal } from "@/components/admin/employee-archive/ArchiveFormDialogPortal";
 import { ConfirmDialogPortal } from "@/components/admin/employee-archive/ConfirmDialogPortal";
 import {
@@ -24,7 +30,7 @@ import {
   ArchiveRecordFieldGrid,
   ArchiveRecordList,
 } from "@/components/admin/employee-archive/archive-record-ui";
-import { FormField } from "@/components/admin/form-field";
+import { FormField, OptionToggle } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
 import { SearchableSelect, formatCodeName, type SearchableSelectOption } from "@/components/admin/searchable-select";
 import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
@@ -52,11 +58,6 @@ const OPERATION_TYPE_OPTIONS: ParentOption[] = [
   { value: "20", label: "续签" },
   { value: "30", label: "变更" },
   { value: "40", label: "解除" },
-];
-
-const STATUS_OPTIONS: ParentOption[] = [
-  { value: "VALID", label: "有效" },
-  { value: "INVALID", label: "无效" },
 ];
 
 // 无固定期限劳动合同（二级值 code：120/150）
@@ -370,7 +371,7 @@ export function ContractSection({
         ) : (
           <ArchiveRecordList>
             {items.map((item) => {
-              const statusLabel = STATUS_OPTIONS.find((o) => o.value === item.status)?.label ?? item.status;
+              const statusLabel = archiveValidityStatusLabel(item.status);
               const operationLabel =
                 item.operationType
                   ? OPERATION_TYPE_OPTIONS.find((o) => o.value === item.operationType)?.label ?? item.operationType
@@ -391,16 +392,12 @@ export function ContractSection({
                 "—";
               const categoryDisplay = categoryName && categoryDescName ? `${categoryName} · ${categoryDescName}` : categoryName || categoryDescName;
               const periodDisplay = `${item.startDate || "—"} ~ ${indefinite ? "无固定期限" : item.endDate || "—"}`;
-              const statusBadge =
-                item.status === "INVALID" ? (
-                  <Badge variant="secondary" className="h-5 px-2 text-[11px] font-medium">
-                    {statusLabel || "—"}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="h-5 px-2 text-[11px] font-medium">
-                    {statusLabel || "—"}
-                  </Badge>
-                );
+              const statusBadge = (
+                <ArchiveStatusBadge
+                  active={isArchiveValidityActive(item.status)}
+                  label={statusLabel || "—"}
+                />
+              );
 
               return (
                 <ArchiveRecordCard
@@ -492,11 +489,10 @@ export function ContractSection({
           </FormField>
 
           <FormField label="状态" required>
-            <OptionSelect
-              value={form.status}
-              options={STATUS_OPTIONS}
-              placeholder="选择状态"
-              onValueChange={(v) => setForm((prev) => ({ ...prev, status: v }))}
+            <OptionToggle
+              options={ARCHIVE_VALIDITY_STATUS_OPTIONS}
+              value={form.status === "INVALID" ? "INVALID" : "VALID"}
+              onChange={(v) => setForm((prev) => ({ ...prev, status: v }))}
             />
           </FormField>
 

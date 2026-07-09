@@ -25,8 +25,16 @@ import {
   ArchiveRecordFieldGrid,
   ArchiveRecordList,
 } from "@/components/admin/employee-archive/archive-record-ui";
+import {
+  ArchiveStatusBadge,
+  attendanceCardStatusLabel,
+  yesNoToggleLabel,
+  isAttendanceCardActive,
+  isArchiveValidityActive,
+  archiveValidityStatusLabel,
+} from "@/components/admin/employee-archive/archive-status-ui";
 import { fetchInternalRelativeSnapshot } from "@/components/admin/employee-archive/internal-relative-snapshot";
-import { FormField } from "@/components/admin/form-field";
+import { FormField, OptionToggle } from "@/components/admin/form-field";
 import {
   adminFormControlPlaceholderClassName,
   adminFormControlShellClassName,
@@ -56,7 +64,7 @@ export type ArchiveDictOptions = Pick<EmployeeFormOptions, ArchiveDictKey>;
 export type ArchiveFieldDef = {
   key: string;
   label: string;
-  type?: "text" | "date" | "number" | "boolean" | "id";
+  type?: "text" | "date" | "number" | "boolean" | "id" | "toggle";
   placeholder?: string;
   required?: boolean;
   min?: number;
@@ -103,7 +111,15 @@ function initialForm(fieldDefs: ArchiveFieldDef[], item?: ArchiveItem) {
   const form: Record<string, string> = {};
   for (const field of fieldDefs) {
     const raw = item?.[field.key];
-    form[field.key] = raw === null || raw === undefined ? "" : String(raw);
+    if (raw === null || raw === undefined || raw === "") {
+      if (!item && field.type === "toggle" && field.options?.[0]) {
+        form[field.key] = field.options[0].value;
+      } else {
+        form[field.key] = "";
+      }
+    } else {
+      form[field.key] = String(raw);
+    }
     if (field.displayKey) {
       const displayRaw = item?.[field.displayKey];
       form[field.displayKey] =
@@ -140,11 +156,42 @@ function resolveDictLabel(
   return null;
 }
 
+function formatToggleStatusDisplay(field: ArchiveFieldDef, item: ArchiveItem) {
+  const status = item[field.key] === null || item[field.key] === undefined ? "" : String(item[field.key]);
+  if (!status) return null;
+
+  const optionLabel = field.options?.find((opt) => opt.value === status)?.label;
+  const label = optionLabel ?? status;
+
+  if (field.key === "status" && field.options?.some((opt) => opt.value === "VALID")) {
+    return (
+      <ArchiveStatusBadge active={isArchiveValidityActive(status)} label={archiveValidityStatusLabel(status)} />
+    );
+  }
+  if (field.key === "status" && field.options?.some((opt) => opt.value === "ACTIVE")) {
+    return (
+      <ArchiveStatusBadge active={isAttendanceCardActive(status)} label={attendanceCardStatusLabel(status)} />
+    );
+  }
+  if (field.key === "participateInAttendance") {
+    return (
+      <ArchiveStatusBadge active={status === "YES"} label={yesNoToggleLabel(status)} />
+    );
+  }
+
+  const active = field.options?.[0]?.value === status;
+  return <ArchiveStatusBadge active={active} label={label} />;
+}
+
 function formatDisplayValue(
   field: ArchiveFieldDef,
   item: ArchiveItem,
   dictOptions?: ArchiveDictOptions | null,
 ) {
+  if (field.type === "toggle") {
+    return formatToggleStatusDisplay(field, item);
+  }
+
   if (field.reference === "employee") {
     const no = item.relativeEmployeeNo;
     const name = item.relativeEmployeeName;
@@ -516,6 +563,21 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
           placeholder={dictOptions ? "请选择" : "加载选项…"}
           disabled={!dictOptions}
           className="w-full"
+        />
+      );
+    }
+
+    if (field.type === "toggle" && field.options?.length) {
+      const toggleOptions = field.options.map((opt) => ({
+        id: opt.value,
+        label: opt.label,
+      }));
+      const current = form[field.key] || field.options[0]?.value || "";
+      return (
+        <OptionToggle
+          options={toggleOptions}
+          value={current}
+          onChange={(value) => setForm((prev) => ({ ...prev, [field.key]: value }))}
         />
       );
     }

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +43,7 @@ public class EmployeeArchiveService {
   private final EmployeeProjectMapper projectMapper;
   private final EmployeeAgentAssignmentMapper agentAssignmentMapper;
   private final LegalEntityService legalEntityService;
+  private final EmployeeAttendanceCardHelper attendanceCardHelper;
 
   public EmployeeArchiveService(
       EmployeeService employeeService,
@@ -70,7 +71,8 @@ public class EmployeeArchiveService {
       EmployeeTalentReviewMapper talentReviewMapper,
       EmployeeProjectMapper projectMapper,
       EmployeeAgentAssignmentMapper agentAssignmentMapper,
-      LegalEntityService legalEntityService
+      LegalEntityService legalEntityService,
+      EmployeeAttendanceCardHelper attendanceCardHelper
   ) {
     this.employeeService = employeeService;
     this.fieldCryptoService = fieldCryptoService;
@@ -98,6 +100,7 @@ public class EmployeeArchiveService {
     this.projectMapper = projectMapper;
     this.agentAssignmentMapper = agentAssignmentMapper;
     this.legalEntityService = legalEntityService;
+    this.attendanceCardHelper = attendanceCardHelper;
   }
 
   public Map<String, Object> getArchiveBundle(long employeeId) {
@@ -367,24 +370,87 @@ public class EmployeeArchiveService {
 
   @Transactional
   public EmployeeAttendanceCardEntity createAttendanceCard(long employeeId, EmployeeAttendanceCardEntity entity) {
-    return create(attendanceCardMapper, employeeId, entity, EmployeeAttendanceCardEntity::setEmployeeId);
+    employeeService.require(employeeId);
+    if (entity.getEffectiveStartDate() == null) {
+      entity.setEffectiveStartDate(LocalDate.now());
+    }
+    attendanceCardHelper.normalizeDefaults(entity);
+    List<EmployeeAttendanceCardEntity> existing = listAttendanceCards(employeeId);
+    if (!existing.isEmpty()) {
+      throw new IllegalArgumentException("该员工已存在考勤卡，请使用新增生效版本");
+    }
+    entity.setEmployeeId(employeeId);
+    entity.setEffectiveEndDate(null);
+    attendanceCardMapper.insert(entity);
+    return requireAttendanceCard(employeeId, entity.getId());
   }
 
   @Transactional
   public EmployeeAttendanceCardEntity updateAttendanceCard(
       long employeeId,
       long id,
-      EmployeeAttendanceCardEntity entity
+      EmployeeAttendanceCardEntity patch
   ) {
-    return update(
-        attendanceCardMapper,
-        employeeId,
-        id,
-        entity,
-        EmployeeAttendanceCardEntity::getEmployeeId,
-        EmployeeAttendanceCardEntity::getId,
-        this::mergeAttendanceCard
-    );
+    EmployeeAttendanceCardEntity cur = requireAttendanceCard(employeeId, id);
+    String mode = patch.getEditMode() == null || patch.getEditMode().isBlank()
+        ? "CURRENT"
+        : patch.getEditMode().trim().toUpperCase();
+    if (!"CURRENT".equals(mode) && !"NEW_VERSION".equals(mode)) {
+      throw new IllegalArgumentException("无效的 editMode");
+    }
+
+    LocalDate patchStart = patch.getEffectiveStartDate();
+    if (patchStart != null
+        && cur.getEffectiveStartDate() != null
+        && !patchStart.equals(cur.getEffectiveStartDate())) {
+      return createAttendanceCardNewVersion(employeeId, cur, patch);
+    }
+
+    if ("NEW_VERSION".equals(mode)) {
+      return createAttendanceCardNewVersion(employeeId, cur, patch);
+    }
+
+    attendanceCardHelper.applyPatch(cur, patch);
+    attendanceCardHelper.normalizeDefaults(cur);
+    attendanceCardMapper.updateById(cur);
+    return requireAttendanceCard(employeeId, id);
+  }
+
+  private EmployeeAttendanceCardEntity createAttendanceCardNewVersion(
+      long employeeId,
+      EmployeeAttendanceCardEntity base,
+      EmployeeAttendanceCardEntity patch
+  ) {
+    if (patch.getEffectiveStartDate() == null) {
+      throw new IllegalArgumentException("新增生效版本时必须填写生效日期");
+    }
+    LocalDate newStart = patch.getEffectiveStartDate();
+    if (newStart.equals(base.getEffectiveStartDate())) {
+      throw new IllegalArgumentException("新生效日不能与当前版本相同");
+    }
+
+    EmployeeAttendanceCardEntity newRow = attendanceCardHelper.cloneCard(base);
+    newRow.setId(null);
+    newRow.setEmployeeId(employeeId);
+    attendanceCardHelper.applyPatch(newRow, patch);
+    attendanceCardHelper.normalizeDefaults(newRow);
+
+    List<EmployeeAttendanceCardEntity> existing = listAttendanceCards(employeeId);
+    EmployeeAttendanceCardHelper.VersionSpliceResult splice =
+        attendanceCardHelper.resolveVersionSplice(newRow, existing, newStart);
+    for (EmployeeAttendanceCardEntity prev : splice.toUpdate()) {
+      attendanceCardMapper.updateById(prev);
+    }
+    attendanceCardMapper.insert(newRow);
+    return requireAttendanceCard(employeeId, newRow.getId());
+  }
+
+  private EmployeeAttendanceCardEntity requireAttendanceCard(long employeeId, long id) {
+    EmployeeAttendanceCardEntity entity = attendanceCardMapper.selectById(id);
+    if (entity == null || entity.getEmployeeId() == null || entity.getEmployeeId() != employeeId) {
+      throw new IllegalArgumentException("档案记录不存在");
+    }
+    return entity;
   }
 
   @Transactional
@@ -1027,7 +1093,6 @@ public class EmployeeArchiveService {
   }
   private void mergeContract(EmployeeContractEntity current, EmployeeContractEntity patch) { mergeAll(current, patch); }
   private void mergeAgreement(EmployeeAgreementEntity current, EmployeeAgreementEntity patch) { mergeAll(current, patch); }
-  private void mergeAttendanceCard(EmployeeAttendanceCardEntity current, EmployeeAttendanceCardEntity patch) { mergeAll(current, patch); }
   private void mergeBankAccount(EmployeeBankAccountEntity current, EmployeeBankAccountEntity patch) { mergeAll(current, patch); }
   private void mergeSocialInsurance(EmployeeSocialInsuranceEntity current, EmployeeSocialInsuranceEntity patch) { mergeAll(current, patch); }
   private void mergeSpecialBenefit(EmployeeSpecialBenefitEntity current, EmployeeSpecialBenefitEntity patch) { mergeAll(current, patch); }

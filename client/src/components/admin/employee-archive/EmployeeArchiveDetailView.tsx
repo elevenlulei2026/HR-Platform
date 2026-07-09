@@ -48,7 +48,6 @@ import {
   PERSONAL_FAMILY_FIELDS,
   PERSONAL_ID_DOCUMENT_FIELDS,
   PERSONAL_INTERNAL_RELATIVE_FIELDS,
-  SERVICE_ATTENDANCE_FIELDS,
   SERVICE_BANK_FIELDS,
   SERVICE_BENEFIT_FIELDS,
   SERVICE_COMMUTE_FIELDS,
@@ -68,6 +67,7 @@ import {
 } from "@/components/admin/employee-archive/archive-section-nav";
 import { ArchiveAttachmentSection } from "@/components/admin/employee-archive/ArchiveAttachmentSection";
 import { AgreementSection } from "@/components/admin/employee-archive/AgreementSection";
+import { AttendanceCardSection } from "@/components/admin/employee-archive/AttendanceCardSection";
 import { ContractSection } from "@/components/admin/employee-archive/ContractSection";
 import { ArchiveDetailNav } from "@/components/admin/employee-archive/ArchiveDetailNav";
 import { ArchiveMultiSection } from "@/components/admin/employee-archive/ArchiveMultiSection";
@@ -637,12 +637,9 @@ export function EmployeeArchiveDetailView({
                   </ArchiveSectionAnchor>
 
                   <ArchiveSectionAnchor id="attendance-cards">
-                    <ArchiveMultiSection
-                      title="考勤卡"
+                    <AttendanceCardSection
                       employeeId={employee.id}
-                      resourcePath="attendance-cards"
                       items={archive.attendanceCards}
-                      fieldDefs={SERVICE_ATTENDANCE_FIELDS}
                       canEdit={sectionEdit("service")}
                       onChanged={onArchiveChanged}
                     />

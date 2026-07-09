@@ -530,9 +530,6 @@ public class EmployeeService {
     body.setId(null);
     body.setEmployeeId(employeeId);
     assignmentHelper.normalizeIndicator(body);
-    if (body.getStatus() == null || body.getStatus().isBlank()) {
-      body.setStatus("ACTIVE");
-    }
     prepareAssignmentForWrite(body);
     PositionEntity position = positionMapper.selectById(body.getPositionId());
     assignmentHelper.applyPositionDefaults(body, position);
@@ -604,9 +601,6 @@ public class EmployeeService {
     newRow.setEmployeeId(employeeId);
     applyAssignmentPatch(newRow, patch);
     assignmentHelper.normalizeIndicator(newRow);
-    if (newRow.getStatus() == null || newRow.getStatus().isBlank()) {
-      newRow.setStatus("ACTIVE");
-    }
 
     prepareAssignmentForWrite(newRow);
     PositionEntity position = positionMapper.selectById(newRow.getPositionId());
@@ -690,7 +684,6 @@ public class EmployeeService {
     if (patch.getGroupSeniorityStartDate() != null) {
       cur.setGroupSeniorityStartDate(patch.getGroupSeniorityStartDate());
     }
-    if (patch.getStatus() != null) cur.setStatus(patch.getStatus());
     if (patch.getHireDate() != null) cur.setHireDate(patch.getHireDate());
     if (patch.getIsRehire() != null) cur.setIsRehire(patch.getIsRehire());
     if (patch.getMovementType() != null) cur.setMovementType(patch.getMovementType());
@@ -753,7 +746,6 @@ public class EmployeeService {
     if (patch.isPrimary() != null) cur.setIsPrimary(patch.isPrimary());
     if (patch.effectiveStartDate() != null) cur.setEffectiveStartDate(patch.effectiveStartDate());
     if (patch.effectiveEndDate() != null) cur.setEffectiveEndDate(patch.effectiveEndDate());
-    if (patch.status() != null) cur.setStatus(patch.status());
     validatePrimaryOverlap(cur);
     assignmentMapper.updateById(cur);
     return requireAssignment(employeeId, assignmentId);
@@ -783,7 +775,6 @@ public class EmployeeService {
     assignmentHelper.normalizeIndicator(entity);
     entity.setEffectiveStartDate(effectiveStartDate);
     entity.setEffectiveEndDate(effectiveEndDate);
-    entity.setStatus(effectiveEndDate != null && effectiveEndDate.isBefore(LocalDate.now()) ? "ENDED" : "ACTIVE");
     validatePrimaryOverlap(entity);
     assignmentMapper.insert(entity);
     return entity;
@@ -806,7 +797,6 @@ public class EmployeeService {
     LocalDate start = candidate.getEffectiveStartDate();
     LocalDate end = candidate.getEffectiveEndDate();
     for (EmployeeAssignmentEntity e : existing) {
-      if (!"ACTIVE".equals(e.getStatus()) && e.getEffectiveEndDate() != null) continue;
       if (overlaps(start, end, e.getEffectiveStartDate(), e.getEffectiveEndDate())) {
         throw new IllegalArgumentException("同一时段仅允许一条主任职");
       }
@@ -825,7 +815,6 @@ public class EmployeeService {
         new LambdaQueryWrapper<EmployeeAssignmentEntity>()
             .eq(EmployeeAssignmentEntity::getEmployeeId, employeeId)
             .eq(EmployeeAssignmentEntity::getIsPrimary, true)
-            .eq(EmployeeAssignmentEntity::getStatus, "ACTIVE")
             .le(EmployeeAssignmentEntity::getEffectiveStartDate, date)
             .and(w -> w.isNull(EmployeeAssignmentEntity::getEffectiveEndDate)
                 .or().ge(EmployeeAssignmentEntity::getEffectiveEndDate, date))
@@ -846,7 +835,6 @@ public class EmployeeService {
         new LambdaQueryWrapper<EmployeeAssignmentEntity>()
             .in(EmployeeAssignmentEntity::getEmployeeId, employeeIds)
             .eq(EmployeeAssignmentEntity::getIsPrimary, true)
-            .eq(EmployeeAssignmentEntity::getStatus, "ACTIVE")
             .le(EmployeeAssignmentEntity::getEffectiveStartDate, today)
             .and(w -> w.isNull(EmployeeAssignmentEntity::getEffectiveEndDate)
                 .or().ge(EmployeeAssignmentEntity::getEffectiveEndDate, today))
@@ -1048,7 +1036,6 @@ public class EmployeeService {
       String employmentType,
       Boolean isPrimary,
       LocalDate effectiveStartDate,
-      LocalDate effectiveEndDate,
-      String status
+      LocalDate effectiveEndDate
   ) {}
 }

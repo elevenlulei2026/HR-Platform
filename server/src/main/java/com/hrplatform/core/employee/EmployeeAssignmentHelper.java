@@ -104,10 +104,6 @@ public class EmployeeAssignmentHelper {
     List<EmployeeAssignmentEntity> toUpdate = new ArrayList<>();
     if (containing != null && !newStart.equals(containing.getEffectiveStartDate())) {
       containing.setEffectiveEndDate(newStart.minusDays(1));
-      if (containing.getEffectiveEndDate() != null
-          && containing.getEffectiveEndDate().isBefore(LocalDate.now())) {
-        containing.setStatus("ENDED");
-      }
       toUpdate.add(containing);
     }
 
@@ -316,7 +312,6 @@ public class EmployeeAssignmentHelper {
     dto.put("nonCompeteWithPay", a.getNonCompeteWithPay());
     dto.put("salaryGroup", a.getSalaryGroup());
     dto.put("salaryGroupLabel", dictLabel.apply("SALARY_GROUP", a.getSalaryGroup()));
-    dto.put("status", a.getStatus());
     return dto;
   }
 
@@ -432,7 +427,6 @@ public class EmployeeAssignmentHelper {
     t.setNonCompeteCompanySuggest(src.getNonCompeteCompanySuggest());
     t.setNonCompeteWithPay(src.getNonCompeteWithPay());
     t.setAssignmentIndicator(src.getAssignmentIndicator());
-    t.setStatus(src.getStatus());
     return t;
   }
 }

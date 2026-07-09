@@ -1287,6 +1287,9 @@ export type EmployeeMasterEditMode = "CURRENT" | "NEW_VERSION";
 /** 任职记录编辑模式（对齐个人主档） */
 export type EmployeeAssignmentEditMode = "CURRENT" | "NEW_VERSION";
 
+/** 考勤卡编辑模式（对齐任职/个人主档） */
+export type EmployeeAttendanceCardEditMode = "CURRENT" | "NEW_VERSION";
+
 /** 同一员工下的个人主档生效版本摘要 */
 export type EmployeeMasterVersion = {
   id: string;
@@ -1299,8 +1302,6 @@ export type EmployeeMasterVersion = {
   temporalLabel: string;
   isOpen: boolean;
 };
-
-export type AssignmentStatus = "ACTIVE" | "ENDED";
 
 /** 职务指示：主要职务 / 次要职务 */
 export type AssignmentIndicator = "PRIMARY" | "SECONDARY";
@@ -1509,7 +1510,6 @@ export type EmployeeAssignment = {
   nonCompeteWithPay?: boolean;
   salaryGroup?: string;
   salaryGroupLabel?: string;
-  status: AssignmentStatus;
   /** 在 asOfDate 快照下是否有效 */
   activeAsOf?: boolean;
   updatedAt?: string;
@@ -1683,7 +1683,6 @@ export type EmployeeAssignmentCreateRequest = {
 };
 
 export type EmployeeAssignmentUpdateRequest = Partial<EmployeeAssignmentCreateRequest> & {
-  status?: AssignmentStatus;
   /** 修改当前版本 / 按新生效日创建版本 */
   editMode?: EmployeeAssignmentEditMode;
 };
@@ -1822,13 +1821,20 @@ export type EmployeeAgreement = EmployeeArchiveRecordBase & {
 };
 
 export type EmployeeAttendanceCard = EmployeeArchiveRecordBase & {
-  cardNo?: string;
-  deviceId?: string;
-  workLocation?: string;
-  effectiveStartDate?: string; // YYYY-MM-DD
+  cardNo: string;
+  effectiveStartDate: string; // YYYY-MM-DD
   effectiveEndDate?: string; // YYYY-MM-DD
   status?: string;
+  /** 是否参与考勤：YES / NO */
+  participateInAttendance?: "YES" | "NO";
   remark?: string;
+};
+
+export type EmployeeAttendanceCardUpdateRequest = Partial<
+  Omit<EmployeeAttendanceCard, "id" | "createdAt" | "updatedAt">
+> & {
+  /** 修改当前版本 / 按新生效日创建版本 */
+  editMode?: EmployeeAttendanceCardEditMode;
 };
 
 export type EmployeeBankAccount = EmployeeArchiveRecordBase & {

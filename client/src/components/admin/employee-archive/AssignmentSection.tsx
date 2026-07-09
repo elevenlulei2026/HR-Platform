@@ -16,7 +16,6 @@ import { getEmployeeGroupCatalogOptions } from "@/api/employee-group-catalog";
 import { getParentChildOptions3 } from "@/api/parent-child-catalog";
 import {
   ASSIGNMENT_INDICATOR_OPTIONS,
-  ASSIGNMENT_STATUS_OPTIONS,
   EMPTY_EMPLOYEE_ASSIGNMENT_FORM_OPTIONS,
   createEmployeeAssignment,
   getEmployeeAssignmentFormOptions,
@@ -565,16 +564,6 @@ function AssignmentFormFields({
             className="w-full"
           />
         </FormField>
-        {!isNew ? (
-          <FormField label="状态">
-            <OptionSelect
-              value={form.status}
-              onValueChange={(value) => set("status", value)}
-              options={ASSIGNMENT_STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.label }))}
-              className="w-full"
-            />
-          </FormField>
-        ) : null}
       </ArchiveFormSection>
     </div>
   );
@@ -837,7 +826,6 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
         const updatePayload: EmployeeAssignmentUpdateRequest = {
           editMode: sheet.editMode,
           ...payload,
-          status: form.status as EmployeeAssignmentUpdateRequest["status"],
         };
         const res = await updateEmployeeAssignment(employee.id, sheet.item.id, updatePayload);
         toast.success(sheet.editMode === "NEW_VERSION" ? "已新增生效版本" : "任职记录已更新");

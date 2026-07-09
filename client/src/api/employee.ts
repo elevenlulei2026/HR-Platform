@@ -173,11 +173,6 @@ export const EMPLOYMENT_TYPE_OPTIONS = [
   { id: "CONTRACT" as const, label: "合同工" },
 ];
 
-export const ASSIGNMENT_STATUS_OPTIONS = [
-  { id: "ACTIVE" as const, label: "有效" },
-  { id: "ENDED" as const, label: "已结束" },
-];
-
 export const EMPTY_EMPLOYEE_ASSIGNMENT_FORM_OPTIONS: EmployeeAssignmentFormOptions = {
   suppliers: [],
   probationPeriods: [],
@@ -245,10 +240,6 @@ function statusBadgeClass(status: string) {
 
 export function employeeStatusLabel(status: string) {
   return EMPLOYEE_STATUS_OPTIONS.find((o) => o.id === status)?.label ?? status;
-}
-
-export function assignmentStatusLabel(status: string) {
-  return ASSIGNMENT_STATUS_OPTIONS.find((o) => o.id === status)?.label ?? status;
 }
 
 export { statusBadgeClass };

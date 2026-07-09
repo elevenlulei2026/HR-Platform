@@ -15,7 +15,6 @@ public interface EmployeeMapper extends BaseMapper<EmployeeEntity> {
       SELECT DISTINCT ea.employee_id
       FROM employee_assignment ea
       WHERE ea.is_primary = 1
-        AND ea.status = 'ACTIVE'
         AND (ea.effective_end_date IS NULL OR ea.effective_end_date &gt;= CURDATE())
         AND ea.organization_id IN
         <foreach collection="orgIds" item="id" open="(" separator="," close=")">

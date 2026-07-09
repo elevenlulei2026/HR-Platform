@@ -41,7 +41,6 @@ export type AssignmentForm = {
   nonCompeteCompanySuggest: string;
   nonCompeteWithPay: string;
   salaryGroup: string;
-  status: string;
 };
 
 export function todayStr() {
@@ -88,7 +87,6 @@ export function emptyAssignmentForm(employee?: Employee | null): AssignmentForm 
     nonCompeteCompanySuggest: "",
     nonCompeteWithPay: "",
     salaryGroup: "",
-    status: "ACTIVE",
   };
 }
 
@@ -133,7 +131,6 @@ export function formFromAssignment(assignment: EmployeeAssignment): AssignmentFo
     nonCompeteCompanySuggest: boolToForm(assignment.nonCompeteCompanySuggest),
     nonCompeteWithPay: boolToForm(assignment.nonCompeteWithPay),
     salaryGroup: assignment.salaryGroup ?? "",
-    status: assignment.status,
   };
 }
 

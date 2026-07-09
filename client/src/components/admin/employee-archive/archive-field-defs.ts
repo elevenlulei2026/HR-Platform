@@ -1,4 +1,5 @@
 import type { ArchiveFieldDef } from "@/components/admin/employee-archive/ArchiveMultiSection";
+import { ATTENDANCE_CARD_STATUS_OPTIONS, ARCHIVE_VALIDITY_STATUS_OPTIONS, YES_NO_TOGGLE_OPTIONS } from "@/components/admin/employee-archive/archive-status-ui";
 
 export const BOOLEAN_OPTIONS = [
   { value: "true", label: "是" },
@@ -58,7 +59,13 @@ export const WORK_CONTRACT_FIELDS: ArchiveFieldDef[] = [
   { key: "startDate", label: "开始日期", type: "date" },
   { key: "endDate", label: "结束日期", type: "date" },
   { key: "effectiveDate", label: "生效日期", type: "date" },
-  { key: "status", label: "状态" },
+  {
+    key: "status",
+    label: "状态",
+    type: "toggle",
+    required: true,
+    options: ARCHIVE_VALIDITY_STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
   { key: "fileAttachmentId", label: "附件ID" },
   { key: "remark", label: "备注" },
 ];
@@ -67,7 +74,13 @@ export const WORK_AGREEMENT_FIELDS: ArchiveFieldDef[] = [
   { key: "effectiveStartDate", label: "生效日期", type: "date", required: true },
   { key: "agreementCode", label: "协议编号", required: true },
   { key: "operationType", label: "操作类型", required: true },
-  { key: "status", label: "协议状态", required: true },
+  {
+    key: "status",
+    label: "协议状态",
+    type: "toggle",
+    required: true,
+    options: ARCHIVE_VALIDITY_STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
   { key: "agreementCategory", label: "协议类别", required: true },
   { key: "legalEntityId", label: "协议法人主体", type: "id", reference: "legalEntity" },
   { key: "startDate", label: "开始日期", type: "date" },
@@ -78,11 +91,21 @@ export const WORK_AGREEMENT_FIELDS: ArchiveFieldDef[] = [
 
 export const SERVICE_ATTENDANCE_FIELDS: ArchiveFieldDef[] = [
   { key: "cardNo", label: "考勤卡号", required: true },
-  { key: "deviceId", label: "设备编号" },
-  { key: "workLocation", label: "考勤地点" },
-  { key: "effectiveStartDate", label: "开始日期", type: "date" },
-  { key: "effectiveEndDate", label: "结束日期", type: "date" },
-  { key: "status", label: "状态" },
+  { key: "effectiveStartDate", label: "生效日期", type: "date", required: true },
+  {
+    key: "status",
+    label: "状态",
+    type: "toggle",
+    required: true,
+    options: ATTENDANCE_CARD_STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
+  {
+    key: "participateInAttendance",
+    label: "是否参与考勤",
+    type: "toggle",
+    required: true,
+    options: YES_NO_TOGGLE_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
   { key: "remark", label: "备注" },
 ];
 

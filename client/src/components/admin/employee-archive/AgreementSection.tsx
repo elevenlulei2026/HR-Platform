@@ -14,6 +14,12 @@ import {
 } from "@/api/employee-archive";
 import { listDictItemsByTypeCode } from "@/api/dict";
 import { listLegalEntities } from "@/api/organization";
+import {
+  ARCHIVE_VALIDITY_STATUS_OPTIONS,
+  ArchiveStatusBadge,
+  archiveValidityStatusLabel,
+  isArchiveValidityActive,
+} from "@/components/admin/employee-archive/archive-status-ui";
 import { ArchiveFormDialogPortal } from "@/components/admin/employee-archive/ArchiveFormDialogPortal";
 import { ConfirmDialogPortal } from "@/components/admin/employee-archive/ConfirmDialogPortal";
 import {
@@ -24,7 +30,7 @@ import {
   ArchiveRecordFieldGrid,
   ArchiveRecordList,
 } from "@/components/admin/employee-archive/archive-record-ui";
-import { FormField } from "@/components/admin/form-field";
+import { FormField, OptionToggle } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
 import { SearchableSelect, formatCodeName, type SearchableSelectOption } from "@/components/admin/searchable-select";
 import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
@@ -46,11 +52,6 @@ type SheetState =
   | { type: "edit"; item: EmployeeAgreement };
 
 type Option = { value: string; label: string };
-
-const STATUS_OPTIONS: Option[] = [
-  { value: "VALID", label: "有效" },
-  { value: "INVALID", label: "无效" },
-];
 
 function toApiError(e: unknown): ApiError {
   if (
@@ -335,7 +336,7 @@ export function AgreementSection({
         ) : (
           <ArchiveRecordList>
             {items.map((item, index) => {
-              const statusLabel = STATUS_OPTIONS.find((o) => o.value === item.status)?.label ?? item.status;
+              const statusLabel = archiveValidityStatusLabel(item.status);
               const legalEntityName =
                 (item.legalEntityId ? legalNameById[String(item.legalEntityId)] : undefined) ||
                 (item.legalEntityId ? String(item.legalEntityId) : "—");
@@ -347,16 +348,12 @@ export function AgreementSection({
               const operationLabel =
                 item.operationType ? operationTypeNameByCode[item.operationType] || item.operationType : "—";
               const periodDisplay = `${item.startDate || "—"} ~ ${item.endDate || "—"}`;
-              const statusBadge =
-                item.status === "INVALID" ? (
-                  <Badge variant="secondary" className="h-5 px-2 text-[11px] font-medium">
-                    {statusLabel || "—"}
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="h-5 px-2 text-[11px] font-medium">
-                    {statusLabel || "—"}
-                  </Badge>
-                );
+              const statusBadge = (
+                <ArchiveStatusBadge
+                  active={isArchiveValidityActive(item.status)}
+                  label={statusLabel || "—"}
+                />
+              );
 
               return (
                 <ArchiveRecordCard
@@ -447,11 +444,10 @@ export function AgreementSection({
           </FormField>
 
           <FormField label="状态" required>
-            <OptionSelect
-              value={form.status}
-              options={STATUS_OPTIONS}
-              placeholder="选择状态"
-              onValueChange={(v) => setForm((prev) => ({ ...prev, status: v }))}
+            <OptionToggle
+              options={ARCHIVE_VALIDITY_STATUS_OPTIONS}
+              value={form.status === "INVALID" ? "INVALID" : "VALID"}
+              onChange={(v) => setForm((prev) => ({ ...prev, status: v }))}
             />
           </FormField>
 
