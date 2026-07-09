@@ -153,6 +153,10 @@ export const EMPTY_EMPLOYEE_FORM_OPTIONS: EmployeeFormOptions = {
   recruitmentChannels: [],
   countryRegions: [],
   idTypes: [],
+  bankAccountTypes: [],
+  bankIds: [],
+  branchIds: [],
+  currencies: [],
 };
 
 export const EMPLOYEE_STATUS_OPTIONS = [

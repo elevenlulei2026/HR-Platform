@@ -10,8 +10,8 @@ public class EmployeeBankAccountEntity {
   private Long employeeId;
   private String accountType;
   private String countryCode;
-  private Long bankId;
-  private Long branchId;
+  private String bankId;
+  private String branchId;
   private String accountNo;
   private String accountName;
   private String currencyCode;
@@ -30,10 +30,10 @@ public class EmployeeBankAccountEntity {
   public void setAccountType(String accountType) { this.accountType = accountType; }
   public String getCountryCode() { return countryCode; }
   public void setCountryCode(String countryCode) { this.countryCode = countryCode; }
-  public Long getBankId() { return bankId; }
-  public void setBankId(Long bankId) { this.bankId = bankId; }
-  public Long getBranchId() { return branchId; }
-  public void setBranchId(Long branchId) { this.branchId = branchId; }
+  public String getBankId() { return bankId; }
+  public void setBankId(String bankId) { this.bankId = bankId; }
+  public String getBranchId() { return branchId; }
+  public void setBranchId(String branchId) { this.branchId = branchId; }
   public String getAccountNo() { return accountNo; }
   public void setAccountNo(String accountNo) { this.accountNo = accountNo; }
   public String getAccountName() { return accountName; }

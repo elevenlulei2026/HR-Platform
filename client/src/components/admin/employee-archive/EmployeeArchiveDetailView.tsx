@@ -328,6 +328,10 @@ export function EmployeeArchiveDetailView({
             countryRegions: archiveDictOptions.countryRegions,
             idTypes: archiveDictOptions.idTypes,
             employeeRelations: archiveDictOptions.employeeRelations,
+            bankAccountTypes: archiveDictOptions.bankAccountTypes,
+            bankIds: archiveDictOptions.bankIds,
+            branchIds: archiveDictOptions.branchIds,
+            currencies: archiveDictOptions.currencies,
           }
         : null,
     [archiveDictOptions],
@@ -652,6 +656,7 @@ export function EmployeeArchiveDetailView({
                       items={archive.bankAccounts}
                       fieldDefs={SERVICE_BANK_FIELDS}
                       canEdit={sectionEdit("service")}
+                      dictOptions={sectionDictOptions}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>

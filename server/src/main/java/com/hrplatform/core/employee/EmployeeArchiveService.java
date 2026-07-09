@@ -1,6 +1,7 @@
 package com.hrplatform.core.employee;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
 import com.hrplatform.core.organization.LegalEntityService;
@@ -464,6 +465,9 @@ public class EmployeeArchiveService {
 
   @Transactional
   public EmployeeBankAccountEntity createBankAccount(long employeeId, EmployeeBankAccountEntity entity) {
+    if (Boolean.TRUE.equals(entity.getIsPrimary())) {
+      clearOtherPrimaryBankAccounts(employeeId, null);
+    }
     encryptBankAccount(entity);
     EmployeeBankAccountEntity created = create(
         bankAccountMapper,
@@ -471,12 +475,18 @@ public class EmployeeArchiveService {
         entity,
         EmployeeBankAccountEntity::setEmployeeId
     );
+    if (Boolean.TRUE.equals(created.getIsPrimary())) {
+      clearOtherPrimaryBankAccounts(employeeId, created.getId());
+    }
     decryptBankAccount(created);
     return created;
   }
 
   @Transactional
   public EmployeeBankAccountEntity updateBankAccount(long employeeId, long id, EmployeeBankAccountEntity entity) {
+    if (Boolean.TRUE.equals(entity.getIsPrimary())) {
+      clearOtherPrimaryBankAccounts(employeeId, id);
+    }
     encryptBankAccount(entity);
     EmployeeBankAccountEntity updated = update(
         bankAccountMapper,
@@ -489,6 +499,18 @@ public class EmployeeArchiveService {
     );
     decryptBankAccount(updated);
     return updated;
+  }
+
+  private void clearOtherPrimaryBankAccounts(long employeeId, Long keepId) {
+    UpdateWrapper<EmployeeBankAccountEntity> w = new UpdateWrapper<EmployeeBankAccountEntity>()
+        .eq("employee_id", employeeId)
+        .eq("is_primary", 1);
+    if (keepId != null) {
+      w.ne("id", keepId);
+    }
+    EmployeeBankAccountEntity patch = new EmployeeBankAccountEntity();
+    patch.setIsPrimary(false);
+    bankAccountMapper.update(patch, w);
   }
 
   @Transactional

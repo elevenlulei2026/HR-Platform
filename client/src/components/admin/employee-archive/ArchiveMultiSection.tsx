@@ -47,6 +47,7 @@ import {
   formatCodeName,
 } from "@/components/admin/searchable-select";
 import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { cn } from "@/lib/utils";
@@ -56,7 +57,13 @@ type ArchiveItem = { id: string } & Record<string, ArchiveFormPrimitive>;
 
 export type ArchiveDictKey = keyof Pick<
   EmployeeFormOptions,
-  "countryRegions" | "idTypes" | "employeeRelations"
+  | "countryRegions"
+  | "idTypes"
+  | "employeeRelations"
+  | "bankAccountTypes"
+  | "bankIds"
+  | "branchIds"
+  | "currencies"
 >;
 
 export type ArchiveDictOptions = Pick<EmployeeFormOptions, ArchiveDictKey>;
@@ -77,6 +84,8 @@ export type ArchiveFieldDef = {
   dictKey?: ArchiveDictKey;
   /** 只读展示（如内部亲属自动带出字段） */
   readOnly?: boolean;
+  /** 列表是否展示（默认展示）。用于“表单可编辑，但列表不展示”的字段 */
+  showInList?: boolean;
   /** 只读字段展示用 label 键名 */
   displayKey?: string;
   options?: Array<{ value: string; label: string }>;
@@ -178,6 +187,10 @@ function formatToggleStatusDisplay(field: ArchiveFieldDef, item: ArchiveItem) {
       <ArchiveStatusBadge active={status === "YES"} label={yesNoToggleLabel(status)} />
     );
   }
+  if (field.key === "isPrimary") {
+    const isYes = status === "true";
+    return <ArchiveStatusBadge active={isYes} label={isYes ? "是" : "否"} />;
+  }
 
   const active = field.options?.[0]?.value === status;
   return <ArchiveStatusBadge active={active} label={label} />;
@@ -199,7 +212,22 @@ function formatDisplayValue(
   }
 
   const dictLabel = resolveDictLabel(field, item, dictOptions);
-  if (dictLabel) return dictLabel;
+  if (dictLabel) {
+    if (field.key === "accountType" && (item.isPrimary === true || item.isPrimary === "true")) {
+      return (
+        <span className="inline-flex items-center gap-1.5">
+          <span>{dictLabel}</span>
+          <Badge
+            variant="secondary"
+            className="h-5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"
+          >
+            主账户
+          </Badge>
+        </span>
+      );
+    }
+    return dictLabel;
+  }
 
   const raw = item[field.key];
   if (raw === null || raw === undefined || raw === "") return null;
@@ -207,7 +235,21 @@ function formatDisplayValue(
     if (raw === true || raw === "true") return "是";
     if (raw === false || raw === "false") return "否";
   }
-  return String(raw);
+  const rawText = String(raw);
+  if (field.key === "accountType" && (item.isPrimary === true || item.isPrimary === "true")) {
+    return (
+      <span className="inline-flex items-center gap-1.5">
+        <span>{rawText}</span>
+        <Badge
+          variant="secondary"
+          className="h-5 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-2 text-[11px] font-medium text-emerald-700 dark:text-emerald-400"
+        >
+          主账户
+        </Badge>
+      </span>
+    );
+  }
+  return rawText;
 }
 
 function toPayload(
@@ -233,6 +275,13 @@ function toPayload(
     }
     if (field.type === "boolean") {
       payload[field.key] = raw === "true";
+      continue;
+    }
+    if (field.type === "toggle") {
+      const isBoolToggle =
+        field.key === "isPrimary" ||
+        field.options?.every((opt) => opt.value === "true" || opt.value === "false");
+      payload[field.key] = isBoolToggle ? raw === "true" : raw;
       continue;
     }
     payload[field.key] = raw;
@@ -365,7 +414,10 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
       .finally(() => setEmployeeLoading(false));
   }, [debouncedEmployeeSearch, employeeId, needsEmployeeSearch, sheet.type]);
 
-  const displayFields = fieldDefs;
+  const displayFields = useMemo(
+    () => fieldDefs.filter((f) => f.showInList !== false),
+    [fieldDefs],
+  );
   const highlightKey = fieldDefs[0]?.key;
 
   const openCreate = () => {

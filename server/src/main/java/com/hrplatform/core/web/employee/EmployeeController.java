@@ -128,6 +128,10 @@ public class EmployeeController {
     out.put("recruitmentChannels", toDictOptions(employeeService.dictLabels("RECRUITMENT_CHANNEL")));
     out.put("countryRegions", toDictOptions(employeeService.dictLabels("COUNTRY_REGION")));
     out.put("idTypes", toDictOptions(employeeService.dictLabels("ID_TYPE")));
+    out.put("bankAccountTypes", toDictOptions(employeeService.dictLabels("BANK_ACCOUNT_TYPE")));
+    out.put("bankIds", toDictOptions(employeeService.dictLabels("BANK_ID")));
+    out.put("branchIds", toDictOptions(employeeService.dictLabels("BRANCH_ID")));
+    out.put("currencies", toDictOptions(employeeService.dictLabels("CURRENCY")));
     return ApiResponse.ok(out);
   }
 

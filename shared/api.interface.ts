@@ -1399,6 +1399,10 @@ export type EmployeeFormOptions = {
   recruitmentChannels: DictOption[];
   countryRegions: DictOption[];
   idTypes: DictOption[];
+  bankAccountTypes: DictOption[];
+  bankIds: DictOption[];
+  branchIds: DictOption[];
+  currencies: DictOption[];
 };
 
 /** 任职记录表单字典选项（GET /api/v1/employees/assignment-form-options） */

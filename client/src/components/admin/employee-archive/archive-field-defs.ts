@@ -110,15 +110,24 @@ export const SERVICE_ATTENDANCE_FIELDS: ArchiveFieldDef[] = [
 ];
 
 export const SERVICE_BANK_FIELDS: ArchiveFieldDef[] = [
-  { key: "accountType", label: "账户类型" },
-  { key: "countryCode", label: "国家代码" },
-  { key: "bankId", label: "银行ID" },
-  { key: "branchId", label: "支行ID" },
+  { key: "accountType", label: "账户类型", dictKey: "bankAccountTypes" },
+  { key: "countryCode", label: "国家代码", dictKey: "countryRegions" },
+  { key: "bankId", label: "银行ID", dictKey: "bankIds" },
+  { key: "branchId", label: "支行ID", dictKey: "branchIds" },
   { key: "accountNo", label: "账号", required: true, sensitive: true },
   { key: "accountName", label: "户名" },
-  { key: "currencyCode", label: "币种" },
+  { key: "currencyCode", label: "币种", dictKey: "currencies" },
   { key: "cnapsCode", label: "联行号" },
-  { key: "isPrimary", label: "主账户", type: "boolean", options: BOOLEAN_OPTIONS },
+  {
+    key: "isPrimary",
+    label: "主账户",
+    type: "toggle",
+    showInList: false,
+    options: [
+      { value: "false", label: "否" },
+      { value: "true", label: "是" },
+    ],
+  },
 ];
 
 export const SERVICE_SOCIAL_FIELDS: ArchiveFieldDef[] = [
