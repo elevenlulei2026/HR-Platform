@@ -8,6 +8,7 @@ import type {
   RoleCreateRequest,
   RoleListQuery,
   RoleUpdateRequest,
+  SetRoleOrgScopesRequest,
   SetRolePermissionsRequest,
   SetUserRolesRequest,
 } from "@shared/api.interface";
@@ -19,6 +20,9 @@ export async function listPermissions(query: PermissionListQuery) {
   q.set("page", String(query.page));
   q.set("pageSize", String(query.pageSize));
   if (query.keyword) q.set("keyword", query.keyword);
+  if (query.status) q.set("status", query.status);
+  if (query.menuId) q.set("menuId", query.menuId);
+  if (query.moduleCode) q.set("moduleCode", query.moduleCode);
   return getJson<PageResult<Permission>>(`/api/v1/permissions?${q.toString()}`);
 }
 
@@ -68,6 +72,14 @@ export async function listRolePermissions(id: string) {
 
 export async function setRolePermissions(id: string, req: SetRolePermissionsRequest) {
   return putJson<{ id: string }, SetRolePermissionsRequest>(`/api/v1/roles/${id}/permissions`, req);
+}
+
+export async function listRoleOrgScopes(id: string) {
+  return getJson<string[]>(`/api/v1/roles/${id}/org-scopes`);
+}
+
+export async function setRoleOrgScopes(id: string, req: SetRoleOrgScopesRequest) {
+  return putJson<{ id: string }, SetRoleOrgScopesRequest>(`/api/v1/roles/${id}/org-scopes`, req);
 }
 
 export async function listUserRoles(id: string) {

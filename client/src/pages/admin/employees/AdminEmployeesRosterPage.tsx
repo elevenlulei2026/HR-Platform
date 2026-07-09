@@ -8,7 +8,7 @@ import type {
   OrganizationTreeNode,
 } from "@shared/api.interface";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Inbox, Plus, RefreshCw, Shield, Upload } from "lucide-react";
+import { Download, Eye, EyeOff, Inbox, Plus, RefreshCw, Shield, Upload } from "lucide-react";
 import { toast } from "sonner";
 
 import type { ApiError } from "@/api/http";
@@ -32,6 +32,7 @@ import {
   updateEmployee,
 } from "@/api/employee";
 import { flattenOrgTree, getOrganizationTree } from "@/api/organization";
+import { Can } from "@/components/admin/can";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import {
   SearchableSelect,
@@ -71,7 +72,7 @@ import {
   SheetContent,
 } from "@/components/ui/sheet";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
-import { usePermission } from "@/hooks/usePermission";
+import { useArchivePermission } from "@/hooks/useArchivePermission";
 import { cn } from "@/lib/utils";
 
 type ListLoadState =
@@ -112,10 +113,11 @@ function todayStr() {
 }
 
 export function AdminEmployeesRosterPage() {
-  const perm = usePermission();
-  const canView = perm.has("employee:roster:view");
-  const canEdit = perm.has("employee:edit");
-  const canExport = perm.has("employee:export");
+  const archivePerm = useArchivePermission();
+  const canView = archivePerm.canViewRoster();
+  const canEdit = archivePerm.canEditRoster();
+  const canViewSensitive = archivePerm.canViewSensitive();
+  const [revealSensitive, setRevealSensitive] = useState(false);
 
   const [keyword, setKeyword] = useState("");
   const debouncedKeyword = useDebouncedValue(keyword);
@@ -182,12 +184,13 @@ export function AdminEmployeesRosterPage() {
         keyword: debouncedKeyword || undefined,
         status: (statusFilter || undefined) as EmployeeStatus | undefined,
         organizationId: orgFilter || undefined,
+        revealSensitive: revealSensitive && canViewSensitive,
       });
       setState({ type: "ok", items: res.data.items, total: res.data.total });
     } catch (e: unknown) {
       setState({ type: "error", error: toApiError(e) });
     }
-  }, [canView, debouncedKeyword, orgFilter, page, pageSize, statusFilter]);
+  }, [canView, canViewSensitive, debouncedKeyword, orgFilter, page, pageSize, revealSensitive, statusFilter]);
 
   const loadArchiveOnly = useCallback(async (employeeId: string) => {
     const res = await getEmployeeArchive(employeeId);
@@ -223,6 +226,10 @@ export function AdminEmployeesRosterPage() {
   }, [load]);
 
   useEffect(() => {
+    if (revealSensitive && canViewSensitive) void load();
+  }, [revealSensitive, canViewSensitive, load]);
+
+  useEffect(() => {
     setPage(1);
   }, [debouncedKeyword, statusFilter, orgFilter]);
 
@@ -233,7 +240,10 @@ export function AdminEmployeesRosterPage() {
     setSheet({ type: "view", employee });
     void loadDetailTabs(employee.id);
     try {
-      const res = await getEmployeeSnapshot(employee.id, { asOfDate: today });
+      const res = await getEmployeeSnapshot(employee.id, {
+        asOfDate: today,
+        revealSensitive: revealSensitive && canViewSensitive,
+      });
       setSheet({ type: "view", employee: res.data });
     } catch {
       // 列表数据兜底展示
@@ -248,7 +258,9 @@ export function AdminEmployeesRosterPage() {
   const openMasterEdit = async (employee: Employee) => {
     let data = employee;
     try {
-      const res = await getEmployee(employee.id);
+      const res = await getEmployee(employee.id, {
+        revealSensitive: revealSensitive && canViewSensitive,
+      });
       data = res.data;
     } catch {
       // 列表数据兜底
@@ -417,7 +429,20 @@ export function AdminEmployeesRosterPage() {
         description="员工主档、档案二级模块与异动记录统一维护"
         actions={
           <div className="flex flex-wrap items-center gap-2">
-            {canEdit ? (
+            <Can permission="employee:sensitive:view">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setRevealSensitive((prev) => !prev);
+                  if (!revealSensitive) toast.message("已开启敏感字段明文查看（将写入审计）");
+                }}
+              >
+                {revealSensitive ? <EyeOff /> : <Eye />}
+                {revealSensitive ? "隐藏敏感信息" : "查看敏感信息"}
+              </Button>
+            </Can>
+            <Can permission={["employee:roster:import", "employee:edit"]}>
               <>
                 <Button variant="outline" size="sm" onClick={() => void handleTemplate()}>
                   <Download />
@@ -439,19 +464,19 @@ export function AdminEmployeesRosterPage() {
                   }}
                 />
               </>
-            ) : null}
-            {canExport ? (
+            </Can>
+            <Can permission="employee:export">
               <Button variant="outline" size="sm" onClick={() => setExportConfirmOpen(true)}>
                 <Download />
                 导出
               </Button>
-            ) : null}
-            {canEdit ? (
+            </Can>
+            <Can permission={["employee:roster:create", "employee:edit"]}>
               <Button size="sm" onClick={openNew}>
                 <Plus />
                 新建员工
               </Button>
-            ) : null}
+            </Can>
           </div>
         }
       />
@@ -617,6 +642,7 @@ export function AdminEmployeesRosterPage() {
               movements={movements}
               detailLoading={detailLoading}
               canEdit={canEdit}
+              canEditSection={(section) => archivePerm.canEditSection(section)}
               orgs={orgs}
               archiveDictOptions={formOptions}
               onClose={() => setSheet({ type: "closed" })}
@@ -624,7 +650,10 @@ export function AdminEmployeesRosterPage() {
               onAsOfDateChange={async (next) => {
                 setDetailAsOfDate(next);
                 try {
-                  const res = await getEmployeeSnapshot(sheet.employee.id, { asOfDate: next });
+                  const res = await getEmployeeSnapshot(sheet.employee.id, {
+                    asOfDate: next,
+                    revealSensitive: revealSensitive && canViewSensitive,
+                  });
                   setSheet({ type: "view", employee: res.data });
                 } catch (e: unknown) {
                   const err = toApiError(e);
@@ -634,7 +663,10 @@ export function AdminEmployeesRosterPage() {
               onArchiveChanged={() => void loadArchiveOnly(sheet.employee.id)}
               onAssignmentsChanged={async () => {
                 try {
-                  const res = await getEmployeeSnapshot(sheet.employee.id, { asOfDate: detailAsOfDate });
+                  const res = await getEmployeeSnapshot(sheet.employee.id, {
+                    asOfDate: detailAsOfDate,
+                    revealSensitive: revealSensitive && canViewSensitive,
+                  });
                   setSheet({ type: "view", employee: res.data });
                 } catch {
                   // 刷新主任职摘要失败不阻断

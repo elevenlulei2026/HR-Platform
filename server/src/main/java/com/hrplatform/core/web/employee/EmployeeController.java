@@ -66,12 +66,13 @@ public class EmployeeController {
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) Long organizationId,
+      @RequestParam(defaultValue = "false") boolean revealSensitive,
       @RequestParam @Min(1) long page,
       @RequestParam @Min(1) @Max(200) long pageSize
   ) {
     requireRosterView();
     var p = employeeService.page(keyword, status, organizationId, page, pageSize);
-    boolean reveal = employeeService.canViewSensitive();
+    boolean reveal = employeeService.shouldRevealSensitive(revealSensitive);
     List<Long> empIds = p.records().stream().map(EmployeeEntity::getId).toList();
     Map<Long, EmployeeAssignmentEntity> primaryMap = employeeService.primaryAssignmentMap(empIds);
     List<Long> orgIds = primaryMap.values().stream().map(EmployeeAssignmentEntity::getOrganizationId).distinct().toList();
@@ -133,13 +134,14 @@ public class EmployeeController {
   @GetMapping("/employees/{id}")
   public ApiResponse<Map<String, Object>> getEmployee(
       @PathVariable("id") long id,
-      @RequestParam(required = false) String asOfDate
+      @RequestParam(required = false) String asOfDate,
+      @RequestParam(defaultValue = "false") boolean revealSensitive
   ) {
     requireRosterView();
     EmployeeEntity e = employeeService.require(id);
     LocalDate snapshotDate = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate.trim());
     EmployeeMasterVersionEntity master = employeeService.requireMasterVersionAsOf(id, snapshotDate);
-    boolean reveal = employeeService.canViewSensitive();
+    boolean reveal = employeeService.shouldRevealSensitive(revealSensitive);
     if (reveal) logSensitiveView(id, "employee");
     EmployeeAssignmentEntity pa = employeeService.findPrimaryAssignmentAsOf(id, snapshotDate);
     OrganizationEntity org = pa == null ? null : employeeService.organizationMap(List.of(pa.getOrganizationId())).get(pa.getOrganizationId());
@@ -156,7 +158,7 @@ public class EmployeeController {
 
   @PostMapping("/employees")
   public ApiResponse<Map<String, Object>> createEmployee(@Valid @RequestBody EmployeeCreateRequest req) {
-    requireEdit();
+    requireCreate();
     EmployeeEntity created = employeeService.create(new EmployeeService.CreateCommand(
         req.fullName(),
         req.gender(),
@@ -305,7 +307,7 @@ public class EmployeeController {
 
   @GetMapping("/employees/import-template")
   public ResponseEntity<byte[]> downloadTemplate() {
-    requireEdit();
+    requireImport();
     byte[] bytes = importService.buildTemplate();
     return ResponseEntity.ok()
         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=employee-import-template.xlsx")
@@ -315,7 +317,7 @@ public class EmployeeController {
 
   @PostMapping(value = "/employees/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public ApiResponse<Map<String, Object>> importEmployees(@RequestParam("file") MultipartFile file) {
-    requireEdit();
+    requireImport();
     EmployeeImportService.ImportResult r = importService.importExcel(file);
     Map<String, Object> dto = new HashMap<>();
     dto.put("totalRows", r.totalRows());
@@ -361,7 +363,15 @@ public class EmployeeController {
   }
 
   private void requireRosterView() { rbacService.requirePermission("employee:roster:view"); }
-  private void requireEdit() { rbacService.requirePermission("employee:edit"); }
+  private void requireCreate() {
+    rbacService.requireAnyPermission("employee:roster:create", "employee:edit");
+  }
+  private void requireEdit() {
+    rbacService.requireAnyPermission("employee:roster:edit", "employee:edit");
+  }
+  private void requireImport() {
+    rbacService.requireAnyPermission("employee:roster:import", "employee:edit");
+  }
   private void requireExport() { rbacService.requirePermission("employee:export"); }
 
   private List<Map<String, Object>> toDictOptions(Map<String, String> labels) {

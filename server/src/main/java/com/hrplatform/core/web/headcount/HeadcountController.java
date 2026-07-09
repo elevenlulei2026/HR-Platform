@@ -50,7 +50,7 @@ public class HeadcountController {
 
   @PostMapping("/headcount-plans")
   public ApiResponse<Map<String, Object>> createHeadcountPlan(@Valid @RequestBody HeadcountPlanCreateRequest req) {
-    requireEdit();
+    requireCreate();
     HeadcountPlanEntity entity = new HeadcountPlanEntity();
     entity.setOrganizationId(req.organizationId());
     entity.setFiscalYear(req.fiscalYear());
@@ -81,7 +81,7 @@ public class HeadcountController {
 
   @DeleteMapping("/headcount-plans/{id}")
   public ApiResponse<Map<String, Object>> deleteHeadcountPlan(@PathVariable("id") long id) {
-    requireEdit();
+    requireDelete();
     headcountService.delete(id);
     return ApiResponse.ok(Map.of("id", String.valueOf(id)));
   }
@@ -105,7 +105,13 @@ public class HeadcountController {
   }
 
   private void requireView() { rbacService.requirePermission("headcount:view"); }
+  private void requireCreate() {
+    rbacService.requireAnyPermission("headcount:create", "headcount:edit");
+  }
   private void requireEdit() { rbacService.requirePermission("headcount:edit"); }
+  private void requireDelete() {
+    rbacService.requireAnyPermission("headcount:delete", "headcount:edit");
+  }
 
   private Map<String, Object> toDto(HeadcountPlanEntity e, String orgCode, String orgName) {
     int planned = e.getPlannedCount() == null ? 0 : e.getPlannedCount();

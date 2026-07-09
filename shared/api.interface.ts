@@ -51,6 +51,10 @@ export type UserProfile = {
    * - 权限点 code 形如：employee:roster:view
    */
   permissions?: string[];
+  /**
+   * Slice 3（RBAC）：当前用户合并后的数据范围
+   */
+  dataScope?: DataScope;
 };
 
 export type LoginRequest = {
@@ -544,7 +548,24 @@ export type CodeRuleApi = {
 
 export type RbacStatus = "ACTIVE" | "DISABLED";
 
-export type DataScope = "SELF" | "DEPARTMENT" | "ALL";
+export type DataScope = "SELF" | "DEPARTMENT" | "CUSTOM" | "ALL";
+
+/** 权限动作约定：{domain}:{resource}:{action} */
+export type PermissionAction =
+  | "view"
+  | "create"
+  | "edit"
+  | "delete"
+  | "import"
+  | "export";
+
+/** 员工档案分区（与 employee:archive:{section}:{action} 对应） */
+export type ArchivePermissionSection =
+  | "personal"
+  | "work"
+  | "service"
+  | "background"
+  | "development";
 
 export type Permission = {
   id: string;
@@ -552,8 +573,30 @@ export type Permission = {
   name: string;
   description?: string;
   status: RbacStatus;
+  menuId?: string;
+  moduleCode?: string;
+  resourceCode?: string;
+  actionCode?: string;
+  sortOrder?: number;
   createdAt?: string; // ISO-8601
   updatedAt?: string; // ISO-8601
+};
+
+export type SysMenuType = "MEGA" | "GROUP" | "ITEM";
+
+export type SysMenu = {
+  id: string;
+  parentId?: string;
+  code: string;
+  title: string;
+  path?: string;
+  icon?: string;
+  menuType: SysMenuType;
+  permissionCode?: string;
+  sortOrder: number;
+  status: RbacStatus;
+  description?: string;
+  children?: SysMenu[];
 };
 
 export type Role = {
@@ -563,6 +606,8 @@ export type Role = {
   description?: string;
   status: RbacStatus;
   dataScope: DataScope;
+  /** 当 dataScope=CUSTOM 时返回 */
+  orgScopeIds?: string[];
   createdAt?: string; // ISO-8601
   updatedAt?: string; // ISO-8601
 };
@@ -572,16 +617,29 @@ export type PermissionCreateRequest = {
   name: string;
   description?: string;
   status?: RbacStatus;
+  menuId?: string;
+  moduleCode?: string;
+  resourceCode?: string;
+  actionCode?: string;
+  sortOrder?: number;
 };
 
 export type PermissionUpdateRequest = {
   name?: string;
   description?: string;
   status?: RbacStatus;
+  menuId?: string;
+  moduleCode?: string;
+  resourceCode?: string;
+  actionCode?: string;
+  sortOrder?: number;
 };
 
 export type PermissionListQuery = {
   keyword?: string;
+  status?: RbacStatus | "ALL";
+  menuId?: string;
+  moduleCode?: string;
   page: number;
   pageSize: number;
 };
@@ -609,6 +667,48 @@ export type RoleListQuery = {
 
 export type SetRolePermissionsRequest = {
   permissionCodes: string[];
+};
+
+export type SetRoleOrgScopesRequest = {
+  organizationIds: string[];
+};
+
+export type SysMenuCreateRequest = {
+  parentId?: string;
+  code: string;
+  title: string;
+  path?: string;
+  icon?: string;
+  menuType?: SysMenuType;
+  permissionCode?: string;
+  sortOrder?: number;
+  status?: RbacStatus;
+  description?: string;
+};
+
+export type SysMenuUpdateRequest = {
+  parentId?: string;
+  title?: string;
+  path?: string;
+  icon?: string;
+  menuType?: SysMenuType;
+  permissionCode?: string;
+  sortOrder?: number;
+  status?: RbacStatus;
+  description?: string;
+};
+
+export type MenuApi = {
+  /** GET /api/v1/menus/nav-tree */
+  getNavTree: () => Promise<ApiResponse<SysMenu[]>>;
+  /** GET /api/v1/menus/tree */
+  getAdminMenuTree: () => Promise<ApiResponse<SysMenu[]>>;
+  /** POST /api/v1/menus */
+  createMenu: (req: SysMenuCreateRequest) => Promise<ApiResponse<SysMenu>>;
+  /** PUT /api/v1/menus/{id} */
+  updateMenu: (id: string, req: SysMenuUpdateRequest) => Promise<ApiResponse<SysMenu>>;
+  /** DELETE /api/v1/menus/{id} */
+  deleteMenu: (id: string) => Promise<ApiResponse<{ id: string }>>;
 };
 
 export type SetUserRolesRequest = {
@@ -642,6 +742,10 @@ export type RbacApi = {
   listRolePermissions: (id: string) => Promise<ApiResponse<string[]>>;
   /** PUT /api/v1/roles/{id}/permissions */
   setRolePermissions: (id: string, req: SetRolePermissionsRequest) => Promise<ApiResponse<{ id: string }>>;
+  /** GET /api/v1/roles/{id}/org-scopes */
+  listRoleOrgScopes: (id: string) => Promise<ApiResponse<string[]>>;
+  /** PUT /api/v1/roles/{id}/org-scopes */
+  setRoleOrgScopes: (id: string, req: SetRoleOrgScopesRequest) => Promise<ApiResponse<{ id: string }>>;
 
   /** GET /api/v1/users/{id}/roles */
   listUserRoles: (id: string) => Promise<ApiResponse<string[]>>;
@@ -1450,6 +1554,8 @@ export type EmployeeListQuery = {
   keyword?: string;
   status?: EmployeeStatus;
   organizationId?: string;
+  /** 显式申请查看敏感字段明文（须 employee:sensitive:view） */
+  revealSensitive?: boolean;
   page: number;
   pageSize: number;
 };

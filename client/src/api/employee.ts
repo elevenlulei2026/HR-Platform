@@ -21,7 +21,7 @@ import type {
 import { deleteJson, getBlob, getJson, postJson, postMultipart, putJson } from "@/api/http";
 import { normalizeNumericId } from "@/lib/numeric-id";
 
-function pageQuery(params: Record<string, string | number | undefined>): string {
+function pageQuery(params: Record<string, string | number | boolean | undefined>): string {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v !== undefined && v !== "") qs.set(k, String(v));
@@ -37,13 +37,22 @@ export async function getEmployeeFormOptions() {
   return getJson<EmployeeFormOptions>("/api/v1/employees/form-options");
 }
 
-export async function getEmployee(id: string) {
-  return getJson<Employee>(`/api/v1/employees/${id}`);
+export async function getEmployee(id: string, query?: { revealSensitive?: boolean }) {
+  const qs = pageQuery({ revealSensitive: query?.revealSensitive });
+  const suffix = qs ? `?${qs}` : "";
+  return getJson<Employee>(`/api/v1/employees/${id}${suffix}`);
 }
 
-export async function getEmployeeSnapshot(id: string, query?: { asOfDate?: string }) {
-  const qs = query?.asOfDate ? `?asOfDate=${encodeURIComponent(query.asOfDate)}` : "";
-  return getJson<Employee>(`/api/v1/employees/${id}${qs}`);
+export async function getEmployeeSnapshot(
+  id: string,
+  query?: { asOfDate?: string; revealSensitive?: boolean },
+) {
+  const qs = pageQuery({
+    asOfDate: query?.asOfDate,
+    revealSensitive: query?.revealSensitive,
+  });
+  const suffix = qs ? `?${qs}` : "";
+  return getJson<Employee>(`/api/v1/employees/${id}${suffix}`);
 }
 
 export async function listEmployeeMasterVersions(employeeId: string) {

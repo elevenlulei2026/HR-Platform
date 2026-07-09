@@ -4,9 +4,11 @@ import { useAuth } from "@/auth/AuthProvider";
 
 export type PermissionCheck = {
   has: (permissionCode?: string) => boolean;
+  hasAny: (...permissionCodes: string[]) => boolean;
   assert: (permissionCode: string, message?: string) => void;
   permissions: Set<string>;
   roles: Set<string>;
+  dataScope?: string;
 };
 
 export function usePermission(): PermissionCheck {
@@ -19,9 +21,13 @@ export function usePermission(): PermissionCheck {
     return {
       permissions,
       roles,
+      dataScope: user?.dataScope,
       has: (permissionCode?: string) => {
-        if (!permissionCode) return true; // 未配置 permission 的菜单/按钮，默认允许显示
+        if (!permissionCode) return true;
         return permissions.has(permissionCode);
+      },
+      hasAny: (...permissionCodes: string[]) => {
+        return permissionCodes.some((code) => code && permissions.has(code));
       },
       assert: (permissionCode: string, message?: string) => {
         if (!permissions.has(permissionCode)) {
@@ -29,6 +35,6 @@ export function usePermission(): PermissionCheck {
         }
       },
     };
-  }, [permissions, roles]);
+  }, [permissions, roles, user?.dataScope]);
 }
 

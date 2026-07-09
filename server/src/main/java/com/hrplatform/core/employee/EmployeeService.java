@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -88,7 +89,10 @@ public class EmployeeService {
     }
 
     if (organizationId != null) {
-      List<Long> orgEmpIds = employeeMapper.selectEmployeeIdsByPrimaryOrganization(organizationId);
+      List<Long> orgIds = organizationMapper.selectOrgSubtreeIds(organizationId);
+      List<Long> orgEmpIds = orgIds == null || orgIds.isEmpty()
+          ? List.of()
+          : employeeMapper.selectEmployeeIdsByPrimaryOrganizations(orgIds);
       if (orgEmpIds.isEmpty()) return new PageResult(List.of(), 0);
       if (allowed != null) {
         Set<Long> intersection = new HashSet<>(orgEmpIds);
@@ -912,12 +916,31 @@ public class EmployeeService {
       return empId == null ? Set.of() : Set.of(empId);
     }
 
+    if (scope == DataScope.CUSTOM) {
+      List<Long> rootOrgIds = rbacService.loadUserCustomOrgIds(user.id());
+      if (rootOrgIds == null || rootOrgIds.isEmpty()) return Set.of();
+      Set<Long> allOrgIds = new HashSet<>();
+      for (Long orgId : rootOrgIds) {
+        allOrgIds.addAll(organizationMapper.selectOrgSubtreeIds(orgId));
+      }
+      if (allOrgIds.isEmpty()) return Set.of();
+      List<Long> employeeIds = employeeMapper.selectEmployeeIdsByPrimaryOrganizations(new ArrayList<>(allOrgIds));
+      return new HashSet<>(employeeIds);
+    }
+
     Long empId = getUserEmployeeId(user.id());
     if (empId == null) return Set.of();
     EmployeeAssignmentEntity primary = findCurrentPrimaryAssignment(empId);
     if (primary == null) return Set.of(empId);
-    List<Long> deptIds = employeeMapper.selectEmployeeIdsByPrimaryOrganization(primary.getOrganizationId());
-    return new HashSet<>(deptIds);
+    List<Long> orgIds = organizationMapper.selectOrgSubtreeIds(primary.getOrganizationId());
+    if (orgIds == null || orgIds.isEmpty()) return Set.of(empId);
+    List<Long> employeeIds = employeeMapper.selectEmployeeIdsByPrimaryOrganizations(orgIds);
+    return new HashSet<>(employeeIds);
+  }
+
+  /** 是否展示敏感字段明文：须显式申请且具备权限点 */
+  public boolean shouldRevealSensitive(boolean revealSensitiveRequested) {
+    return revealSensitiveRequested && canViewSensitive();
   }
 
   private void assertInScope(long employeeId) {

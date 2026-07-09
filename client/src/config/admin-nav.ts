@@ -22,7 +22,13 @@ export type AdminNavLink = {
 };
 
 export type AdminNavTopItem =
-  | { type: "link"; title: string; to: string; icon: React.ComponentType<{ className?: string }> }
+  | {
+      type: "link";
+      title: string;
+      to: string;
+      permission?: string;
+      icon: React.ComponentType<{ className?: string }>;
+    }
   | {
       type: "mega";
       title: string;
@@ -31,7 +37,13 @@ export type AdminNavTopItem =
     };
 
 export const adminTopNav: AdminNavTopItem[] = [
-  { type: "link", title: "工作台", to: "/admin/dashboard", icon: LayoutDashboard },
+  {
+    type: "link",
+    title: "工作台",
+    to: "/admin/dashboard",
+    permission: "dashboard:view",
+    icon: LayoutDashboard,
+  },
   {
     type: "mega",
     title: "组织与员工",
@@ -173,14 +185,15 @@ export const adminTopNav: AdminNavTopItem[] = [
             description: "真实调用 /api/v1/health（禁止 mock）",
             to: "/admin/dev/health",
             group: "开发与运维",
+            permission: "dev:health:view",
             icon: Cog,
           },
         ],
       },
     ],
   },
-  { type: "link", title: "报表", to: "/admin/reports", icon: BarChart3 },
-  { type: "link", title: "设置", to: "/admin/settings", icon: Cog },
+  { type: "link", title: "报表", to: "/admin/reports", permission: "report:view", icon: BarChart3 },
+  { type: "link", title: "设置", to: "/admin/settings", permission: "settings:view", icon: Cog },
 ];
 
 export function flattenAdminNavLinks(): AdminNavLink[] {

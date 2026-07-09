@@ -1,4 +1,5 @@
 import type {
+  ArchivePermissionSection,
   Employee,
   EmployeeArchive,
   EmployeeFormOptions,
@@ -182,6 +183,7 @@ type EmployeeArchiveDetailViewProps = {
   movements: EmployeeMovement[];
   detailLoading: boolean;
   canEdit: boolean;
+  canEditSection?: (section: ArchivePermissionSection) => boolean;
   orgs: OrganizationTreeNode[];
   archiveDictOptions?: EmployeeFormOptions | null;
   onClose: () => void;
@@ -269,6 +271,7 @@ export function EmployeeArchiveDetailView({
   movements,
   detailLoading,
   canEdit,
+  canEditSection,
   orgs,
   archiveDictOptions,
   onClose,
@@ -277,6 +280,8 @@ export function EmployeeArchiveDetailView({
   onArchiveChanged,
   onAssignmentsChanged,
 }: EmployeeArchiveDetailViewProps) {
+  const sectionEdit = (section: ArchivePermissionSection) =>
+    canEditSection?.(section) ?? canEdit;
   const scrollRef = useRef<HTMLDivElement>(null);
   const { activeSectionId, scrollTo } = useScrollSpy(ALL_ARCHIVE_SECTION_IDS, scrollRef, {
     probeOffset: 24,
@@ -564,7 +569,7 @@ export function EmployeeArchiveDetailView({
                       items={archive.idDocuments}
                       fieldDefs={PERSONAL_ID_DOCUMENT_FIELDS}
                       dictOptions={sectionDictOptions}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("personal")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -576,7 +581,7 @@ export function EmployeeArchiveDetailView({
                       items={archive.familyMembers}
                       fieldDefs={PERSONAL_FAMILY_FIELDS}
                       dictOptions={sectionDictOptions}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("personal")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -588,7 +593,7 @@ export function EmployeeArchiveDetailView({
                       items={archive.internalRelatives}
                       fieldDefs={PERSONAL_INTERNAL_RELATIVE_FIELDS}
                       dictOptions={sectionDictOptions}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("personal")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -597,7 +602,7 @@ export function EmployeeArchiveDetailView({
                     <AssignmentSection
                       employee={employee}
                       orgs={orgs}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("work")}
                       onChanged={onAssignmentsChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -608,7 +613,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="cost-center-allocations"
                       items={archive.costCenterAllocations}
                       fieldDefs={WORK_COST_CENTER_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("work")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -617,7 +622,7 @@ export function EmployeeArchiveDetailView({
                       employeeId={employee.id}
                       items={archive.contracts}
                       attachments={archive.attachments}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("service")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -626,7 +631,7 @@ export function EmployeeArchiveDetailView({
                       employeeId={employee.id}
                       items={archive.agreements}
                       attachments={archive.attachments}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("service")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -638,7 +643,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="attendance-cards"
                       items={archive.attendanceCards}
                       fieldDefs={SERVICE_ATTENDANCE_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("service")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -649,7 +654,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="bank-accounts"
                       items={archive.bankAccounts}
                       fieldDefs={SERVICE_BANK_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("service")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -660,7 +665,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="social-insurances"
                       items={archive.socialInsurances}
                       fieldDefs={SERVICE_SOCIAL_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("service")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -671,7 +676,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="special-benefits"
                       items={archive.specialBenefits}
                       fieldDefs={SERVICE_BENEFIT_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("service")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -682,7 +687,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="commute-accommodations"
                       items={archive.commuteAccommodations}
                       fieldDefs={SERVICE_COMMUTE_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("service")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -690,7 +695,7 @@ export function EmployeeArchiveDetailView({
                     <ArchiveAttachmentSection
                       employeeId={employee.id}
                       items={archive.attachments}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("service")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -702,7 +707,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="educations"
                       items={archive.educations}
                       fieldDefs={BACKGROUND_EDUCATION_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("background")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -713,7 +718,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="work-experiences"
                       items={archive.workExperiences}
                       fieldDefs={BACKGROUND_WORK_EXP_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("background")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -724,7 +729,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="qualifications"
                       items={archive.qualifications}
                       fieldDefs={BACKGROUND_QUALIFICATION_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("background")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -735,7 +740,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="rewards"
                       items={archive.rewards}
                       fieldDefs={BACKGROUND_REWARD_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("background")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -746,7 +751,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="penalties"
                       items={archive.penalties}
                       fieldDefs={BACKGROUND_PENALTY_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("background")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -761,7 +766,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="training-records"
                       items={archive.trainingRecords}
                       fieldDefs={TALENT_TRAINING_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("development")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -772,7 +777,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="performance-records"
                       items={archive.performanceRecords}
                       fieldDefs={TALENT_PERFORMANCE_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("development")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -783,7 +788,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="values-assessments"
                       items={archive.valuesAssessments}
                       fieldDefs={TALENT_VALUES_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("development")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -794,7 +799,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="talent-reviews"
                       items={archive.talentReviews}
                       fieldDefs={TALENT_REVIEW_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("development")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -805,7 +810,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="projects"
                       items={archive.projects}
                       fieldDefs={TALENT_PROJECT_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("development")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -816,7 +821,7 @@ export function EmployeeArchiveDetailView({
                       resourcePath="agent-assignments"
                       items={archive.agentAssignments}
                       fieldDefs={TALENT_AGENT_FIELDS}
-                      canEdit={canEdit}
+                      canEdit={sectionEdit("development")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>

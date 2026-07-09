@@ -7,6 +7,7 @@ import com.hrplatform.platform.audit.AuditLogService;
 import com.hrplatform.platform.auth.AuthContext;
 import com.hrplatform.platform.crypto.FieldCryptoService;
 import com.hrplatform.platform.file.LocalFileStorageService;
+import com.hrplatform.platform.rbac.ArchivePermissionSupport;
 import com.hrplatform.platform.rbac.RbacService;
 import com.hrplatform.platform.web.ApiResponse;
 import com.hrplatform.platform.web.TraceId;
@@ -36,10 +37,13 @@ public class EmployeeArchiveController {
   private final AuditLogService auditLogService;
   private final ObjectMapper objectMapper;
 
+  private final ArchivePermissionSupport archivePermissions;
+
   public EmployeeArchiveController(
       EmployeeArchiveService archiveService,
       EmployeeService employeeService,
       RbacService rbacService,
+      ArchivePermissionSupport archivePermissions,
       FieldCryptoService fieldCryptoService,
       LocalFileStorageService fileStorageService,
       AuditLogService auditLogService,
@@ -48,6 +52,7 @@ public class EmployeeArchiveController {
     this.archiveService = archiveService;
     this.employeeService = employeeService;
     this.rbacService = rbacService;
+    this.archivePermissions = archivePermissions;
     this.fieldCryptoService = fieldCryptoService;
     this.fileStorageService = fileStorageService;
     this.auditLogService = auditLogService;
@@ -55,9 +60,13 @@ public class EmployeeArchiveController {
   }
 
   @GetMapping("/archive")
-  public ApiResponse<Map<String, Object>> getArchive(@PathVariable long employeeId) {
+  public ApiResponse<Map<String, Object>> getArchive(
+      @PathVariable long employeeId,
+      @RequestParam(defaultValue = "false") boolean revealSensitive
+  ) {
     requireView();
-    boolean reveal = employeeService.canViewSensitive();
+    employeeService.require(employeeId);
+    boolean reveal = employeeService.shouldRevealSensitive(revealSensitive);
     if (reveal) logSensitiveView(employeeId, "employee-archive");
     Map<String, Object> source = archiveService.getArchiveBundle(employeeId);
     Map<String, Object> out = new HashMap<>();
@@ -69,247 +78,248 @@ public class EmployeeArchiveController {
 
   @GetMapping("/family-members")
   public ApiResponse<List<Map<String, Object>>> listFamilyMembers(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listFamilyMembers(employeeId));
+    return list(employeeId, "family-members", () -> archiveService.listFamilyMembers(employeeId));
   }
 
   @PostMapping("/family-members")
   public ApiResponse<Map<String, Object>> createFamilyMember(@PathVariable long employeeId, @Valid @RequestBody EmployeeFamilyMemberEntity body) {
-    return create(() -> archiveService.createFamilyMember(employeeId, body));
+    return create("family-members", () -> archiveService.createFamilyMember(employeeId, body));
   }
 
   @PutMapping("/family-members/{id}")
   public ApiResponse<Map<String, Object>> updateFamilyMember(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeFamilyMemberEntity body) {
-    return update(() -> archiveService.updateFamilyMember(employeeId, id, body));
+    return update("family-members", () -> archiveService.updateFamilyMember(employeeId, id, body));
   }
 
   @DeleteMapping("/family-members/{id}")
   public ApiResponse<Map<String, Object>> deleteFamilyMember(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteFamilyMember(employeeId, id));
+    return delete(employeeId, id, "family-members", () -> archiveService.deleteFamilyMember(employeeId, id));
   }
 
   @GetMapping("/internal-relatives")
   public ApiResponse<List<Map<String, Object>>> listInternalRelatives(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listInternalRelatives(employeeId));
+    return list(employeeId, "internal-relatives", () -> archiveService.listInternalRelatives(employeeId));
   }
 
   @PostMapping("/internal-relatives")
   public ApiResponse<Map<String, Object>> createInternalRelative(@PathVariable long employeeId, @Valid @RequestBody EmployeeInternalRelativeEntity body) {
-    return create(() -> archiveService.createInternalRelative(employeeId, body));
+    return create("internal-relatives", () -> archiveService.createInternalRelative(employeeId, body));
   }
 
   @PutMapping("/internal-relatives/{id}")
   public ApiResponse<Map<String, Object>> updateInternalRelative(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeInternalRelativeEntity body) {
-    return update(() -> archiveService.updateInternalRelative(employeeId, id, body));
+    return update("internal-relatives", () -> archiveService.updateInternalRelative(employeeId, id, body));
   }
 
   @DeleteMapping("/internal-relatives/{id}")
   public ApiResponse<Map<String, Object>> deleteInternalRelative(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteInternalRelative(employeeId, id));
+    return delete(employeeId, id, "internal-relatives", () -> archiveService.deleteInternalRelative(employeeId, id));
   }
 
   @GetMapping("/id-documents")
   public ApiResponse<List<Map<String, Object>>> listIdDocuments(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listIdDocuments(employeeId));
+    return list(employeeId, "id-documents", () -> archiveService.listIdDocuments(employeeId));
   }
 
   @PostMapping("/id-documents")
   public ApiResponse<Map<String, Object>> createIdDocument(@PathVariable long employeeId, @Valid @RequestBody EmployeeIdDocumentEntity body) {
-    return create(() -> archiveService.createIdDocument(employeeId, body));
+    return create("id-documents", () -> archiveService.createIdDocument(employeeId, body));
   }
 
   @PutMapping("/id-documents/{id}")
   public ApiResponse<Map<String, Object>> updateIdDocument(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeIdDocumentEntity body) {
-    return update(() -> archiveService.updateIdDocument(employeeId, id, body));
+    return update("id-documents", () -> archiveService.updateIdDocument(employeeId, id, body));
   }
 
   @DeleteMapping("/id-documents/{id}")
   public ApiResponse<Map<String, Object>> deleteIdDocument(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteIdDocument(employeeId, id));
+    return delete(employeeId, id, "id-documents", () -> archiveService.deleteIdDocument(employeeId, id));
   }
 
   @GetMapping("/cost-center-allocations")
   public ApiResponse<List<Map<String, Object>>> listCostCenterAllocations(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listCostCenterAllocations(employeeId));
+    return list(employeeId, "cost-center-allocations", () -> archiveService.listCostCenterAllocations(employeeId));
   }
 
   @PostMapping("/cost-center-allocations")
   public ApiResponse<Map<String, Object>> createCostCenterAllocation(@PathVariable long employeeId, @Valid @RequestBody EmployeeCostCenterAllocationEntity body) {
-    return create(() -> archiveService.createCostCenterAllocation(employeeId, body));
+    return create("cost-center-allocations", () -> archiveService.createCostCenterAllocation(employeeId, body));
   }
 
   @PutMapping("/cost-center-allocations/{id}")
   public ApiResponse<Map<String, Object>> updateCostCenterAllocation(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeCostCenterAllocationEntity body) {
-    return update(() -> archiveService.updateCostCenterAllocation(employeeId, id, body));
+    return update("cost-center-allocations", () -> archiveService.updateCostCenterAllocation(employeeId, id, body));
   }
 
   @DeleteMapping("/cost-center-allocations/{id}")
   public ApiResponse<Map<String, Object>> deleteCostCenterAllocation(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteCostCenterAllocation(employeeId, id));
+    return delete(employeeId, id, "cost-center-allocations", () -> archiveService.deleteCostCenterAllocation(employeeId, id));
   }
 
   @GetMapping("/contracts")
   public ApiResponse<List<Map<String, Object>>> listContracts(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listContracts(employeeId));
+    return list(employeeId, "contracts", () -> archiveService.listContracts(employeeId));
   }
 
   @PostMapping("/contracts")
   public ApiResponse<Map<String, Object>> createContract(@PathVariable long employeeId, @Valid @RequestBody EmployeeContractEntity body) {
-    return create(() -> archiveService.createContract(employeeId, body));
+    return create("contracts", () -> archiveService.createContract(employeeId, body));
   }
 
   @PutMapping("/contracts/{id}")
   public ApiResponse<Map<String, Object>> updateContract(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeContractEntity body) {
-    return update(() -> archiveService.updateContract(employeeId, id, body));
+    return update("contracts", () -> archiveService.updateContract(employeeId, id, body));
   }
 
   @DeleteMapping("/contracts/{id}")
   public ApiResponse<Map<String, Object>> deleteContract(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteContract(employeeId, id));
+    return delete(employeeId, id, "contracts", () -> archiveService.deleteContract(employeeId, id));
   }
 
   @GetMapping("/agreements")
   public ApiResponse<List<Map<String, Object>>> listAgreements(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listAgreements(employeeId));
+    return list(employeeId, "agreements", () -> archiveService.listAgreements(employeeId));
   }
 
   @PostMapping("/agreements")
   public ApiResponse<Map<String, Object>> createAgreement(@PathVariable long employeeId, @Valid @RequestBody EmployeeAgreementEntity body) {
-    return create(() -> archiveService.createAgreement(employeeId, body));
+    return create("agreements", () -> archiveService.createAgreement(employeeId, body));
   }
 
   @PutMapping("/agreements/{id}")
   public ApiResponse<Map<String, Object>> updateAgreement(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeAgreementEntity body) {
-    return update(() -> archiveService.updateAgreement(employeeId, id, body));
+    return update("agreements", () -> archiveService.updateAgreement(employeeId, id, body));
   }
 
   @DeleteMapping("/agreements/{id}")
   public ApiResponse<Map<String, Object>> deleteAgreement(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteAgreement(employeeId, id));
+    return delete(employeeId, id, "agreements", () -> archiveService.deleteAgreement(employeeId, id));
   }
 
   @GetMapping("/attendance-cards")
   public ApiResponse<List<Map<String, Object>>> listAttendanceCards(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listAttendanceCards(employeeId));
+    return list(employeeId, "attendance-cards", () -> archiveService.listAttendanceCards(employeeId));
   }
 
   @PostMapping("/attendance-cards")
   public ApiResponse<Map<String, Object>> createAttendanceCard(@PathVariable long employeeId, @Valid @RequestBody EmployeeAttendanceCardEntity body) {
-    return create(() -> archiveService.createAttendanceCard(employeeId, body));
+    return create("attendance-cards", () -> archiveService.createAttendanceCard(employeeId, body));
   }
 
   @PutMapping("/attendance-cards/{id}")
   public ApiResponse<Map<String, Object>> updateAttendanceCard(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeAttendanceCardEntity body) {
-    return update(() -> archiveService.updateAttendanceCard(employeeId, id, body));
+    return update("attendance-cards", () -> archiveService.updateAttendanceCard(employeeId, id, body));
   }
 
   @DeleteMapping("/attendance-cards/{id}")
   public ApiResponse<Map<String, Object>> deleteAttendanceCard(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteAttendanceCard(employeeId, id));
+    return delete(employeeId, id, "attendance-cards", () -> archiveService.deleteAttendanceCard(employeeId, id));
   }
 
   @GetMapping("/bank-accounts")
   public ApiResponse<List<Map<String, Object>>> listBankAccounts(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listBankAccounts(employeeId));
+    return list(employeeId, "bank-accounts", () -> archiveService.listBankAccounts(employeeId));
   }
 
   @PostMapping("/bank-accounts")
   public ApiResponse<Map<String, Object>> createBankAccount(@PathVariable long employeeId, @Valid @RequestBody EmployeeBankAccountEntity body) {
-    return create(() -> archiveService.createBankAccount(employeeId, body));
+    return create("bank-accounts", () -> archiveService.createBankAccount(employeeId, body));
   }
 
   @PutMapping("/bank-accounts/{id}")
   public ApiResponse<Map<String, Object>> updateBankAccount(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeBankAccountEntity body) {
-    return update(() -> archiveService.updateBankAccount(employeeId, id, body));
+    return update("bank-accounts", () -> archiveService.updateBankAccount(employeeId, id, body));
   }
 
   @DeleteMapping("/bank-accounts/{id}")
   public ApiResponse<Map<String, Object>> deleteBankAccount(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteBankAccount(employeeId, id));
+    return delete(employeeId, id, "bank-accounts", () -> archiveService.deleteBankAccount(employeeId, id));
   }
 
   @GetMapping("/social-insurances")
   public ApiResponse<List<Map<String, Object>>> listSocialInsurances(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listSocialInsurances(employeeId));
+    return list(employeeId, "social-insurances", () -> archiveService.listSocialInsurances(employeeId));
   }
 
   @PostMapping("/social-insurances")
   public ApiResponse<Map<String, Object>> createSocialInsurance(@PathVariable long employeeId, @Valid @RequestBody EmployeeSocialInsuranceEntity body) {
-    return create(() -> archiveService.createSocialInsurance(employeeId, body));
+    return create("social-insurances", () -> archiveService.createSocialInsurance(employeeId, body));
   }
 
   @PutMapping("/social-insurances/{id}")
   public ApiResponse<Map<String, Object>> updateSocialInsurance(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeSocialInsuranceEntity body) {
-    return update(() -> archiveService.updateSocialInsurance(employeeId, id, body));
+    return update("social-insurances", () -> archiveService.updateSocialInsurance(employeeId, id, body));
   }
 
   @DeleteMapping("/social-insurances/{id}")
   public ApiResponse<Map<String, Object>> deleteSocialInsurance(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteSocialInsurance(employeeId, id));
+    return delete(employeeId, id, "social-insurances", () -> archiveService.deleteSocialInsurance(employeeId, id));
   }
 
   @GetMapping("/special-benefits")
   public ApiResponse<List<Map<String, Object>>> listSpecialBenefits(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listSpecialBenefits(employeeId));
+    return list(employeeId, "special-benefits", () -> archiveService.listSpecialBenefits(employeeId));
   }
 
   @PostMapping("/special-benefits")
   public ApiResponse<Map<String, Object>> createSpecialBenefit(@PathVariable long employeeId, @Valid @RequestBody EmployeeSpecialBenefitEntity body) {
-    return create(() -> archiveService.createSpecialBenefit(employeeId, body));
+    return create("special-benefits", () -> archiveService.createSpecialBenefit(employeeId, body));
   }
 
   @PutMapping("/special-benefits/{id}")
   public ApiResponse<Map<String, Object>> updateSpecialBenefit(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeSpecialBenefitEntity body) {
-    return update(() -> archiveService.updateSpecialBenefit(employeeId, id, body));
+    return update("special-benefits", () -> archiveService.updateSpecialBenefit(employeeId, id, body));
   }
 
   @DeleteMapping("/special-benefits/{id}")
   public ApiResponse<Map<String, Object>> deleteSpecialBenefit(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteSpecialBenefit(employeeId, id));
+    return delete(employeeId, id, "special-benefits", () -> archiveService.deleteSpecialBenefit(employeeId, id));
   }
 
   @GetMapping("/commute-accommodations")
   public ApiResponse<List<Map<String, Object>>> listCommuteAccommodations(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listCommuteAccommodations(employeeId));
+    return list(employeeId, "commute-accommodations", () -> archiveService.listCommuteAccommodations(employeeId));
   }
 
   @PostMapping("/commute-accommodations")
   public ApiResponse<Map<String, Object>> createCommuteAccommodation(@PathVariable long employeeId, @Valid @RequestBody EmployeeCommuteAccommodationEntity body) {
-    return create(() -> archiveService.createCommuteAccommodation(employeeId, body));
+    return create("commute-accommodations", () -> archiveService.createCommuteAccommodation(employeeId, body));
   }
 
   @PutMapping("/commute-accommodations/{id}")
   public ApiResponse<Map<String, Object>> updateCommuteAccommodation(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeCommuteAccommodationEntity body) {
-    return update(() -> archiveService.updateCommuteAccommodation(employeeId, id, body));
+    return update("commute-accommodations", () -> archiveService.updateCommuteAccommodation(employeeId, id, body));
   }
 
   @DeleteMapping("/commute-accommodations/{id}")
   public ApiResponse<Map<String, Object>> deleteCommuteAccommodation(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteCommuteAccommodation(employeeId, id));
+    return delete(employeeId, id, "commute-accommodations", () -> archiveService.deleteCommuteAccommodation(employeeId, id));
   }
 
   @GetMapping("/attachments")
   public ApiResponse<List<Map<String, Object>>> listAttachments(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listAttachments(employeeId));
+    return list(employeeId, "attachments", () -> archiveService.listAttachments(employeeId));
   }
 
   @PostMapping("/attachments")
   public ApiResponse<Map<String, Object>> createAttachment(@PathVariable long employeeId, @Valid @RequestBody EmployeeAttachmentEntity body) {
-    return create(() -> archiveService.createAttachment(employeeId, body));
+    return create("attachments", () -> archiveService.createAttachment(employeeId, body));
   }
 
   @PutMapping("/attachments/{id}")
   public ApiResponse<Map<String, Object>> updateAttachment(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeAttachmentEntity body) {
-    return update(() -> archiveService.updateAttachment(employeeId, id, body));
+    return update("attachments", () -> archiveService.updateAttachment(employeeId, id, body));
   }
 
   @DeleteMapping("/attachments/{id}")
   public ApiResponse<Map<String, Object>> deleteAttachment(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteAttachment(employeeId, id));
+    return delete(employeeId, id, "attachments", () -> archiveService.deleteAttachment(employeeId, id));
   }
 
   @GetMapping("/attachments/{id}/download")
   public ResponseEntity<Resource> downloadAttachment(@PathVariable long employeeId, @PathVariable long id) {
-    requireView();
+    archivePermissions.requireView("attachments");
+    employeeService.require(employeeId);
     EmployeeAttachmentEntity attachment = archiveService.requireAttachment(employeeId, id);
     if (attachment.getStorageKey() == null || attachment.getStorageKey().isBlank()) {
       throw new IllegalArgumentException("附件未关联存储文件");
@@ -326,244 +336,255 @@ public class EmployeeArchiveController {
 
   @GetMapping("/educations")
   public ApiResponse<List<Map<String, Object>>> listEducations(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listEducations(employeeId));
+    return list(employeeId, "educations", () -> archiveService.listEducations(employeeId));
   }
 
   @PostMapping("/educations")
   public ApiResponse<Map<String, Object>> createEducation(@PathVariable long employeeId, @Valid @RequestBody EmployeeEducationEntity body) {
-    return create(() -> archiveService.createEducation(employeeId, body));
+    return create("educations", () -> archiveService.createEducation(employeeId, body));
   }
 
   @PutMapping("/educations/{id}")
   public ApiResponse<Map<String, Object>> updateEducation(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeEducationEntity body) {
-    return update(() -> archiveService.updateEducation(employeeId, id, body));
+    return update("educations", () -> archiveService.updateEducation(employeeId, id, body));
   }
 
   @DeleteMapping("/educations/{id}")
   public ApiResponse<Map<String, Object>> deleteEducation(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteEducation(employeeId, id));
+    return delete(employeeId, id, "educations", () -> archiveService.deleteEducation(employeeId, id));
   }
 
   @GetMapping("/work-experiences")
   public ApiResponse<List<Map<String, Object>>> listWorkExperiences(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listWorkExperiences(employeeId));
+    return list(employeeId, "work-experiences", () -> archiveService.listWorkExperiences(employeeId));
   }
 
   @PostMapping("/work-experiences")
   public ApiResponse<Map<String, Object>> createWorkExperience(@PathVariable long employeeId, @Valid @RequestBody EmployeeWorkExperienceEntity body) {
-    return create(() -> archiveService.createWorkExperience(employeeId, body));
+    return create("work-experiences", () -> archiveService.createWorkExperience(employeeId, body));
   }
 
   @PutMapping("/work-experiences/{id}")
   public ApiResponse<Map<String, Object>> updateWorkExperience(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeWorkExperienceEntity body) {
-    return update(() -> archiveService.updateWorkExperience(employeeId, id, body));
+    return update("work-experiences", () -> archiveService.updateWorkExperience(employeeId, id, body));
   }
 
   @DeleteMapping("/work-experiences/{id}")
   public ApiResponse<Map<String, Object>> deleteWorkExperience(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteWorkExperience(employeeId, id));
+    return delete(employeeId, id, "work-experiences", () -> archiveService.deleteWorkExperience(employeeId, id));
   }
 
   @GetMapping("/qualifications")
   public ApiResponse<List<Map<String, Object>>> listQualifications(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listQualifications(employeeId));
+    return list(employeeId, "qualifications", () -> archiveService.listQualifications(employeeId));
   }
 
   @PostMapping("/qualifications")
   public ApiResponse<Map<String, Object>> createQualification(@PathVariable long employeeId, @Valid @RequestBody EmployeeQualificationEntity body) {
-    return create(() -> archiveService.createQualification(employeeId, body));
+    return create("qualifications", () -> archiveService.createQualification(employeeId, body));
   }
 
   @PutMapping("/qualifications/{id}")
   public ApiResponse<Map<String, Object>> updateQualification(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeQualificationEntity body) {
-    return update(() -> archiveService.updateQualification(employeeId, id, body));
+    return update("qualifications", () -> archiveService.updateQualification(employeeId, id, body));
   }
 
   @DeleteMapping("/qualifications/{id}")
   public ApiResponse<Map<String, Object>> deleteQualification(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteQualification(employeeId, id));
+    return delete(employeeId, id, "qualifications", () -> archiveService.deleteQualification(employeeId, id));
   }
 
   @GetMapping("/rewards")
   public ApiResponse<List<Map<String, Object>>> listRewards(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listRewards(employeeId));
+    return list(employeeId, "rewards", () -> archiveService.listRewards(employeeId));
   }
 
   @PostMapping("/rewards")
   public ApiResponse<Map<String, Object>> createReward(@PathVariable long employeeId, @Valid @RequestBody EmployeeRewardEntity body) {
-    return create(() -> archiveService.createReward(employeeId, body));
+    return create("rewards", () -> archiveService.createReward(employeeId, body));
   }
 
   @PutMapping("/rewards/{id}")
   public ApiResponse<Map<String, Object>> updateReward(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeRewardEntity body) {
-    return update(() -> archiveService.updateReward(employeeId, id, body));
+    return update("rewards", () -> archiveService.updateReward(employeeId, id, body));
   }
 
   @DeleteMapping("/rewards/{id}")
   public ApiResponse<Map<String, Object>> deleteReward(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteReward(employeeId, id));
+    return delete(employeeId, id, "rewards", () -> archiveService.deleteReward(employeeId, id));
   }
 
   @GetMapping("/penalties")
   public ApiResponse<List<Map<String, Object>>> listPenalties(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listPenalties(employeeId));
+    return list(employeeId, "penalties", () -> archiveService.listPenalties(employeeId));
   }
 
   @PostMapping("/penalties")
   public ApiResponse<Map<String, Object>> createPenalty(@PathVariable long employeeId, @Valid @RequestBody EmployeePenaltyEntity body) {
-    return create(() -> archiveService.createPenalty(employeeId, body));
+    return create("penalties", () -> archiveService.createPenalty(employeeId, body));
   }
 
   @PutMapping("/penalties/{id}")
   public ApiResponse<Map<String, Object>> updatePenalty(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeePenaltyEntity body) {
-    return update(() -> archiveService.updatePenalty(employeeId, id, body));
+    return update("penalties", () -> archiveService.updatePenalty(employeeId, id, body));
   }
 
   @DeleteMapping("/penalties/{id}")
   public ApiResponse<Map<String, Object>> deletePenalty(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deletePenalty(employeeId, id));
+    return delete(employeeId, id, "penalties", () -> archiveService.deletePenalty(employeeId, id));
   }
 
   @GetMapping("/training-records")
   public ApiResponse<List<Map<String, Object>>> listTrainingRecords(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listTrainingRecords(employeeId));
+    return list(employeeId, "training-records", () -> archiveService.listTrainingRecords(employeeId));
   }
 
   @PostMapping("/training-records")
   public ApiResponse<Map<String, Object>> createTrainingRecord(@PathVariable long employeeId, @Valid @RequestBody EmployeeTrainingRecordEntity body) {
-    return create(() -> archiveService.createTrainingRecord(employeeId, body));
+    return create("training-records", () -> archiveService.createTrainingRecord(employeeId, body));
   }
 
   @PutMapping("/training-records/{id}")
   public ApiResponse<Map<String, Object>> updateTrainingRecord(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeTrainingRecordEntity body) {
-    return update(() -> archiveService.updateTrainingRecord(employeeId, id, body));
+    return update("training-records", () -> archiveService.updateTrainingRecord(employeeId, id, body));
   }
 
   @DeleteMapping("/training-records/{id}")
   public ApiResponse<Map<String, Object>> deleteTrainingRecord(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteTrainingRecord(employeeId, id));
+    return delete(employeeId, id, "training-records", () -> archiveService.deleteTrainingRecord(employeeId, id));
   }
 
   @GetMapping("/performance-records")
   public ApiResponse<List<Map<String, Object>>> listPerformanceRecords(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listPerformanceRecords(employeeId));
+    return list(employeeId, "performance-records", () -> archiveService.listPerformanceRecords(employeeId));
   }
 
   @PostMapping("/performance-records")
   public ApiResponse<Map<String, Object>> createPerformanceRecord(@PathVariable long employeeId, @Valid @RequestBody EmployeePerformanceRecordEntity body) {
-    return create(() -> archiveService.createPerformanceRecord(employeeId, body));
+    return create("performance-records", () -> archiveService.createPerformanceRecord(employeeId, body));
   }
 
   @PutMapping("/performance-records/{id}")
   public ApiResponse<Map<String, Object>> updatePerformanceRecord(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeePerformanceRecordEntity body) {
-    return update(() -> archiveService.updatePerformanceRecord(employeeId, id, body));
+    return update("performance-records", () -> archiveService.updatePerformanceRecord(employeeId, id, body));
   }
 
   @DeleteMapping("/performance-records/{id}")
   public ApiResponse<Map<String, Object>> deletePerformanceRecord(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deletePerformanceRecord(employeeId, id));
+    return delete(employeeId, id, "performance-records", () -> archiveService.deletePerformanceRecord(employeeId, id));
   }
 
   @GetMapping("/values-assessments")
   public ApiResponse<List<Map<String, Object>>> listValuesAssessments(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listValuesAssessments(employeeId));
+    return list(employeeId, "values-assessments", () -> archiveService.listValuesAssessments(employeeId));
   }
 
   @PostMapping("/values-assessments")
   public ApiResponse<Map<String, Object>> createValuesAssessment(@PathVariable long employeeId, @Valid @RequestBody EmployeeValuesAssessmentEntity body) {
-    return create(() -> archiveService.createValuesAssessment(employeeId, body));
+    return create("values-assessments", () -> archiveService.createValuesAssessment(employeeId, body));
   }
 
   @PutMapping("/values-assessments/{id}")
   public ApiResponse<Map<String, Object>> updateValuesAssessment(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeValuesAssessmentEntity body) {
-    return update(() -> archiveService.updateValuesAssessment(employeeId, id, body));
+    return update("values-assessments", () -> archiveService.updateValuesAssessment(employeeId, id, body));
   }
 
   @DeleteMapping("/values-assessments/{id}")
   public ApiResponse<Map<String, Object>> deleteValuesAssessment(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteValuesAssessment(employeeId, id));
+    return delete(employeeId, id, "values-assessments", () -> archiveService.deleteValuesAssessment(employeeId, id));
   }
 
   @GetMapping("/talent-reviews")
   public ApiResponse<List<Map<String, Object>>> listTalentReviews(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listTalentReviews(employeeId));
+    return list(employeeId, "talent-reviews", () -> archiveService.listTalentReviews(employeeId));
   }
 
   @PostMapping("/talent-reviews")
   public ApiResponse<Map<String, Object>> createTalentReview(@PathVariable long employeeId, @Valid @RequestBody EmployeeTalentReviewEntity body) {
-    return create(() -> archiveService.createTalentReview(employeeId, body));
+    return create("talent-reviews", () -> archiveService.createTalentReview(employeeId, body));
   }
 
   @PutMapping("/talent-reviews/{id}")
   public ApiResponse<Map<String, Object>> updateTalentReview(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeTalentReviewEntity body) {
-    return update(() -> archiveService.updateTalentReview(employeeId, id, body));
+    return update("talent-reviews", () -> archiveService.updateTalentReview(employeeId, id, body));
   }
 
   @DeleteMapping("/talent-reviews/{id}")
   public ApiResponse<Map<String, Object>> deleteTalentReview(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteTalentReview(employeeId, id));
+    return delete(employeeId, id, "talent-reviews", () -> archiveService.deleteTalentReview(employeeId, id));
   }
 
   @GetMapping("/projects")
   public ApiResponse<List<Map<String, Object>>> listProjects(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listProjects(employeeId));
+    return list(employeeId, "projects", () -> archiveService.listProjects(employeeId));
   }
 
   @PostMapping("/projects")
   public ApiResponse<Map<String, Object>> createProject(@PathVariable long employeeId, @Valid @RequestBody EmployeeProjectEntity body) {
-    return create(() -> archiveService.createProject(employeeId, body));
+    return create("projects", () -> archiveService.createProject(employeeId, body));
   }
 
   @PutMapping("/projects/{id}")
   public ApiResponse<Map<String, Object>> updateProject(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeProjectEntity body) {
-    return update(() -> archiveService.updateProject(employeeId, id, body));
+    return update("projects", () -> archiveService.updateProject(employeeId, id, body));
   }
 
   @DeleteMapping("/projects/{id}")
   public ApiResponse<Map<String, Object>> deleteProject(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteProject(employeeId, id));
+    return delete(employeeId, id, "projects", () -> archiveService.deleteProject(employeeId, id));
   }
 
   @GetMapping("/agent-assignments")
   public ApiResponse<List<Map<String, Object>>> listAgentAssignments(@PathVariable long employeeId) {
-    return list(employeeId, () -> archiveService.listAgentAssignments(employeeId));
+    return list(employeeId, "agent-assignments", () -> archiveService.listAgentAssignments(employeeId));
   }
 
   @PostMapping("/agent-assignments")
   public ApiResponse<Map<String, Object>> createAgentAssignment(@PathVariable long employeeId, @Valid @RequestBody EmployeeAgentAssignmentEntity body) {
-    return create(() -> archiveService.createAgentAssignment(employeeId, body));
+    return create("agent-assignments", () -> archiveService.createAgentAssignment(employeeId, body));
   }
 
   @PutMapping("/agent-assignments/{id}")
   public ApiResponse<Map<String, Object>> updateAgentAssignment(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeAgentAssignmentEntity body) {
-    return update(() -> archiveService.updateAgentAssignment(employeeId, id, body));
+    return update("agent-assignments", () -> archiveService.updateAgentAssignment(employeeId, id, body));
   }
 
   @DeleteMapping("/agent-assignments/{id}")
   public ApiResponse<Map<String, Object>> deleteAgentAssignment(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, () -> archiveService.deleteAgentAssignment(employeeId, id));
+    return delete(employeeId, id, "agent-assignments", () -> archiveService.deleteAgentAssignment(employeeId, id));
   }
 
-  private <T> ApiResponse<List<Map<String, Object>>> list(long employeeId, Supplier<List<T>> supplier) {
-    requireView();
+  private <T> ApiResponse<List<Map<String, Object>>> list(
+      long employeeId,
+      String resource,
+      Supplier<List<T>> supplier
+  ) {
+    archivePermissions.requireView(resource);
+    employeeService.require(employeeId);
     boolean reveal = employeeService.canViewSensitive();
     return ApiResponse.ok(supplier.get().stream().map(item -> toMap(item, reveal)).toList());
   }
 
-  private <T> ApiResponse<Map<String, Object>> create(Supplier<T> supplier) {
-    requireEdit();
+  private <T> ApiResponse<Map<String, Object>> create(String resource, Supplier<T> supplier) {
+    archivePermissions.requireCreate(resource);
     boolean reveal = employeeService.canViewSensitive();
     return ApiResponse.ok(toMap(supplier.get(), reveal));
   }
 
-  private <T> ApiResponse<Map<String, Object>> update(Supplier<T> supplier) {
-    requireEdit();
+  private <T> ApiResponse<Map<String, Object>> update(String resource, Supplier<T> supplier) {
+    archivePermissions.requireEdit(resource);
     boolean reveal = employeeService.canViewSensitive();
     return ApiResponse.ok(toMap(supplier.get(), reveal));
   }
 
-  private ApiResponse<Map<String, Object>> delete(long employeeId, long id, Runnable action) {
-    requireEdit();
+  private ApiResponse<Map<String, Object>> delete(
+      long employeeId,
+      long id,
+      String resource,
+      Runnable action
+  ) {
+    archivePermissions.requireDelete(resource);
+    employeeService.require(employeeId);
     action.run();
     Map<String, Object> dto = new HashMap<>();
     dto.put("id", String.valueOf(id));
@@ -572,7 +593,6 @@ public class EmployeeArchiveController {
   }
 
   private void requireView() { rbacService.requirePermission("employee:roster:view"); }
-  private void requireEdit() { rbacService.requirePermission("employee:edit"); }
 
   private Object toValue(Object source, boolean revealSensitive) {
     if (source instanceof Map<?, ?> map) {

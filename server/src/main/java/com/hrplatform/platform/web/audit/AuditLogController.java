@@ -4,7 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrplatform.platform.audit.AuditLogEntity;
 import com.hrplatform.platform.audit.AuditLogService;
-import com.hrplatform.platform.rbac.RbacService;
+import com.hrplatform.platform.rbac.RequirePermission;
 import com.hrplatform.platform.web.ApiResponse;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -24,19 +24,17 @@ import java.util.Map;
 public class AuditLogController {
   private final AuditLogService auditLogService;
   private final ObjectMapper objectMapper;
-  private final RbacService rbacService;
 
   public AuditLogController(
       AuditLogService auditLogService,
-      ObjectMapper objectMapper,
-      RbacService rbacService
+      ObjectMapper objectMapper
   ) {
     this.auditLogService = auditLogService;
     this.objectMapper = objectMapper;
-    this.rbacService = rbacService;
   }
 
   @GetMapping("/audit-logs")
+  @RequirePermission("audit:view")
   public ApiResponse<Map<String, Object>> list(
       @RequestParam(required = false) String action,
       @RequestParam(required = false) String resourceType,
@@ -46,8 +44,6 @@ public class AuditLogController {
       @RequestParam @Min(value = 1, message = "page 必须 >= 1") long page,
       @RequestParam @Min(value = 1, message = "pageSize 必须 >= 1") @Max(value = 200, message = "pageSize 不能超过 200") long pageSize
   ) {
-    rbacService.requirePermission("audit:view");
-
     AuditLogService.PageResult p = auditLogService.page(
         new AuditLogService.Query(action, resourceType, operatorUsername, from, to, page, pageSize)
     );

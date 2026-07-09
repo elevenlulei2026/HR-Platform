@@ -55,7 +55,7 @@ public class OrganizationController {
 
   @PostMapping("/legal-entities")
   public ApiResponse<Map<String, Object>> createLegalEntity(@Valid @RequestBody LegalEntityCreateRequest req) {
-    requireOrgEdit();
+    requireOrgCreate();
     LegalEntityEntity entity = new LegalEntityEntity();
     entity.setCode(req.code());
     entity.setName(req.name());
@@ -81,7 +81,7 @@ public class OrganizationController {
 
   @DeleteMapping("/legal-entities/{id}")
   public ApiResponse<Map<String, Object>> deleteLegalEntity(@PathVariable("id") long id) {
-    requireOrgEdit();
+    requireOrgDelete();
     legalEntityService.delete(id);
     return ApiResponse.ok(Map.of("id", String.valueOf(id)));
   }
@@ -135,7 +135,7 @@ public class OrganizationController {
 
   @PostMapping("/organizations")
   public ApiResponse<Map<String, Object>> createOrganization(@Valid @RequestBody OrganizationCreateRequest req) {
-    requireOrgEdit();
+    requireOrgCreate();
     OrganizationEntity entity = fromCreateRequest(req);
     OrganizationEntity created = organizationService.create(entity);
     DictLabels labels = loadDictLabels();
@@ -213,7 +213,7 @@ public class OrganizationController {
 
   @PostMapping("/positions")
   public ApiResponse<Map<String, Object>> createPosition(@Valid @RequestBody PositionCreateRequest req) {
-    requirePositionEdit();
+    requirePositionCreate();
     PositionEntity entity = fromPositionCreateRequest(req);
     PositionEntity created = positionService.create(entity);
     OrganizationEntity org = organizationService.require(created.getOrganizationId());
@@ -234,7 +234,7 @@ public class OrganizationController {
 
   @DeleteMapping("/positions/{id}")
   public ApiResponse<Map<String, Object>> deletePosition(@PathVariable("id") long id) {
-    requirePositionEdit();
+    requirePositionDelete();
     positionService.delete(id);
     return ApiResponse.ok(Map.of("id", String.valueOf(id)));
   }
@@ -242,9 +242,21 @@ public class OrganizationController {
   // ----- helpers -----
 
   private void requireOrgView() { rbacService.requirePermission("organization:view"); }
+  private void requireOrgCreate() {
+    rbacService.requireAnyPermission("organization:create", "organization:edit");
+  }
   private void requireOrgEdit() { rbacService.requirePermission("organization:edit"); }
+  private void requireOrgDelete() {
+    rbacService.requireAnyPermission("organization:delete", "organization:edit");
+  }
   private void requirePositionView() { rbacService.requirePermission("position:view"); }
+  private void requirePositionCreate() {
+    rbacService.requireAnyPermission("position:create", "position:edit");
+  }
   private void requirePositionEdit() { rbacService.requirePermission("position:edit"); }
+  private void requirePositionDelete() {
+    rbacService.requireAnyPermission("position:delete", "position:edit");
+  }
 
   /** 组织架构树：组织管理员或花名册维护者可读（任职选择部门） */
   private void requireOrgReferenceView() {

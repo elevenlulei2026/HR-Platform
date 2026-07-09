@@ -17,8 +17,11 @@ public interface EmployeeMapper extends BaseMapper<EmployeeEntity> {
       WHERE ea.is_primary = 1
         AND ea.status = 'ACTIVE'
         AND (ea.effective_end_date IS NULL OR ea.effective_end_date &gt;= CURDATE())
-        AND ea.organization_id = #{organizationId}
+        AND ea.organization_id IN
+        <foreach collection="orgIds" item="id" open="(" separator="," close=")">
+          #{id}
+        </foreach>
       </script>
       """)
-  List<Long> selectEmployeeIdsByPrimaryOrganization(@Param("organizationId") long organizationId);
+  List<Long> selectEmployeeIdsByPrimaryOrganizations(@Param("orgIds") List<Long> orgIds);
 }

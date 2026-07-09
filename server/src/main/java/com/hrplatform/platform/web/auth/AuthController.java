@@ -63,6 +63,7 @@ public class AuthController {
     var rbac = rbacService.loadUserRbac(user.getId());
     profile.put("roles", rbac.roles());
     profile.put("permissions", rbac.permissions());
+    profile.put("dataScope", rbac.dataScope().name());
     return profile;
   }
 

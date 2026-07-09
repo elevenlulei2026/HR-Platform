@@ -50,7 +50,7 @@ public class ReportingLineController {
 
   @PostMapping
   public ApiResponse<Map<String, Object>> createReportingLine(@Valid @RequestBody ReportingLineCreateRequest req) {
-    requireEdit();
+    requireCreate();
     ReportingLineEntity created = reportingLineService.create(new ReportingLineService.CreateCommand(
         req.employeeId(),
         req.managerEmployeeId(),
@@ -80,13 +80,19 @@ public class ReportingLineController {
 
   @DeleteMapping("/{id}")
   public ApiResponse<Map<String, Object>> deleteReportingLine(@PathVariable("id") long id) {
-    requireEdit();
+    requireDelete();
     reportingLineService.delete(id);
     return ApiResponse.ok(Map.of("id", String.valueOf(id)));
   }
 
   private void requireView() { rbacService.requirePermission("reporting-line:view"); }
+  private void requireCreate() {
+    rbacService.requireAnyPermission("reporting-line:create", "reporting-line:edit");
+  }
   private void requireEdit() { rbacService.requirePermission("reporting-line:edit"); }
+  private void requireDelete() {
+    rbacService.requireAnyPermission("reporting-line:delete", "reporting-line:edit");
+  }
 
   private Map<String, Object> toDto(ReportingLineEntity l, Map<Long, EmployeeEntity> empMap) {
     EmployeeEntity emp = empMap.get(l.getEmployeeId());

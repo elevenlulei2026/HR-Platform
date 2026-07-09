@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from "react-router-dom";
 
 import { RequireAuth } from "@/auth/RequireAuth";
+import { RequirePermission } from "@/auth/RequirePermission";
 import { AdminLayout } from "@/layouts/AdminLayout";
 import { LoginPage } from "@/pages/LoginPage";
 import { AdminPlaceholderPage } from "@/pages/admin/AdminPlaceholderPage";
@@ -16,6 +17,10 @@ import { AdminEmployeesRosterPage } from "@/pages/admin/employees/AdminEmployees
 import { AdminReportingLinesPage } from "@/pages/admin/employees/AdminReportingLinesPage";
 import { AdminWorkflowPage } from "@/pages/admin/platform/AdminWorkflowPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
+
+function Guarded(props: { title?: string; children: React.ReactNode }) {
+  return <RequirePermission title={props.title}>{props.children}</RequirePermission>;
+}
 
 export default function App() {
   return (
@@ -33,31 +38,77 @@ export default function App() {
         }
       >
         <Route index element={<Navigate to="/admin/dashboard" replace />} />
-        <Route path="dashboard" element={<AdminPlaceholderPage title="工作台" />} />
-        <Route path="reports" element={<AdminPlaceholderPage title="报表概览" />} />
-        <Route path="settings" element={<AdminSettingsPage />} />
-
-        <Route path="org/structure" element={<AdminOrgStructurePage />} />
-        <Route path="org/positions" element={<AdminOrgPositionsPage />} />
-        <Route path="org/headcount" element={<AdminOrgHeadcountPage />} />
-
-        <Route path="employees/roster" element={<AdminEmployeesRosterPage />} />
-        <Route path="employees/reporting-lines" element={<AdminReportingLinesPage />} />
-
-        <Route path="onboarding" element={<AdminPlaceholderPage title="入职办理" />} />
-        <Route path="movements" element={<AdminPlaceholderPage title="人事异动" />} />
-        <Route path="offboarding" element={<AdminPlaceholderPage title="离职办理" />} />
-        <Route path="contracts" element={<AdminPlaceholderPage title="合同管理" />} />
-
-        <Route path="platform/workflow" element={<AdminWorkflowPage />} />
-        <Route path="platform/tasks" element={<AdminTasksPage />} />
         <Route
-          path="platform/permissions"
-          element={<AdminPermissionsPage />}
+          path="dashboard"
+          element={
+            <Guarded title="工作台">
+              <AdminPlaceholderPage title="工作台" />
+            </Guarded>
+          }
         />
-        <Route path="platform/audit" element={<AdminAuditLogsPage />} />
+        <Route
+          path="reports"
+          element={
+            <Guarded title="报表概览">
+              <AdminPlaceholderPage title="报表概览" />
+            </Guarded>
+          }
+        />
+        <Route
+          path="settings"
+          element={
+            <Guarded title="系统设置">
+              <AdminSettingsPage />
+            </Guarded>
+          }
+        />
 
-        <Route path="dev/health" element={<AdminDevHealthPage />} />
+        <Route path="org/structure" element={<Guarded title="组织架构"><AdminOrgStructurePage /></Guarded>} />
+        <Route path="org/positions" element={<Guarded title="岗位体系"><AdminOrgPositionsPage /></Guarded>} />
+        <Route path="org/headcount" element={<Guarded title="编制管理"><AdminOrgHeadcountPage /></Guarded>} />
+
+        <Route path="employees/roster" element={<Guarded title="员工花名册"><AdminEmployeesRosterPage /></Guarded>} />
+        <Route path="employees/reporting-lines" element={<Guarded title="汇报关系"><AdminReportingLinesPage /></Guarded>} />
+
+        <Route
+          path="onboarding"
+          element={
+            <Guarded title="入职办理">
+              <AdminPlaceholderPage title="入职办理" />
+            </Guarded>
+          }
+        />
+        <Route
+          path="movements"
+          element={
+            <Guarded title="人事异动">
+              <AdminPlaceholderPage title="人事异动" />
+            </Guarded>
+          }
+        />
+        <Route
+          path="offboarding"
+          element={
+            <Guarded title="离职办理">
+              <AdminPlaceholderPage title="离职办理" />
+            </Guarded>
+          }
+        />
+        <Route
+          path="contracts"
+          element={
+            <Guarded title="合同管理">
+              <AdminPlaceholderPage title="合同管理" />
+            </Guarded>
+          }
+        />
+
+        <Route path="platform/workflow" element={<Guarded title="流程配置"><AdminWorkflowPage /></Guarded>} />
+        <Route path="platform/tasks" element={<Guarded title="待办中心"><AdminTasksPage /></Guarded>} />
+        <Route path="platform/permissions" element={<Guarded title="RBAC 权限"><AdminPermissionsPage /></Guarded>} />
+        <Route path="platform/audit" element={<Guarded title="审计日志"><AdminAuditLogsPage /></Guarded>} />
+
+        <Route path="dev/health" element={<Guarded title="健康检查"><AdminDevHealthPage /></Guarded>} />
       </Route>
 
       <Route path="*" element={<NotFoundPage />} />

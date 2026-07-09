@@ -19,17 +19,20 @@ public class RbacService {
   private final PermissionMapper permissionMapper;
   private final RolePermissionMapper rolePermissionMapper;
   private final UserRoleMapper userRoleMapper;
+  private final RoleOrgScopeMapper roleOrgScopeMapper;
 
   public RbacService(
       RoleMapper roleMapper,
       PermissionMapper permissionMapper,
       RolePermissionMapper rolePermissionMapper,
-      UserRoleMapper userRoleMapper
+      UserRoleMapper userRoleMapper,
+      RoleOrgScopeMapper roleOrgScopeMapper
   ) {
     this.roleMapper = roleMapper;
     this.permissionMapper = permissionMapper;
     this.rolePermissionMapper = rolePermissionMapper;
     this.userRoleMapper = userRoleMapper;
+    this.roleOrgScopeMapper = roleOrgScopeMapper;
   }
 
   public UserRbac loadUserRbac(long userId) {
@@ -60,15 +63,32 @@ public class RbacService {
     if (permissionCodes == null || permissionCodes.length == 0) {
       throw new IllegalArgumentException("permissionCodes 不能为空");
     }
+    if (AuthContext.current() == null) {
+      throw new UnauthorizedException("未登录或登录已过期");
+    }
+    if (!hasAnyPermission(permissionCodes)) {
+      throw new ForbiddenException("无权限");
+    }
+  }
+
+  public boolean hasPermission(String permissionCode) {
+    if (permissionCode == null || permissionCode.isBlank()) return false;
     AuthUser u = AuthContext.current();
-    if (u == null) throw new UnauthorizedException("未登录或登录已过期");
+    if (u == null || u.permissions() == null) return false;
+    return u.permissions().contains(permissionCode);
+  }
+
+  public boolean hasAnyPermission(String... permissionCodes) {
+    if (permissionCodes == null || permissionCodes.length == 0) return false;
+    AuthUser u = AuthContext.current();
+    if (u == null) return false;
     Set<String> granted = u.permissions() == null ? Set.of() : u.permissions();
     for (String code : permissionCodes) {
       if (code != null && !code.isBlank() && granted.contains(code)) {
-        return;
+        return true;
       }
     }
-    throw new ForbiddenException("无权限");
+    return false;
   }
 
   public void requireLoggedIn() {
@@ -135,17 +155,44 @@ public class RbacService {
     return userRoleMapper.selectRoleCodesByUserId(userId);
   }
 
+  public List<String> listRoleOrgScopeIds(long roleId) {
+    RoleEntity role = roleMapper.selectById(roleId);
+    if (role == null) throw new IllegalArgumentException("角色不存在");
+    return roleOrgScopeMapper.selectOrganizationIdsByRoleId(roleId).stream()
+        .map(String::valueOf)
+        .toList();
+  }
+
+  @Transactional
+  public void setRoleOrgScopes(long roleId, List<Long> organizationIds) {
+    RoleEntity role = roleMapper.selectById(roleId);
+    if (role == null) throw new IllegalArgumentException("角色不存在");
+    roleOrgScopeMapper.deleteByRoleId(roleId);
+    if (organizationIds == null || organizationIds.isEmpty()) return;
+    for (Long orgId : organizationIds) {
+      if (orgId != null) roleOrgScopeMapper.insert(roleId, orgId);
+    }
+  }
+
+  /** 当前用户 CUSTOM 数据范围下的组织根节点 */
+  public List<Long> loadUserCustomOrgIds(long userId) {
+    return roleOrgScopeMapper.selectOrganizationIdsByUserId(userId);
+  }
+
   private DataScope resolveMaxDataScope(List<String> scopes) {
     if (scopes == null || scopes.isEmpty()) return DataScope.SELF;
     boolean hasAll = false;
+    boolean hasCustom = false;
     boolean hasDept = false;
     for (String s : scopes) {
       if (s == null) continue;
       String v = s.trim().toUpperCase();
       if ("ALL".equals(v)) hasAll = true;
+      else if ("CUSTOM".equals(v)) hasCustom = true;
       else if ("DEPARTMENT".equals(v)) hasDept = true;
     }
     if (hasAll) return DataScope.ALL;
+    if (hasCustom) return DataScope.CUSTOM;
     if (hasDept) return DataScope.DEPARTMENT;
     return DataScope.SELF;
   }

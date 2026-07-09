@@ -3,8 +3,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 
+import { getNavMenuTree } from "@/api/menu";
 import { UserMenu } from "@/components/admin/UserMenu";
-import { adminTopNav, flattenAdminNavLinks, getAdminBreadcrumb } from "@/config/admin-nav";
+import {
+  adminTopNav,
+  getAdminBreadcrumb,
+  type AdminNavTopItem,
+} from "@/config/admin-nav";
+import {
+  flattenDynamicNavLinks,
+  getDynamicBreadcrumb,
+  sysMenusToAdminTopNav,
+} from "@/config/dynamic-admin-nav";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -56,11 +66,13 @@ export function AdminLayout() {
 
   const [cmdOpen, setCmdOpen] = useState(false);
   const [themeMounted, setThemeMounted] = useState(false);
+  const [topNav, setTopNav] = useState<AdminNavTopItem[]>(adminTopNav);
 
-  const breadcrumb = useMemo(
-    () => getAdminBreadcrumb(location.pathname),
-    [location.pathname],
-  );
+  const breadcrumb = useMemo(() => {
+    const dynamic = getDynamicBreadcrumb(location.pathname, topNav);
+    if (dynamic.length > 0) return dynamic;
+    return getAdminBreadcrumb(location.pathname);
+  }, [location.pathname, topNav]);
 
   const pageTitle = breadcrumb[breadcrumb.length - 1];
   useDocumentTitle(pageTitle === "未定义页面" ? undefined : pageTitle);
@@ -69,13 +81,47 @@ export function AdminLayout() {
     setThemeMounted(true);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    void getNavMenuTree()
+      .then((res) => {
+        if (cancelled) return;
+        const converted = sysMenusToAdminTopNav(res.data);
+        if (converted.length > 0) setTopNav(converted);
+      })
+      .catch(() => {
+        // 保留静态 admin-nav 作为 fallback
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const isDark = resolvedTheme === "dark";
 
   function toggleTheme() {
     setTheme(isDark ? "light" : "dark");
   }
 
-  const allLinks = useMemo(() => flattenAdminNavLinks(), []);
+  const allLinks = useMemo(() => flattenDynamicNavLinks(topNav), [topNav]);
+
+  const visibleTopNav = useMemo(() => {
+    return topNav
+      .map((item) => {
+        if (item.type === "link") {
+          return perm.has(item.permission) ? item : null;
+        }
+        const columns = item.columns
+          .map((col) => ({
+            ...col,
+            links: col.links.filter((link) => perm.has(link.permission)),
+          }))
+          .filter((col) => col.links.length > 0);
+        if (columns.length === 0) return null;
+        return { ...item, columns };
+      })
+      .filter((item): item is NonNullable<typeof item> => item != null);
+  }, [perm, topNav]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -106,7 +152,7 @@ export function AdminLayout() {
           <div className="relative flex shrink-0 items-center gap-2">
             <NavigationMenu>
               <NavigationMenuList className="hidden lg:flex">
-                {adminTopNav.map((item) => {
+                {visibleTopNav.map((item) => {
                   if (item.type === "link") {
                     const active = location.pathname === item.to;
                     return (
@@ -144,15 +190,9 @@ export function AdminLayout() {
                                   <a
                                     key={link.to}
                                     href={link.to}
-                                    className={cn(
-                                      "block rounded-lg px-3 py-2 text-sm",
-                                      perm.has(link.permission)
-                                        ? "hover:bg-accent"
-                                        : "opacity-50 cursor-not-allowed",
-                                    )}
+                                    className="block rounded-lg px-3 py-2 text-sm hover:bg-accent"
                                     onClick={(e) => {
                                       e.preventDefault();
-                                      if (!perm.has(link.permission)) return;
                                       navigate(link.to);
                                     }}
                                   >

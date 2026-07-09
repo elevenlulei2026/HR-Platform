@@ -98,6 +98,8 @@ public class GlobalExceptionHandler {
       msg = "法人实体关联无效，请重新选择法人实体";
     } else if (detail.contains("storage_key") || detail.contains("employee_attachment")) {
       msg = "附件信息保存失败，请缩短文件名后重试";
+    } else if (detail.contains("uk_permission_code") || detail.contains("permission.code")) {
+      msg = "权限 code 已存在，请更换模块/资源/操作组合或编辑已有权限点";
     }
     log.warn("Data integrity violation: {}", detail);
     return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ApiResponse.fail("BAD_REQUEST", msg));
