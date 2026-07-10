@@ -265,10 +265,10 @@ export function EmployeeMasterFormBody({
             label="最高学历"
             value={form.highestEducation}
             onChange={(value) => patch("highestEducation", value)}
-            options={opts.highestEducations}
+            options={opts.educations}
             loading={dictLoading}
           />
-          <FormField label="最高学历毕业日期">
+          <FormField label="学历毕业日期">
             <Input
               type="date"
               value={form.highestEducationGradDate}

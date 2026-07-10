@@ -135,7 +135,8 @@
 | 17 | 员工服务 | 附件信息 | `employee_attachment` | 7.3 |
 | 18 | 背景信息 | 教育信息（多行） | `employee_education` | 7.4 |
 | 19 | 背景信息 | 工作经历（多行） | `employee_work_experience` | 7.4 |
-| 20 | 背景信息 | 资格职称信息（多行） | `employee_qualification` | 7.4 |
+| 20 | 背景信息 | 资格证书（多行） | `employee_qualification` | 7.4 |
+| 20a | 背景信息 | 职称证书（多行） | `employee_title_certificate` | 7.4 |
 | 21 | 背景信息 | 奖惩信息 | `employee_reward` / `employee_penalty` | 7.4 |
 | 22 | 人才发展 | 培训记录（多行） | `employee_training_record` | 7.5 |
 | 23 | 人才发展 | 历史绩效记录（多行） | `employee_performance_record` | 7.5 |
@@ -157,8 +158,8 @@
 | gender | VARCHAR(16) | 性别（字典） | 个人基础信息 |
 | marital_status | VARCHAR(32) NULL | 婚姻状况（字典） | 个人基础信息 |
 | political_affiliation | VARCHAR(32) NULL | 政治面貌（字典） | 个人基础信息 |
-| highest_education | VARCHAR(32) NULL | 最高学历（字典） | 个人基础信息 |
-| highest_education_grad_date | DATE NULL | 最高学历毕业时间 | 个人基础信息 |
+| highest_education | VARCHAR(32) NULL | 学历（字典 EDUCATION） | 个人基础信息 |
+| highest_education_grad_date | DATE NULL | 学历毕业时间 | 个人基础信息 |
 | fertility_status | VARCHAR(32) NULL | 生育状况（字典） | 个人基础信息 |
 | ethnicity | VARCHAR(32) NULL | 民族（字典） | 个人基础信息 |
 | hobbies | VARCHAR(512) NULL | 兴趣与爱好 | 个人基础信息 |
@@ -203,9 +204,10 @@
 | `employee_admin_info` | 16 | 行政信息 | effective_start_date, effective_end_date, status, work_environment（字典）, take_shuttle（YES/NO）, parking_permit（YES/NO） |
 | `employee_accommodation` | 16a | 住宿信息 | effective_start_date, effective_end_date, status, has_accommodation（YES/NO）, accommodation_fee_total |
 | `employee_attachment` | 17 | 附件 | attachment_type, original_filename, storage_key, uploaded_at |
-| `employee_education` | 18 | 教育信息 | degree, education_level, is_highest, country_region, school_name, major, start_date, end_date, diploma_no, degree_no, attachment_id |
+| `employee_education` | 18 | 教育信息 | degree, education_level, is_highest, country_region, school_name, major, start_date, end_date, diploma_no, degree_no, attachment_ids |
 | `employee_work_experience` | 19 | 工作经历 | start_date, end_date, employer_name, department, position, leave_reason, last_salary, referee, referee_phone, pay_frequency, currency_code, description |
-| `employee_qualification` | 20 | 资格职称 | title_name, title_level, approval_date, expiry_date, certificate_no, issuing_org, attachment_id |
+| `employee_qualification` | 20 | 资格证书 | skill_type, first_issue_date, expiry_date, review_date, certificate_name, certificate_no, handler_name, issuing_org, remark, attachment_ids |
+| `employee_title_certificate` | 20a | 职称证书 | title_name, title_level, approval_date, expiry_date, certificate_no, issuing_org, remark, attachment_ids |
 | `employee_reward` / `employee_penalty` | 21 | 奖励 / 处罚 | effective_date, archive_date, type, level, witness, amount, payment_method, issuing_org, document_no, description |
 | `employee_training_record` | 22 | 培训记录（档案） | training_name, training_type, provider, start_date, end_date, hours, result, certificate_no, attachment_id, remark |
 | `employee_performance_record` | 23 | 历史绩效（档案） | period, rating, rating_label, score, reviewer_name, review_date, source_type, remark |

@@ -1,7 +1,7 @@
 import type { EmployeeAgreement, EmployeeAttachment } from "@shared/api.interface";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, Edit, FileUp, Plus, Trash2 } from "lucide-react";
+import { Download, Edit, FileUp, Plus, Trash2, X } from "lucide-react";
 
 import type { ApiError } from "@/api/http";
 import {
@@ -37,6 +37,7 @@ import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 type AgreementSectionProps = {
   employeeId: string;
@@ -279,7 +280,7 @@ export function AgreementSection({
         storageKey: stored.storageKey,
       });
       setForm((prev) => ({ ...prev, fileAttachmentId: created.data.id }));
-      toast.success("附件已上传并关联到协议");
+      toast.success("附件已上传");
       await onChanged();
     } catch (e: unknown) {
       const apiErr = toApiError(e);
@@ -288,6 +289,10 @@ export function AgreementSection({
       setUploading(false);
       if (uploadInputRef.current) uploadInputRef.current.value = "";
     }
+  };
+
+  const removeAttachment = () => {
+    setForm((prev) => ({ ...prev, fileAttachmentId: "" }));
   };
 
   const download = async (attachmentId: string) => {
@@ -348,6 +353,7 @@ export function AgreementSection({
               const operationLabel =
                 item.operationType ? operationTypeNameByCode[item.operationType] || item.operationType : "—";
               const periodDisplay = `${item.startDate || "—"} ~ ${item.endDate || "—"}`;
+              const hasAttachment = !!item.fileAttachmentId;
               const statusBadge = (
                 <ArchiveStatusBadge
                   active={isArchiveValidityActive(item.status)}
@@ -362,8 +368,12 @@ export function AgreementSection({
                   accent={item.status === "INVALID" ? "amber" : "primary"}
                   actions={
                     <>
-                      {item.fileAttachmentId ? (
-                        <ArchiveRecordActionButton onClick={() => void download(item.fileAttachmentId!)} icon={Download} label="下载附件" />
+                      {hasAttachment ? (
+                        <ArchiveRecordActionButton
+                          onClick={() => void download(item.fileAttachmentId!)}
+                          icon={Download}
+                          label="下载附件"
+                        />
                       ) : null}
                       {canEdit ? (
                         <>
@@ -416,6 +426,20 @@ export function AgreementSection({
                       compact
                     />
                   </ArchiveRecordFieldGrid>
+                  {hasAttachment ? (
+                    <div className="mt-2 flex flex-wrap gap-1.5 border-t border-border/50 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => void download(item.fileAttachmentId!)}
+                        className="inline-flex max-w-[200px] items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        <Download className="size-3 shrink-0" />
+                        <span className="truncate">
+                          {attachmentNameById.get(item.fileAttachmentId!) ?? item.fileAttachmentId}
+                        </span>
+                      </button>
+                    </div>
+                  ) : null}
                 </ArchiveRecordCard>
               );
             })}
@@ -510,27 +534,55 @@ export function AgreementSection({
           </FormField>
 
           <div className="md:col-span-2">
-            <FormField label="附件">
-              <div className="flex flex-wrap items-center gap-2">
-                <Input
-                  value={form.fileAttachmentId}
-                  onChange={(e) => setForm((prev) => ({ ...prev, fileAttachmentId: e.target.value }))}
-                  placeholder="可上传附件或粘贴附件ID"
-                  className="min-w-[260px] flex-1"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={pickUpload}
-                  disabled={!canEdit || uploading}
-                >
-                  <FileUp className="size-4" />
-                  上传附件
-                </Button>
+            <FormField label="附件" hint="支持上传协议扫描件，单文件不超过 20MB">
+              <div
+                className={cn(
+                  "rounded-lg border border-dashed border-border/70 bg-muted/20 p-3",
+                  !form.fileAttachmentId && "min-h-[88px]",
+                )}
+              >
                 {form.fileAttachmentId ? (
-                  <Button type="button" variant="outline" onClick={() => void download(form.fileAttachmentId)}>
-                    <Download className="size-4" />
-                    下载
+                  <ul className="mb-2 space-y-1.5">
+                    <li className="flex items-center gap-2 rounded-md border border-border/50 bg-background/80 px-2.5 py-1.5 text-sm">
+                      <span className="min-w-0 flex-1 truncate text-[13px]">
+                        {attachmentNameById.get(form.fileAttachmentId) ?? form.fileAttachmentId}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 shrink-0"
+                        onClick={() => void download(form.fileAttachmentId)}
+                      >
+                        <Download className="size-3.5" />
+                      </Button>
+                      {canEdit ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 shrink-0 text-destructive hover:text-destructive"
+                          onClick={removeAttachment}
+                        >
+                          <X className="size-3.5" />
+                        </Button>
+                      ) : null}
+                    </li>
+                  </ul>
+                ) : (
+                  <p className="mb-2 text-xs text-muted-foreground">尚未上传附件，可上传协议扫描件</p>
+                )}
+                {canEdit ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={pickUpload}
+                    disabled={uploading}
+                    className="gap-1.5"
+                  >
+                    <FileUp className="size-3.5" />
+                    {uploading ? "上传中…" : "上传附件"}
                   </Button>
                 ) : null}
               </div>

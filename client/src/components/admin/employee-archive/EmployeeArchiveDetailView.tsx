@@ -41,10 +41,6 @@ import {
 import type { ReactNode } from "react";
 
 import {
-  BACKGROUND_EDUCATION_FIELDS,
-  BACKGROUND_PENALTY_FIELDS,
-  BACKGROUND_QUALIFICATION_FIELDS,
-  BACKGROUND_REWARD_FIELDS,
   BACKGROUND_WORK_EXP_FIELDS,
   PERSONAL_FAMILY_FIELDS,
   PERSONAL_ID_DOCUMENT_FIELDS,
@@ -72,6 +68,11 @@ import { AttendanceCardSection } from "@/components/admin/employee-archive/Atten
 import { AdminInfoSection } from "@/components/admin/employee-archive/AdminInfoSection";
 import { AccommodationSection } from "@/components/admin/employee-archive/AccommodationSection";
 import { ContractSection } from "@/components/admin/employee-archive/ContractSection";
+import { EducationSection } from "@/components/admin/employee-archive/EducationSection";
+import { QualificationSection } from "@/components/admin/employee-archive/QualificationSection";
+import { PenaltySection } from "@/components/admin/employee-archive/PenaltySection";
+import { RewardSection } from "@/components/admin/employee-archive/RewardSection";
+import { TitleCertificateSection } from "@/components/admin/employee-archive/TitleCertificateSection";
 import { ArchiveDetailNav } from "@/components/admin/employee-archive/ArchiveDetailNav";
 import { ArchiveMultiSection } from "@/components/admin/employee-archive/ArchiveMultiSection";
 import { ArchiveSectionAnchor } from "@/components/admin/employee-archive/ArchiveSectionAnchor";
@@ -96,7 +97,7 @@ const FIELD_ICONS: Record<string, LucideIcon> = {
   婚育状况: HeartHandshake,
   政治面貌: Flag,
   最高学历: GraduationCap,
-  最高学历毕业时间: Calendar,
+  学历毕业时间: Calendar,
   生育状况: Baby,
   民族: Users,
   国籍: Flag,
@@ -368,6 +369,8 @@ export function EmployeeArchiveDetailView({
             currencies: dictOptions.currencies,
             payrollCompanies: dictOptions.payrollCompanies,
             insuranceRegions: dictOptions.insuranceRegions,
+            educations: dictOptions.educations,
+            degrees: dictOptions.degrees,
           }
         : null,
     [dictOptions],
@@ -393,6 +396,7 @@ export function EmployeeArchiveDetailView({
       educations: archive.educations.length,
       "work-experiences": archive.workExperiences.length,
       qualifications: archive.qualifications.length,
+      "title-certificates": archive.titleCertificates.length,
       rewards: archive.rewards.length,
       penalties: archive.penalties.length,
       "training-records": archive.trainingRecords.length,
@@ -533,7 +537,7 @@ export function EmployeeArchiveDetailView({
                           value={employee.highestEducationLabel ?? employee.highestEducation}
                         />
                         <InfoRow
-                          label="最高学历毕业时间"
+                          label="学历毕业时间"
                           value={employee.highestEducationGradDate}
                         />
                         <InfoRow
@@ -759,12 +763,11 @@ export function EmployeeArchiveDetailView({
                   </ArchiveSectionAnchor>
 
                   <ArchiveSectionAnchor id="educations">
-                    <ArchiveMultiSection
-                      title="教育经历"
+                    <EducationSection
                       employeeId={employee.id}
-                      resourcePath="educations"
                       items={archive.educations}
-                      fieldDefs={BACKGROUND_EDUCATION_FIELDS}
+                      attachments={archive.attachments}
+                      dictOptions={sectionDictOptions}
                       canEdit={sectionEdit("background")}
                       onChanged={onArchiveChanged}
                     />
@@ -781,34 +784,35 @@ export function EmployeeArchiveDetailView({
                     />
                   </ArchiveSectionAnchor>
                   <ArchiveSectionAnchor id="qualifications">
-                    <ArchiveMultiSection
-                      title="资格证书"
+                    <QualificationSection
                       employeeId={employee.id}
-                      resourcePath="qualifications"
                       items={archive.qualifications}
-                      fieldDefs={BACKGROUND_QUALIFICATION_FIELDS}
+                      attachments={archive.attachments}
+                      canEdit={sectionEdit("background")}
+                      onChanged={onArchiveChanged}
+                    />
+                  </ArchiveSectionAnchor>
+                  <ArchiveSectionAnchor id="title-certificates">
+                    <TitleCertificateSection
+                      employeeId={employee.id}
+                      items={archive.titleCertificates}
+                      attachments={archive.attachments}
                       canEdit={sectionEdit("background")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
                   <ArchiveSectionAnchor id="rewards">
-                    <ArchiveMultiSection
-                      title="奖励记录"
+                    <RewardSection
                       employeeId={employee.id}
-                      resourcePath="rewards"
                       items={archive.rewards}
-                      fieldDefs={BACKGROUND_REWARD_FIELDS}
                       canEdit={sectionEdit("background")}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
                   <ArchiveSectionAnchor id="penalties">
-                    <ArchiveMultiSection
-                      title="惩处记录"
+                    <PenaltySection
                       employeeId={employee.id}
-                      resourcePath="penalties"
                       items={archive.penalties}
-                      fieldDefs={BACKGROUND_PENALTY_FIELDS}
                       canEdit={sectionEdit("background")}
                       onChanged={onArchiveChanged}
                     />

@@ -114,6 +114,14 @@ const ATTACHMENT_TYPE_CATALOG: AttachmentTypeDef[] = [
     wash: "from-teal-500/[0.06]",
   },
   {
+    value: "TITLE_CERTIFICATE",
+    label: "职称证书",
+    icon: FileImage,
+    accent: "text-cyan-600 dark:text-cyan-400",
+    ring: "ring-cyan-500/20 hover:ring-cyan-500/40",
+    wash: "from-cyan-500/[0.06]",
+  },
+  {
     value: "OTHER",
     label: "其他",
     icon: Paperclip,

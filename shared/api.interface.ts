@@ -1350,8 +1350,10 @@ export type Employee = {
   maritalStatusLabel?: string;
   politicalAffiliation?: string;
   politicalAffiliationLabel?: string;
+  /** 学历（数据字典：EDUCATION） */
   highestEducation?: string;
   highestEducationLabel?: string;
+  /** 学历毕业日期 */
   highestEducationGradDate?: string; // YYYY-MM-DD
   fertilityStatus?: string;
   fertilityStatusLabel?: string;
@@ -1394,7 +1396,10 @@ export type Employee = {
 export type EmployeeFormOptions = {
   maritalStatuses: DictOption[];
   politicalAffiliations: DictOption[];
-  highestEducations: DictOption[];
+  /** 学历（数据字典：EDUCATION） */
+  educations: DictOption[];
+  /** 学位（数据字典：DEGREE） */
+  degrees: DictOption[];
   fertilityStatuses: DictOption[];
   ethnicities: DictOption[];
   nationalities: DictOption[];
@@ -1953,16 +1958,19 @@ export type EmployeeAttachment = EmployeeArchiveRecordBase & {
 
 export type EmployeeEducation = EmployeeArchiveRecordBase & {
   degree?: string;
+  degreeLabel?: string;
   educationLevel?: string;
+  educationLevelLabel?: string;
   isHighest?: boolean;
   countryRegion?: string;
+  countryRegionLabel?: string;
   schoolName?: string;
   major?: string;
   startDate?: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
   diplomaNo?: string;
   degreeNo?: string;
-  attachmentId?: string;
+  attachmentIds?: string[];
 };
 
 export type EmployeeWorkExperience = EmployeeArchiveRecordBase & {
@@ -1980,14 +1988,30 @@ export type EmployeeWorkExperience = EmployeeArchiveRecordBase & {
   description?: string;
 };
 
+/** 资格证书（技能类） */
 export type EmployeeQualification = EmployeeArchiveRecordBase & {
+  skillType?: string;
+  firstIssueDate?: string; // YYYY-MM-DD 最早获证日期
+  expiryDate?: string; // YYYY-MM-DD 有效日到期日
+  reviewDate?: string; // YYYY-MM-DD 复审日期
+  certificateName?: string;
+  certificateNo?: string;
+  handlerName?: string; // 经办人
+  issuingOrg?: string; // 发证机构
+  remark?: string;
+  attachmentIds?: string[];
+};
+
+/** 职称证书 */
+export type EmployeeTitleCertificate = EmployeeArchiveRecordBase & {
   titleName?: string;
   titleLevel?: string;
   approvalDate?: string; // YYYY-MM-DD
   expiryDate?: string; // YYYY-MM-DD
   certificateNo?: string;
-  issuingOrg?: string;
-  attachmentId?: string;
+  issuingOrg?: string; // 签发单位
+  remark?: string;
+  attachmentIds?: string[];
 };
 
 export type EmployeeReward = EmployeeArchiveRecordBase & {
@@ -2006,11 +2030,16 @@ export type EmployeeReward = EmployeeArchiveRecordBase & {
 export type EmployeePenalty = EmployeeArchiveRecordBase & {
   effectiveDate?: string; // YYYY-MM-DD
   archiveDate?: string; // YYYY-MM-DD
+  /** 惩处类型（父子值 PENALTY_TYPE 一级） */
   type?: string;
+  /** 惩处类别（父子值 PENALTY_TYPE 二级；经济处罚无子项） */
   level?: string;
   witness?: string;
   amount?: number;
+  /** 扣款方式（字典 PENALTY_PAYMENT_METHOD） */
   paymentMethod?: string;
+  /** 是否涉及赔偿 */
+  involvesCompensation?: boolean;
   issuingOrg?: string;
   documentNo?: string;
   description?: string;
@@ -2097,6 +2126,7 @@ export type EmployeeArchive = {
   educations: EmployeeEducation[];
   workExperiences: EmployeeWorkExperience[];
   qualifications: EmployeeQualification[];
+  titleCertificates: EmployeeTitleCertificate[];
   rewards: EmployeeReward[];
   penalties: EmployeePenalty[];
   trainingRecords: EmployeeTrainingRecord[];
@@ -2125,6 +2155,7 @@ export type EmployeeArchiveResourcePath =
   | "educations"
   | "work-experiences"
   | "qualifications"
+  | "title-certificates"
   | "rewards"
   | "penalties"
   | "training-records"
@@ -2152,6 +2183,7 @@ export type EmployeeArchiveResourceByPath = {
   educations: EmployeeEducation;
   "work-experiences": EmployeeWorkExperience;
   qualifications: EmployeeQualification;
+  "title-certificates": EmployeeTitleCertificate;
   rewards: EmployeeReward;
   penalties: EmployeePenalty;
   "training-records": EmployeeTrainingRecord;
@@ -2231,7 +2263,7 @@ export type EmployeeApi = {
    * family-members | internal-relatives | id-documents | cost-center-allocations
    * contracts | agreements | attendance-cards | bank-accounts | social-insurances
    * special-benefits | work-injuries | admin-infos | accommodations | attachments | educations
-   * work-experiences | qualifications | rewards | penalties | training-records
+   * work-experiences | qualifications | title-certificates | rewards | penalties | training-records
    * performance-records | values-assessments | talent-reviews | projects | agent-assignments
    */
   listEmployeeArchiveResource: <TPath extends EmployeeArchiveResourcePath>(

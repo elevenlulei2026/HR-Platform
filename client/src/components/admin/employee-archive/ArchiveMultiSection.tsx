@@ -67,6 +67,8 @@ export type ArchiveDictKey = keyof Pick<
   | "currencies"
   | "payrollCompanies"
   | "insuranceRegions"
+  | "educations"
+  | "degrees"
 >;
 
 export type ArchiveDictOptions = Pick<EmployeeFormOptions, ArchiveDictKey>;

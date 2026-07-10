@@ -53,6 +53,7 @@ export const ARCHIVE_NAV: ArchiveCategoryDef[] = [
       { id: "educations", label: "教育经历" },
       { id: "work-experiences", label: "工作经历" },
       { id: "qualifications", label: "资格证书" },
+      { id: "title-certificates", label: "职称证书" },
       { id: "rewards", label: "奖励记录" },
       { id: "penalties", label: "惩处记录" },
     ],

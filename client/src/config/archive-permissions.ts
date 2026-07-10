@@ -19,6 +19,7 @@ export const ARCHIVE_RESOURCE_SECTION: Record<string, ArchivePermissionSection> 
   educations: "background",
   "work-experiences": "background",
   qualifications: "background",
+  "title-certificates": "background",
   rewards: "background",
   penalties: "background",
   "training-records": "development",

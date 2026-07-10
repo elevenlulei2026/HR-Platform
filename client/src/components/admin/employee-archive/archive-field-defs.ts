@@ -177,17 +177,25 @@ export const SERVICE_WORK_INJURY_FIELDS: ArchiveFieldDef[] = [
 ];
 
 export const BACKGROUND_EDUCATION_FIELDS: ArchiveFieldDef[] = [
-  { key: "degree", label: "学位" },
-  { key: "educationLevel", label: "学历层次" },
-  { key: "isHighest", label: "最高学历", type: "boolean", options: BOOLEAN_OPTIONS },
-  { key: "countryRegion", label: "国家/地区" },
+  { key: "educationLevel", label: "学历", dictKey: "educations", displayKey: "educationLevelLabel" },
+  { key: "degree", label: "学位", dictKey: "degrees", displayKey: "degreeLabel" },
+  {
+    key: "isHighest",
+    label: "最高学历",
+    type: "toggle",
+    showInList: false,
+    options: [
+      { value: "true", label: "是" },
+      { value: "false", label: "否" },
+    ],
+  },
+  { key: "countryRegion", label: "国家/地区", dictKey: "countryRegions", displayKey: "countryRegionLabel" },
   { key: "schoolName", label: "学校", required: true },
   { key: "major", label: "专业" },
   { key: "startDate", label: "开始日期", type: "date" },
   { key: "endDate", label: "结束日期", type: "date" },
   { key: "diplomaNo", label: "毕业证编号" },
   { key: "degreeNo", label: "学位证编号" },
-  { key: "attachmentId", label: "附件ID" },
 ];
 
 export const BACKGROUND_WORK_EXP_FIELDS: ArchiveFieldDef[] = [
@@ -206,20 +214,32 @@ export const BACKGROUND_WORK_EXP_FIELDS: ArchiveFieldDef[] = [
 ];
 
 export const BACKGROUND_QUALIFICATION_FIELDS: ArchiveFieldDef[] = [
-  { key: "titleName", label: "资格/职称", required: true },
-  { key: "titleLevel", label: "等级" },
+  { key: "certificateName", label: "证书名称", required: true },
+  { key: "skillType", label: "技能类型" },
+  { key: "firstIssueDate", label: "最早获证日期", type: "date" },
+  { key: "expiryDate", label: "有效日到期日", type: "date" },
+  { key: "reviewDate", label: "复审日期", type: "date" },
+  { key: "certificateNo", label: "证书号码" },
+  { key: "handlerName", label: "经办人" },
+  { key: "issuingOrg", label: "发证机构" },
+  { key: "remark", label: "备注" },
+];
+
+export const BACKGROUND_TITLE_CERTIFICATE_FIELDS: ArchiveFieldDef[] = [
+  { key: "titleName", label: "职称名称", required: true },
+  { key: "titleLevel", label: "职称级别" },
   { key: "approvalDate", label: "批准日期", type: "date" },
-  { key: "expiryDate", label: "失效日期", type: "date" },
-  { key: "certificateNo", label: "证书编号" },
+  { key: "expiryDate", label: "到期日", type: "date" },
+  { key: "certificateNo", label: "证书号码" },
   { key: "issuingOrg", label: "签发单位" },
-  { key: "attachmentId", label: "附件ID" },
+  { key: "remark", label: "备注" },
 ];
 
 export const BACKGROUND_REWARD_FIELDS: ArchiveFieldDef[] = [
-  { key: "type", label: "奖励类型", required: true },
-  { key: "level", label: "级别" },
   { key: "effectiveDate", label: "生效日期", type: "date" },
   { key: "archiveDate", label: "归档日期", type: "date" },
+  { key: "type", label: "奖励类型", required: true },
+  { key: "level", label: "级别" },
   { key: "witness", label: "见证人" },
   { key: "amount", label: "金额", type: "number" },
   { key: "paymentMethod", label: "发放方式" },
@@ -229,13 +249,14 @@ export const BACKGROUND_REWARD_FIELDS: ArchiveFieldDef[] = [
 ];
 
 export const BACKGROUND_PENALTY_FIELDS: ArchiveFieldDef[] = [
-  { key: "type", label: "惩处类型", required: true },
-  { key: "level", label: "惩处类别" },
   { key: "effectiveDate", label: "生效日期", type: "date" },
   { key: "archiveDate", label: "归档日期", type: "date" },
+  { key: "type", label: "惩处类型", required: true },
+  { key: "level", label: "惩处类别" },
   { key: "witness", label: "见证人" },
   { key: "amount", label: "金额", type: "number" },
   { key: "paymentMethod", label: "扣款方式" },
+  { key: "involvesCompensation", label: "涉及赔偿", type: "boolean" },
   { key: "issuingOrg", label: "发文单位" },
   { key: "description", label: "处罚描述" },
 ];

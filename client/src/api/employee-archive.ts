@@ -26,6 +26,7 @@ import type {
   EmployeeSocialInsurance,
   EmployeeSpecialBenefit,
   EmployeeTalentReview,
+  EmployeeTitleCertificate,
   EmployeeTrainingRecord,
   EmployeeValuesAssessment,
   EmployeeWorkExperience,
@@ -166,6 +167,7 @@ export const archiveCrud = {
   educations: buildArchiveCrud("educations"),
   workExperiences: buildArchiveCrud("work-experiences"),
   qualifications: buildArchiveCrud("qualifications"),
+  titleCertificates: buildArchiveCrud("title-certificates"),
   rewards: buildArchiveCrud("rewards"),
   penalties: buildArchiveCrud("penalties"),
   trainingRecords: buildArchiveCrud("training-records"),
@@ -192,6 +194,7 @@ export const archiveCrud = {
   educations: ReturnType<typeof buildArchiveCrud<"educations">>;
   workExperiences: ReturnType<typeof buildArchiveCrud<"work-experiences">>;
   qualifications: ReturnType<typeof buildArchiveCrud<"qualifications">>;
+  titleCertificates: ReturnType<typeof buildArchiveCrud<"title-certificates">>;
   rewards: ReturnType<typeof buildArchiveCrud<"rewards">>;
   penalties: ReturnType<typeof buildArchiveCrud<"penalties">>;
   trainingRecords: ReturnType<typeof buildArchiveCrud<"training-records">>;
@@ -239,6 +242,7 @@ export type EmployeeArchiveResourceTypes = {
   educations: EmployeeEducation;
   workExperiences: EmployeeWorkExperience;
   qualifications: EmployeeQualification;
+  titleCertificates: EmployeeTitleCertificate;
   rewards: EmployeeReward;
   penalties: EmployeePenalty;
   trainingRecords: EmployeeTrainingRecord;

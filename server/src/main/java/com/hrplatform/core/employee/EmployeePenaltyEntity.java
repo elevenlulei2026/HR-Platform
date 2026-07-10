@@ -17,6 +17,7 @@ public class EmployeePenaltyEntity {
   private String witness;
   private BigDecimal amount;
   private String paymentMethod;
+  private Boolean involvesCompensation;
   private String issuingOrg;
   private String documentNo;
   private String description;
@@ -43,6 +44,10 @@ public class EmployeePenaltyEntity {
   public void setAmount(BigDecimal amount) { this.amount = amount; }
   public String getPaymentMethod() { return paymentMethod; }
   public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+  public Boolean getInvolvesCompensation() { return involvesCompensation; }
+  public void setInvolvesCompensation(Boolean involvesCompensation) {
+    this.involvesCompensation = involvesCompensation;
+  }
   public String getIssuingOrg() { return issuingOrg; }
   public void setIssuingOrg(String issuingOrg) { this.issuingOrg = issuingOrg; }
   public String getDocumentNo() { return documentNo; }

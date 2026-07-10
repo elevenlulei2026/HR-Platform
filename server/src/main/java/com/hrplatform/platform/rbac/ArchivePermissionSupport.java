@@ -25,6 +25,7 @@ public class ArchivePermissionSupport {
       Map.entry("educations", "background"),
       Map.entry("work-experiences", "background"),
       Map.entry("qualifications", "background"),
+      Map.entry("title-certificates", "background"),
       Map.entry("rewards", "background"),
       Map.entry("penalties", "background"),
       Map.entry("training-records", "development"),

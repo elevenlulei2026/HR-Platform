@@ -1,21 +1,33 @@
 package com.hrplatform.core.employee;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 @TableName("employee_qualification")
 public class EmployeeQualificationEntity {
   private Long id;
   private Long employeeId;
-  private String titleName;
-  private String titleLevel;
-  private LocalDate approvalDate;
+  private String skillType;
+  private LocalDate firstIssueDate;
   private LocalDate expiryDate;
+  private LocalDate reviewDate;
+  private String certificateName;
   private String certificateNo;
+  private String handlerName;
   private String issuingOrg;
-  private Long attachmentId;
+  private String remark;
+  @TableField("attachment_ids")
+  @JsonIgnore
+  private String attachmentIdsData;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
   private Long createdBy;
@@ -25,20 +37,47 @@ public class EmployeeQualificationEntity {
   public void setId(Long id) { this.id = id; }
   public Long getEmployeeId() { return employeeId; }
   public void setEmployeeId(Long employeeId) { this.employeeId = employeeId; }
-  public String getTitleName() { return titleName; }
-  public void setTitleName(String titleName) { this.titleName = titleName; }
-  public String getTitleLevel() { return titleLevel; }
-  public void setTitleLevel(String titleLevel) { this.titleLevel = titleLevel; }
-  public LocalDate getApprovalDate() { return approvalDate; }
-  public void setApprovalDate(LocalDate approvalDate) { this.approvalDate = approvalDate; }
+  public String getSkillType() { return skillType; }
+  public void setSkillType(String skillType) { this.skillType = skillType; }
+  public LocalDate getFirstIssueDate() { return firstIssueDate; }
+  public void setFirstIssueDate(LocalDate firstIssueDate) { this.firstIssueDate = firstIssueDate; }
   public LocalDate getExpiryDate() { return expiryDate; }
   public void setExpiryDate(LocalDate expiryDate) { this.expiryDate = expiryDate; }
+  public LocalDate getReviewDate() { return reviewDate; }
+  public void setReviewDate(LocalDate reviewDate) { this.reviewDate = reviewDate; }
+  public String getCertificateName() { return certificateName; }
+  public void setCertificateName(String certificateName) { this.certificateName = certificateName; }
   public String getCertificateNo() { return certificateNo; }
   public void setCertificateNo(String certificateNo) { this.certificateNo = certificateNo; }
+  public String getHandlerName() { return handlerName; }
+  public void setHandlerName(String handlerName) { this.handlerName = handlerName; }
   public String getIssuingOrg() { return issuingOrg; }
   public void setIssuingOrg(String issuingOrg) { this.issuingOrg = issuingOrg; }
-  public Long getAttachmentId() { return attachmentId; }
-  public void setAttachmentId(Long attachmentId) { this.attachmentId = attachmentId; }
+  public String getRemark() { return remark; }
+  public void setRemark(String remark) { this.remark = remark; }
+
+  public List<String> getAttachmentIds() {
+    if (attachmentIdsData == null || attachmentIdsData.isBlank()) {
+      return Collections.emptyList();
+    }
+    return Arrays.stream(attachmentIdsData.split(","))
+        .map(String::trim)
+        .filter(value -> !value.isEmpty())
+        .collect(Collectors.toList());
+  }
+
+  public void setAttachmentIds(List<String> attachmentIds) {
+    if (attachmentIds == null || attachmentIds.isEmpty()) {
+      this.attachmentIdsData = null;
+      return;
+    }
+    this.attachmentIdsData = attachmentIds.stream()
+        .filter(Objects::nonNull)
+        .map(String::trim)
+        .filter(value -> !value.isEmpty())
+        .collect(Collectors.joining(","));
+  }
+
   public LocalDateTime getCreatedAt() { return createdAt; }
   public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
   public LocalDateTime getUpdatedAt() { return updatedAt; }

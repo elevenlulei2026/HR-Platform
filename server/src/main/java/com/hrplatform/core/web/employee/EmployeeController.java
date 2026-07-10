@@ -119,7 +119,8 @@ public class EmployeeController {
     Map<String, Object> out = new HashMap<>();
     out.put("maritalStatuses", toDictOptions(employeeService.dictLabels("MARITAL_STATUS")));
     out.put("politicalAffiliations", toDictOptions(employeeService.dictLabels("POLITICAL_AFFILIATION")));
-    out.put("highestEducations", toDictOptions(employeeService.dictLabels("HIGHEST_EDUCATION")));
+    out.put("educations", toDictOptions(employeeService.dictLabels("EDUCATION")));
+    out.put("degrees", toDictOptions(employeeService.dictLabels("DEGREE")));
     out.put("fertilityStatuses", toDictOptions(employeeService.dictLabels("FERTILITY_STATUS")));
     out.put("ethnicities", toDictOptions(employeeService.dictLabels("ETHNICITY")));
     out.put("nationalities", toDictOptions(employeeService.dictLabels("NATIONALITY")));
@@ -422,7 +423,7 @@ public class EmployeeController {
     dto.put("politicalAffiliation", master.getPoliticalAffiliation());
     dto.put("politicalAffiliationLabel", employeeService.dictLabel("POLITICAL_AFFILIATION", master.getPoliticalAffiliation()));
     dto.put("highestEducation", master.getHighestEducation());
-    dto.put("highestEducationLabel", employeeService.dictLabel("HIGHEST_EDUCATION", master.getHighestEducation()));
+    dto.put("highestEducationLabel", employeeService.dictLabel("EDUCATION", master.getHighestEducation()));
     dto.put("highestEducationGradDate", master.getHighestEducationGradDate() == null ? null : master.getHighestEducationGradDate().toString());
     dto.put("fertilityStatus", master.getFertilityStatus());
     dto.put("fertilityStatusLabel", employeeService.dictLabel("FERTILITY_STATUS", master.getFertilityStatus()));
@@ -520,7 +521,7 @@ public class EmployeeController {
     dto.put("politicalAffiliation", e.getPoliticalAffiliation());
     dto.put("politicalAffiliationLabel", employeeService.dictLabel("POLITICAL_AFFILIATION", e.getPoliticalAffiliation()));
     dto.put("highestEducation", e.getHighestEducation());
-    dto.put("highestEducationLabel", employeeService.dictLabel("HIGHEST_EDUCATION", e.getHighestEducation()));
+    dto.put("highestEducationLabel", employeeService.dictLabel("EDUCATION", e.getHighestEducation()));
     dto.put("highestEducationGradDate", e.getHighestEducationGradDate() == null ? null : e.getHighestEducationGradDate().toString());
     dto.put("fertilityStatus", e.getFertilityStatus());
     dto.put("fertilityStatusLabel", employeeService.dictLabel("FERTILITY_STATUS", e.getFertilityStatus()));

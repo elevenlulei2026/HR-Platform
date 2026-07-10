@@ -37,6 +37,7 @@ public class EmployeeArchiveService {
   private final EmployeeEducationMapper educationMapper;
   private final EmployeeWorkExperienceMapper workExperienceMapper;
   private final EmployeeQualificationMapper qualificationMapper;
+  private final EmployeeTitleCertificateMapper titleCertificateMapper;
   private final EmployeeRewardMapper rewardMapper;
   private final EmployeePenaltyMapper penaltyMapper;
   private final EmployeeTrainingRecordMapper trainingRecordMapper;
@@ -70,6 +71,7 @@ public class EmployeeArchiveService {
       EmployeeEducationMapper educationMapper,
       EmployeeWorkExperienceMapper workExperienceMapper,
       EmployeeQualificationMapper qualificationMapper,
+      EmployeeTitleCertificateMapper titleCertificateMapper,
       EmployeeRewardMapper rewardMapper,
       EmployeePenaltyMapper penaltyMapper,
       EmployeeTrainingRecordMapper trainingRecordMapper,
@@ -102,6 +104,7 @@ public class EmployeeArchiveService {
     this.educationMapper = educationMapper;
     this.workExperienceMapper = workExperienceMapper;
     this.qualificationMapper = qualificationMapper;
+    this.titleCertificateMapper = titleCertificateMapper;
     this.rewardMapper = rewardMapper;
     this.penaltyMapper = penaltyMapper;
     this.trainingRecordMapper = trainingRecordMapper;
@@ -136,6 +139,7 @@ public class EmployeeArchiveService {
     bundle.put("educations", listEducations(employeeId));
     bundle.put("workExperiences", listWorkExperiences(employeeId));
     bundle.put("qualifications", listQualifications(employeeId));
+    bundle.put("titleCertificates", listTitleCertificates(employeeId));
     bundle.put("rewards", listRewards(employeeId));
     bundle.put("penalties", listPenalties(employeeId));
     bundle.put("trainingRecords", listTrainingRecords(employeeId));
@@ -971,6 +975,37 @@ public class EmployeeArchiveService {
     delete(qualificationMapper, employeeId, id, EmployeeQualificationEntity::getEmployeeId);
   }
 
+  public List<EmployeeTitleCertificateEntity> listTitleCertificates(long employeeId) {
+    return listByEmployee(titleCertificateMapper, EmployeeTitleCertificateEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeTitleCertificateEntity createTitleCertificate(long employeeId, EmployeeTitleCertificateEntity entity) {
+    return create(titleCertificateMapper, employeeId, entity, EmployeeTitleCertificateEntity::setEmployeeId);
+  }
+
+  @Transactional
+  public EmployeeTitleCertificateEntity updateTitleCertificate(
+      long employeeId,
+      long id,
+      EmployeeTitleCertificateEntity entity
+  ) {
+    return update(
+        titleCertificateMapper,
+        employeeId,
+        id,
+        entity,
+        EmployeeTitleCertificateEntity::getEmployeeId,
+        EmployeeTitleCertificateEntity::getId,
+        this::mergeTitleCertificate
+    );
+  }
+
+  @Transactional
+  public void deleteTitleCertificate(long employeeId, long id) {
+    delete(titleCertificateMapper, employeeId, id, EmployeeTitleCertificateEntity::getEmployeeId);
+  }
+
   public List<EmployeeRewardEntity> listRewards(long employeeId) {
     return listByEmployee(rewardMapper, EmployeeRewardEntity::getEmployeeId, employeeId);
   }
@@ -1370,6 +1405,7 @@ public class EmployeeArchiveService {
   private void mergeEducation(EmployeeEducationEntity current, EmployeeEducationEntity patch) { mergeAll(current, patch); }
   private void mergeWorkExperience(EmployeeWorkExperienceEntity current, EmployeeWorkExperienceEntity patch) { mergeAll(current, patch); }
   private void mergeQualification(EmployeeQualificationEntity current, EmployeeQualificationEntity patch) { mergeAll(current, patch); }
+  private void mergeTitleCertificate(EmployeeTitleCertificateEntity current, EmployeeTitleCertificateEntity patch) { mergeAll(current, patch); }
   private void mergeReward(EmployeeRewardEntity current, EmployeeRewardEntity patch) { mergeAll(current, patch); }
   private void mergePenalty(EmployeePenaltyEntity current, EmployeePenaltyEntity patch) { mergeAll(current, patch); }
   private void mergeTrainingRecord(EmployeeTrainingRecordEntity current, EmployeeTrainingRecordEntity patch) { mergeAll(current, patch); }

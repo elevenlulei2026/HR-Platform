@@ -144,7 +144,8 @@ export async function deleteReportingLine(id: string) {
 export const EMPTY_EMPLOYEE_FORM_OPTIONS: EmployeeFormOptions = {
   maritalStatuses: [],
   politicalAffiliations: [],
-  highestEducations: [],
+  educations: [],
+  degrees: [],
   fertilityStatuses: [],
   ethnicities: [],
   nationalities: [],

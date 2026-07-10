@@ -441,6 +441,26 @@ public class EmployeeArchiveController {
     return delete(employeeId, id, "qualifications", () -> archiveService.deleteQualification(employeeId, id));
   }
 
+  @GetMapping("/title-certificates")
+  public ApiResponse<List<Map<String, Object>>> listTitleCertificates(@PathVariable long employeeId) {
+    return list(employeeId, "title-certificates", () -> archiveService.listTitleCertificates(employeeId));
+  }
+
+  @PostMapping("/title-certificates")
+  public ApiResponse<Map<String, Object>> createTitleCertificate(@PathVariable long employeeId, @Valid @RequestBody EmployeeTitleCertificateEntity body) {
+    return create("title-certificates", () -> archiveService.createTitleCertificate(employeeId, body));
+  }
+
+  @PutMapping("/title-certificates/{id}")
+  public ApiResponse<Map<String, Object>> updateTitleCertificate(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeTitleCertificateEntity body) {
+    return update("title-certificates", () -> archiveService.updateTitleCertificate(employeeId, id, body));
+  }
+
+  @DeleteMapping("/title-certificates/{id}")
+  public ApiResponse<Map<String, Object>> deleteTitleCertificate(@PathVariable long employeeId, @PathVariable long id) {
+    return delete(employeeId, id, "title-certificates", () -> archiveService.deleteTitleCertificate(employeeId, id));
+  }
+
   @GetMapping("/rewards")
   public ApiResponse<List<Map<String, Object>>> listRewards(@PathVariable long employeeId) {
     return list(employeeId, "rewards", () -> archiveService.listRewards(employeeId));
@@ -692,6 +712,12 @@ public class EmployeeArchiveController {
     }
     if (bean instanceof EmployeeAdminInfoEntity adminInfo) {
       putDictLabel(dto, "workEnvironment", "WORK_ENVIRONMENT", adminInfo.getWorkEnvironment());
+      return;
+    }
+    if (bean instanceof EmployeeEducationEntity education) {
+      putDictLabel(dto, "degree", "DEGREE", education.getDegree());
+      putDictLabel(dto, "educationLevel", "EDUCATION", education.getEducationLevel());
+      putDictLabel(dto, "countryRegion", "COUNTRY_REGION", education.getCountryRegion());
     }
   }
 
