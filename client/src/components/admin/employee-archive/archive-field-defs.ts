@@ -6,11 +6,6 @@ export const BOOLEAN_OPTIONS = [
   { value: "false", label: "否" },
 ];
 
-export const RECORD_TYPE_OPTIONS = [
-  { value: "SHUTTLE", label: "班车" },
-  { value: "ACCOMMODATION", label: "住宿" },
-];
-
 export const PERSONAL_ID_DOCUMENT_FIELDS: ArchiveFieldDef[] = [
   { key: "countryRegion", label: "国家/地区", dictKey: "countryRegions" },
   { key: "idType", label: "证件类型", dictKey: "idTypes" },
@@ -149,21 +144,36 @@ export const SERVICE_SOCIAL_FIELDS: ArchiveFieldDef[] = [
 ];
 
 export const SERVICE_BENEFIT_FIELDS: ArchiveFieldDef[] = [
-  { key: "benefitType", label: "福利类型", required: true },
-  { key: "benefitName", label: "福利名称" },
-  { key: "amount", label: "金额", type: "number" },
-  { key: "currencyCode", label: "币种" },
-  { key: "effectiveStartDate", label: "开始日期", type: "date" },
-  { key: "effectiveEndDate", label: "结束日期", type: "date" },
-  { key: "remark", label: "备注" },
+  {
+    key: "hasSpecialBenefit",
+    label: "是否有特殊福利",
+    type: "toggle",
+    required: true,
+    options: YES_NO_TOGGLE_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
+  { key: "endDate", label: "截止日期", type: "date" },
 ];
 
-export const SERVICE_COMMUTE_FIELDS: ArchiveFieldDef[] = [
-  { key: "recordType", label: "记录类型", required: true, options: RECORD_TYPE_OPTIONS },
-  { key: "routeOrAddress", label: "路线/地址" },
-  { key: "effectiveStartDate", label: "开始日期", type: "date" },
-  { key: "effectiveEndDate", label: "结束日期", type: "date" },
-  { key: "remark", label: "备注" },
+export const SERVICE_WORK_INJURY_FIELDS: ArchiveFieldDef[] = [
+  { key: "accidentDate", label: "事故发生日期", type: "date" },
+  { key: "accidentReason", label: "事故原因", type: "textarea" },
+  { key: "witness", label: "见证人" },
+  { key: "recognitionDate", label: "工伤认定日期", type: "date" },
+  { key: "disabilityAssessmentDate", label: "伤残鉴定日期", type: "date" },
+  {
+    key: "isRecognized",
+    label: "是否认定为工伤",
+    type: "toggle",
+    options: YES_NO_TOGGLE_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
+  {
+    key: "participatedLaborAssessment",
+    label: "是否参加劳动力鉴定",
+    type: "toggle",
+    options: YES_NO_TOGGLE_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
+  { key: "laborAssessmentLevel", label: "劳动力鉴定级别", type: "textarea" },
+  { key: "remark", label: "备注", type: "textarea" },
 ];
 
 export const BACKGROUND_EDUCATION_FIELDS: ArchiveFieldDef[] = [

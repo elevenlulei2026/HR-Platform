@@ -591,6 +591,7 @@ FROM employee e WHERE e.employee_no = {esc(emp_no)}
   AND NOT EXISTS (SELECT 1 FROM employee_social_insurance s WHERE s.employee_id = e.id);""")
 
         if i % 5 == 0:
+            # 历史 demo 仍写旧列；V43 迁移为 has_special_benefit + end_date
             lines.append(f"""
 INSERT INTO employee_special_benefit (
   employee_id, benefit_type, benefit_name, amount, currency_code, effective_start_date, remark
@@ -600,11 +601,22 @@ FROM employee e WHERE e.employee_no = {esc(emp_no)}
   AND NOT EXISTS (SELECT 1 FROM employee_special_benefit b WHERE b.employee_id = e.id AND b.benefit_type = 'MEAL');""")
 
         if i % 6 == 0:
+            work_env = rng.choice(["10", "20", "30"])
             lines.append(f"""
-INSERT INTO employee_commute_accommodation (employee_id, record_type, route_or_address, effective_start_date, remark)
-SELECT e.id, 'SHUTTLE', {esc(f'{city_key} 班车 {rng.randint(1,5)} 号线')}, {sql_date(hire)}, '通勤班车'
+INSERT INTO employee_admin_info (
+  employee_id, effective_start_date, status, work_environment, take_shuttle, parking_permit
+)
+SELECT e.id, {sql_date(hire)}, 'ACTIVE', {esc(work_env)}, 'YES', {esc(rng.choice(['YES', 'NO']))}
 FROM employee e WHERE e.employee_no = {esc(emp_no)}
-  AND NOT EXISTS (SELECT 1 FROM employee_commute_accommodation c WHERE c.employee_id = e.id AND c.record_type = 'SHUTTLE');""")
+  AND NOT EXISTS (SELECT 1 FROM employee_admin_info a WHERE a.employee_id = e.id);""")
+            if i % 12 == 0:
+                lines.append(f"""
+INSERT INTO employee_accommodation (
+  employee_id, effective_start_date, status, has_accommodation, accommodation_fee_total
+)
+SELECT e.id, {sql_date(hire)}, 'ACTIVE', 'YES', {rng.randint(200, 1500)}.00
+FROM employee e WHERE e.employee_no = {esc(emp_no)}
+  AND NOT EXISTS (SELECT 1 FROM employee_accommodation a WHERE a.employee_id = e.id);""")
 
         lines.append(f"""
 INSERT INTO employee_education (

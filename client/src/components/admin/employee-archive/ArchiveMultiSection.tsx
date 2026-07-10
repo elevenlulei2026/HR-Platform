@@ -49,6 +49,7 @@ import {
 import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { cn } from "@/lib/utils";
 
@@ -73,7 +74,7 @@ export type ArchiveDictOptions = Pick<EmployeeFormOptions, ArchiveDictKey>;
 export type ArchiveFieldDef = {
   key: string;
   label: string;
-  type?: "text" | "date" | "number" | "boolean" | "id" | "toggle";
+  type?: "text" | "date" | "number" | "boolean" | "id" | "toggle" | "textarea";
   placeholder?: string;
   required?: boolean;
   min?: number;
@@ -184,7 +185,15 @@ function formatToggleStatusDisplay(field: ArchiveFieldDef, item: ArchiveItem) {
       <ArchiveStatusBadge active={isAttendanceCardActive(status)} label={attendanceCardStatusLabel(status)} />
     );
   }
-  if (field.key === "participateInAttendance") {
+  if (field.key === "participateInAttendance" || field.key === "hasSpecialBenefit") {
+    return (
+      <ArchiveStatusBadge active={status === "YES"} label={yesNoToggleLabel(status)} />
+    );
+  }
+  if (
+    field.options?.some((opt) => opt.value === "YES") &&
+    field.options?.some((opt) => opt.value === "NO")
+  ) {
     return (
       <ArchiveStatusBadge active={status === "YES"} label={yesNoToggleLabel(status)} />
     );
@@ -649,6 +658,22 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
       );
     }
 
+    if (field.type === "textarea") {
+      return (
+        <Textarea
+          value={form[field.key] ?? ""}
+          className={cn(
+            adminFormControlShellClassName({ empty: !form[field.key]?.trim() }),
+            "min-h-20 shadow-none",
+            !form[field.key]?.trim() && adminFormControlPlaceholderClassName,
+            form[field.key]?.trim() && adminFormControlValueClassName,
+          )}
+          placeholder={field.placeholder}
+          onChange={(e) => setForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+        />
+      );
+    }
+
     return (
       <Input
         type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
@@ -676,7 +701,9 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
       return (
         <div className="grid gap-4 md:grid-cols-2">
           {fieldDefs.map((field) => {
-            const fullRow = isCostCenterAllocations && field.key === "legalEntityId";
+            const fullRow =
+              (isCostCenterAllocations && field.key === "legalEntityId") ||
+              field.type === "textarea";
             return (
               <div key={field.key} className={fullRow ? "md:col-span-2" : undefined}>
                 <FormField label={field.label} required={field.required && !field.readOnly}>

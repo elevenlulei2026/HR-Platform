@@ -1290,6 +1290,10 @@ export type EmployeeAssignmentEditMode = "CURRENT" | "NEW_VERSION";
 /** 考勤卡编辑模式（对齐任职/个人主档） */
 export type EmployeeAttendanceCardEditMode = "CURRENT" | "NEW_VERSION";
 
+/** 行政信息 / 住宿信息编辑模式（对齐考勤卡） */
+export type EmployeeAdminInfoEditMode = "CURRENT" | "NEW_VERSION";
+export type EmployeeAccommodationEditMode = "CURRENT" | "NEW_VERSION";
+
 /** 同一员工下的个人主档生效版本摘要 */
 export type EmployeeMasterVersion = {
   id: string;
@@ -1407,6 +1411,8 @@ export type EmployeeFormOptions = {
   payrollCompanies: DictOption[];
   /** 参保地区（数据字典：INSURANCE_REGION） */
   insuranceRegions: DictOption[];
+  /** 工作环境（数据字典：WORK_ENVIRONMENT） */
+  workEnvironments: DictOption[];
 };
 
 /** 任职记录表单字典选项（GET /api/v1/employees/assignment-form-options） */
@@ -1872,21 +1878,70 @@ export type EmployeeSocialInsurance = EmployeeArchiveRecordBase & {
 };
 
 export type EmployeeSpecialBenefit = EmployeeArchiveRecordBase & {
-  benefitType?: string;
-  benefitName?: string;
-  amount?: number;
-  currencyCode?: string;
-  effectiveStartDate?: string; // YYYY-MM-DD
-  effectiveEndDate?: string; // YYYY-MM-DD
+  /** 是否有特殊福利：YES / NO */
+  hasSpecialBenefit?: "YES" | "NO";
+  /** 特殊福利截止日期 */
+  endDate?: string; // YYYY-MM-DD
+};
+
+/** 工伤信息（员工服务多行） */
+export type EmployeeWorkInjury = EmployeeArchiveRecordBase & {
+  /** 事故发生日期 */
+  accidentDate?: string; // YYYY-MM-DD
+  /** 事故原因 */
+  accidentReason?: string;
+  /** 见证人 */
+  witness?: string;
+  /** 工伤认定日期 */
+  recognitionDate?: string; // YYYY-MM-DD
+  /** 伤残鉴定日期 */
+  disabilityAssessmentDate?: string; // YYYY-MM-DD
+  /** 是否认定为工伤：YES / NO */
+  isRecognized?: "YES" | "NO";
+  /** 是否参加劳动力鉴定：YES / NO */
+  participatedLaborAssessment?: "YES" | "NO";
+  /** 劳动力鉴定级别 */
+  laborAssessmentLevel?: string;
   remark?: string;
 };
 
-export type EmployeeCommuteAccommodation = EmployeeArchiveRecordBase & {
-  recordType?: string;
-  routeOrAddress?: string;
-  effectiveStartDate?: string; // YYYY-MM-DD
+/** 行政信息（员工服务，按生效日版本化） */
+export type EmployeeAdminInfo = EmployeeArchiveRecordBase & {
+  effectiveStartDate: string; // YYYY-MM-DD
   effectiveEndDate?: string; // YYYY-MM-DD
-  remark?: string;
+  /** 状态：ACTIVE 有效 / INACTIVE 无效 */
+  status?: string;
+  /** 工作环境（字典 WORK_ENVIRONMENT：10/20/30） */
+  workEnvironment?: string;
+  workEnvironmentLabel?: string;
+  /** 乘坐班车：YES / NO */
+  takeShuttle?: "YES" | "NO";
+  /** 停车证：YES / NO */
+  parkingPermit?: "YES" | "NO";
+};
+
+export type EmployeeAdminInfoUpdateRequest = Partial<
+  Omit<EmployeeAdminInfo, "id" | "createdAt" | "updatedAt" | "workEnvironmentLabel">
+> & {
+  editMode?: EmployeeAdminInfoEditMode;
+};
+
+/** 住宿信息（员工服务，按生效日版本化） */
+export type EmployeeAccommodation = EmployeeArchiveRecordBase & {
+  effectiveStartDate: string; // YYYY-MM-DD
+  effectiveEndDate?: string; // YYYY-MM-DD
+  /** 状态：ACTIVE 有效 / INACTIVE 无效 */
+  status?: string;
+  /** 是否住宿：YES / NO */
+  hasAccommodation?: "YES" | "NO";
+  /** 住宿费汇总 */
+  accommodationFeeTotal?: number;
+};
+
+export type EmployeeAccommodationUpdateRequest = Partial<
+  Omit<EmployeeAccommodation, "id" | "createdAt" | "updatedAt">
+> & {
+  editMode?: EmployeeAccommodationEditMode;
 };
 
 export type EmployeeAttachment = EmployeeArchiveRecordBase & {
@@ -2035,7 +2090,9 @@ export type EmployeeArchive = {
   bankAccounts: EmployeeBankAccount[];
   socialInsurances: EmployeeSocialInsurance[];
   specialBenefits: EmployeeSpecialBenefit[];
-  commuteAccommodations: EmployeeCommuteAccommodation[];
+  workInjuries: EmployeeWorkInjury[];
+  adminInfos: EmployeeAdminInfo[];
+  accommodations: EmployeeAccommodation[];
   attachments: EmployeeAttachment[];
   educations: EmployeeEducation[];
   workExperiences: EmployeeWorkExperience[];
@@ -2061,7 +2118,9 @@ export type EmployeeArchiveResourcePath =
   | "bank-accounts"
   | "social-insurances"
   | "special-benefits"
-  | "commute-accommodations"
+  | "work-injuries"
+  | "admin-infos"
+  | "accommodations"
   | "attachments"
   | "educations"
   | "work-experiences"
@@ -2086,7 +2145,9 @@ export type EmployeeArchiveResourceByPath = {
   "bank-accounts": EmployeeBankAccount;
   "social-insurances": EmployeeSocialInsurance;
   "special-benefits": EmployeeSpecialBenefit;
-  "commute-accommodations": EmployeeCommuteAccommodation;
+  "work-injuries": EmployeeWorkInjury;
+  "admin-infos": EmployeeAdminInfo;
+  accommodations: EmployeeAccommodation;
   attachments: EmployeeAttachment;
   educations: EmployeeEducation;
   "work-experiences": EmployeeWorkExperience;
@@ -2169,7 +2230,7 @@ export type EmployeeApi = {
    * 资源路径：
    * family-members | internal-relatives | id-documents | cost-center-allocations
    * contracts | agreements | attendance-cards | bank-accounts | social-insurances
-   * special-benefits | commute-accommodations | attachments | educations
+   * special-benefits | work-injuries | admin-infos | accommodations | attachments | educations
    * work-experiences | qualifications | rewards | penalties | training-records
    * performance-records | values-assessments | talent-reviews | projects | agent-assignments
    */

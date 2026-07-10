@@ -129,7 +129,9 @@
 | 13 | 员工服务 | 银行卡信息 | `employee_bank_account` | 7.3 |
 | 14 | 员工服务 | 社保公积金 | `employee_social_insurance` | 7.3 |
 | 15 | 员工服务 | 员工特殊福利 | `employee_special_benefit` | 7.3 |
-| 16 | 员工服务 | 班车&住宿 | `employee_commute_accommodation` | 7.3 |
+| 15a | 员工服务 | 工伤信息（多行） | `employee_work_injury` | 7.3 |
+| 16 | 员工服务 | 行政信息（版本化） | `employee_admin_info` | 7.3 |
+| 16a | 员工服务 | 住宿信息（版本化） | `employee_accommodation` | 7.3 |
 | 17 | 员工服务 | 附件信息 | `employee_attachment` | 7.3 |
 | 18 | 背景信息 | 教育信息（多行） | `employee_education` | 7.4 |
 | 19 | 背景信息 | 工作经历（多行） | `employee_work_experience` | 7.4 |
@@ -196,8 +198,10 @@
 | `employee_attendance_card` | 12 | 考勤卡 | card_no, device_id, work_location, effective_start_date, effective_end_date, status, remark |
 | `employee_bank_account` | 13 | 银行卡 | account_type, country_code, bank_id, branch_id, account_no（加密）, account_name, currency_code, cnaps_code, is_primary |
 | `employee_social_insurance` | 14 | 社保公积金 | social_security_no, social_base, housing_fund_no, housing_base, company, insurance_region, is_company_payroll |
-| `employee_special_benefit` | 15 | 特殊福利 | benefit_type, benefit_name, amount, currency_code, effective_start_date, effective_end_date, remark |
-| `employee_commute_accommodation` | 16 | 班车&住宿 | record_type（SHUTTLE/ACCOMMODATION）, route_or_address, effective_start_date, effective_end_date, remark |
+| `employee_special_benefit` | 15 | 特殊福利 | has_special_benefit（YES/NO）, end_date |
+| `employee_work_injury` | 15a | 工伤信息 | accident_date, accident_reason, witness, recognition_date, disability_assessment_date, is_recognized（YES/NO）, participated_labor_assessment（YES/NO）, labor_assessment_level, remark |
+| `employee_admin_info` | 16 | 行政信息 | effective_start_date, effective_end_date, status, work_environment（字典）, take_shuttle（YES/NO）, parking_permit（YES/NO） |
+| `employee_accommodation` | 16a | 住宿信息 | effective_start_date, effective_end_date, status, has_accommodation（YES/NO）, accommodation_fee_total |
 | `employee_attachment` | 17 | 附件 | attachment_type, original_filename, storage_key, uploaded_at |
 | `employee_education` | 18 | 教育信息 | degree, education_level, is_highest, country_region, school_name, major, start_date, end_date, diploma_no, degree_no, attachment_id |
 | `employee_work_experience` | 19 | 工作经历 | start_date, end_date, employer_name, department, position, leave_reason, last_salary, referee, referee_phone, pay_frequency, currency_code, description |
@@ -396,6 +400,10 @@ erDiagram
   EMPLOYEE ||--o{ EMPLOYEE_QUALIFICATION : has
   EMPLOYEE ||--o{ EMPLOYEE_BANK_ACCOUNT : has
   EMPLOYEE ||--o{ EMPLOYEE_SOCIAL_INSURANCE : has
+  EMPLOYEE ||--o{ EMPLOYEE_SPECIAL_BENEFIT : has
+  EMPLOYEE ||--o{ EMPLOYEE_WORK_INJURY : has
+  EMPLOYEE ||--o{ EMPLOYEE_ADMIN_INFO : has
+  EMPLOYEE ||--o{ EMPLOYEE_ACCOMMODATION : has
   EMPLOYEE ||--o{ EMPLOYEE_ATTACHMENT : has
   EMPLOYEE ||--o{ EMPLOYEE_TRAINING_RECORD : has
   EMPLOYEE ||--o{ EMPLOYEE_PERFORMANCE_RECORD : has

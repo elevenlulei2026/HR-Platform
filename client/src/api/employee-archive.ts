@@ -9,7 +9,8 @@ import type {
   EmployeeAttachment,
   EmployeeAttendanceCard,
   EmployeeBankAccount,
-  EmployeeCommuteAccommodation,
+  EmployeeAdminInfo,
+  EmployeeAccommodation,
   EmployeeContract,
   EmployeeCostCenterAllocation,
   EmployeeEducation,
@@ -28,6 +29,7 @@ import type {
   EmployeeTrainingRecord,
   EmployeeValuesAssessment,
   EmployeeWorkExperience,
+  EmployeeWorkInjury,
 } from "@shared/api.interface";
 
 import { deleteJson, getAuthToken, getJson, postJson, postMultipart, putJson } from "@/api/http";
@@ -157,7 +159,9 @@ export const archiveCrud = {
   bankAccounts: buildArchiveCrud("bank-accounts"),
   socialInsurances: buildArchiveCrud("social-insurances"),
   specialBenefits: buildArchiveCrud("special-benefits"),
-  commuteAccommodations: buildArchiveCrud("commute-accommodations"),
+  workInjuries: buildArchiveCrud("work-injuries"),
+  adminInfos: buildArchiveCrud("admin-infos"),
+  accommodations: buildArchiveCrud("accommodations"),
   attachments: buildArchiveCrud("attachments"),
   educations: buildArchiveCrud("educations"),
   workExperiences: buildArchiveCrud("work-experiences"),
@@ -181,7 +185,9 @@ export const archiveCrud = {
   bankAccounts: ReturnType<typeof buildArchiveCrud<"bank-accounts">>;
   socialInsurances: ReturnType<typeof buildArchiveCrud<"social-insurances">>;
   specialBenefits: ReturnType<typeof buildArchiveCrud<"special-benefits">>;
-  commuteAccommodations: ReturnType<typeof buildArchiveCrud<"commute-accommodations">>;
+  workInjuries: ReturnType<typeof buildArchiveCrud<"work-injuries">>;
+  adminInfos: ReturnType<typeof buildArchiveCrud<"admin-infos">>;
+  accommodations: ReturnType<typeof buildArchiveCrud<"accommodations">>;
   attachments: ReturnType<typeof buildArchiveCrud<"attachments">>;
   educations: ReturnType<typeof buildArchiveCrud<"educations">>;
   workExperiences: ReturnType<typeof buildArchiveCrud<"work-experiences">>;
@@ -226,7 +232,9 @@ export type EmployeeArchiveResourceTypes = {
   bankAccounts: EmployeeBankAccount;
   socialInsurances: EmployeeSocialInsurance;
   specialBenefits: EmployeeSpecialBenefit;
-  commuteAccommodations: EmployeeCommuteAccommodation;
+  workInjuries: EmployeeWorkInjury;
+  adminInfos: EmployeeAdminInfo;
+  accommodations: EmployeeAccommodation;
   attachments: EmployeeAttachment;
   educations: EmployeeEducation;
   workExperiences: EmployeeWorkExperience;

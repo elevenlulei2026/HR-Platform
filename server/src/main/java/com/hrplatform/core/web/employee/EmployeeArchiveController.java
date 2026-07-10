@@ -276,24 +276,71 @@ public class EmployeeArchiveController {
     return delete(employeeId, id, "special-benefits", () -> archiveService.deleteSpecialBenefit(employeeId, id));
   }
 
-  @GetMapping("/commute-accommodations")
-  public ApiResponse<List<Map<String, Object>>> listCommuteAccommodations(@PathVariable long employeeId) {
-    return list(employeeId, "commute-accommodations", () -> archiveService.listCommuteAccommodations(employeeId));
+  @GetMapping("/work-injuries")
+  public ApiResponse<List<Map<String, Object>>> listWorkInjuries(@PathVariable long employeeId) {
+    return list(employeeId, "work-injuries", () -> archiveService.listWorkInjuries(employeeId));
   }
 
-  @PostMapping("/commute-accommodations")
-  public ApiResponse<Map<String, Object>> createCommuteAccommodation(@PathVariable long employeeId, @Valid @RequestBody EmployeeCommuteAccommodationEntity body) {
-    return create("commute-accommodations", () -> archiveService.createCommuteAccommodation(employeeId, body));
+  @PostMapping("/work-injuries")
+  public ApiResponse<Map<String, Object>> createWorkInjury(
+      @PathVariable long employeeId,
+      @Valid @RequestBody EmployeeWorkInjuryEntity body
+  ) {
+    return create("work-injuries", () -> archiveService.createWorkInjury(employeeId, body));
   }
 
-  @PutMapping("/commute-accommodations/{id}")
-  public ApiResponse<Map<String, Object>> updateCommuteAccommodation(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeCommuteAccommodationEntity body) {
-    return update("commute-accommodations", () -> archiveService.updateCommuteAccommodation(employeeId, id, body));
+  @PutMapping("/work-injuries/{id}")
+  public ApiResponse<Map<String, Object>> updateWorkInjury(
+      @PathVariable long employeeId,
+      @PathVariable long id,
+      @Valid @RequestBody EmployeeWorkInjuryEntity body
+  ) {
+    return update("work-injuries", () -> archiveService.updateWorkInjury(employeeId, id, body));
   }
 
-  @DeleteMapping("/commute-accommodations/{id}")
-  public ApiResponse<Map<String, Object>> deleteCommuteAccommodation(@PathVariable long employeeId, @PathVariable long id) {
-    return delete(employeeId, id, "commute-accommodations", () -> archiveService.deleteCommuteAccommodation(employeeId, id));
+  @DeleteMapping("/work-injuries/{id}")
+  public ApiResponse<Map<String, Object>> deleteWorkInjury(@PathVariable long employeeId, @PathVariable long id) {
+    return delete(employeeId, id, "work-injuries", () -> archiveService.deleteWorkInjury(employeeId, id));
+  }
+
+  @GetMapping("/admin-infos")
+  public ApiResponse<List<Map<String, Object>>> listAdminInfos(@PathVariable long employeeId) {
+    return list(employeeId, "admin-infos", () -> archiveService.listAdminInfos(employeeId));
+  }
+
+  @PostMapping("/admin-infos")
+  public ApiResponse<Map<String, Object>> createAdminInfo(@PathVariable long employeeId, @Valid @RequestBody EmployeeAdminInfoEntity body) {
+    return create("admin-infos", () -> archiveService.createAdminInfo(employeeId, body));
+  }
+
+  @PutMapping("/admin-infos/{id}")
+  public ApiResponse<Map<String, Object>> updateAdminInfo(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeAdminInfoEntity body) {
+    return update("admin-infos", () -> archiveService.updateAdminInfo(employeeId, id, body));
+  }
+
+  @DeleteMapping("/admin-infos/{id}")
+  public ApiResponse<Map<String, Object>> deleteAdminInfo(@PathVariable long employeeId, @PathVariable long id) {
+    return delete(employeeId, id, "admin-infos", () -> archiveService.deleteAdminInfo(employeeId, id));
+  }
+
+  @GetMapping("/accommodations")
+  public ApiResponse<List<Map<String, Object>>> listAccommodations(@PathVariable long employeeId) {
+    return list(employeeId, "accommodations", () -> archiveService.listAccommodations(employeeId));
+  }
+
+  @PostMapping("/accommodations")
+  public ApiResponse<Map<String, Object>> createAccommodation(@PathVariable long employeeId, @Valid @RequestBody EmployeeAccommodationEntity body) {
+    return create("accommodations", () -> archiveService.createAccommodation(employeeId, body));
+  }
+
+  @PutMapping("/accommodations/{id}")
+  public ApiResponse<Map<String, Object>> updateAccommodation(@PathVariable long employeeId, @PathVariable long id, @Valid @RequestBody EmployeeAccommodationEntity body) {
+    return update("accommodations", () -> archiveService.updateAccommodation(employeeId, id, body));
+  }
+
+  @DeleteMapping("/accommodations/{id}")
+  public ApiResponse<Map<String, Object>> deleteAccommodation(@PathVariable long employeeId, @PathVariable long id) {
+    return delete(employeeId, id, "accommodations", () -> archiveService.deleteAccommodation(employeeId, id));
   }
 
   @GetMapping("/attachments")
@@ -642,6 +689,9 @@ public class EmployeeArchiveController {
       putDictLabel(dto, "agreementCategory", "AGREEMENT_CATEGORY", agreement.getAgreementCategory());
       putDictLabel(dto, "operationType", "AGREEMENT_OPERATION_TYPE", agreement.getOperationType());
       return;
+    }
+    if (bean instanceof EmployeeAdminInfoEntity adminInfo) {
+      putDictLabel(dto, "workEnvironment", "WORK_ENVIRONMENT", adminInfo.getWorkEnvironment());
     }
   }
 

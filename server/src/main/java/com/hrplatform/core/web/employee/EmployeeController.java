@@ -134,6 +134,7 @@ public class EmployeeController {
     out.put("currencies", toDictOptions(employeeService.dictLabels("CURRENCY")));
     out.put("payrollCompanies", toDictOptions(employeeService.dictLabels("PAYROLL_COMPANY")));
     out.put("insuranceRegions", toDictOptions(employeeService.dictLabels("INSURANCE_REGION")));
+    out.put("workEnvironments", toDictOptions(employeeService.dictLabels("WORK_ENVIRONMENT")));
     return ApiResponse.ok(out);
   }
 

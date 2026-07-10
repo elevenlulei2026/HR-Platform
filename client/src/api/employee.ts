@@ -159,6 +159,7 @@ export const EMPTY_EMPLOYEE_FORM_OPTIONS: EmployeeFormOptions = {
   currencies: [],
   payrollCompanies: [],
   insuranceRegions: [],
+  workEnvironments: [],
 };
 
 export const EMPLOYEE_STATUS_OPTIONS = [

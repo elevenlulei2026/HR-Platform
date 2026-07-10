@@ -30,7 +30,9 @@ public class EmployeeArchiveService {
   private final EmployeeBankAccountMapper bankAccountMapper;
   private final EmployeeSocialInsuranceMapper socialInsuranceMapper;
   private final EmployeeSpecialBenefitMapper specialBenefitMapper;
-  private final EmployeeCommuteAccommodationMapper commuteAccommodationMapper;
+  private final EmployeeWorkInjuryMapper workInjuryMapper;
+  private final EmployeeAdminInfoMapper adminInfoMapper;
+  private final EmployeeAccommodationMapper accommodationMapper;
   private final EmployeeAttachmentMapper attachmentMapper;
   private final EmployeeEducationMapper educationMapper;
   private final EmployeeWorkExperienceMapper workExperienceMapper;
@@ -45,6 +47,8 @@ public class EmployeeArchiveService {
   private final EmployeeAgentAssignmentMapper agentAssignmentMapper;
   private final LegalEntityService legalEntityService;
   private final EmployeeAttendanceCardHelper attendanceCardHelper;
+  private final EmployeeAdminInfoHelper adminInfoHelper;
+  private final EmployeeAccommodationHelper accommodationHelper;
 
   public EmployeeArchiveService(
       EmployeeService employeeService,
@@ -59,7 +63,9 @@ public class EmployeeArchiveService {
       EmployeeBankAccountMapper bankAccountMapper,
       EmployeeSocialInsuranceMapper socialInsuranceMapper,
       EmployeeSpecialBenefitMapper specialBenefitMapper,
-      EmployeeCommuteAccommodationMapper commuteAccommodationMapper,
+      EmployeeWorkInjuryMapper workInjuryMapper,
+      EmployeeAdminInfoMapper adminInfoMapper,
+      EmployeeAccommodationMapper accommodationMapper,
       EmployeeAttachmentMapper attachmentMapper,
       EmployeeEducationMapper educationMapper,
       EmployeeWorkExperienceMapper workExperienceMapper,
@@ -73,7 +79,9 @@ public class EmployeeArchiveService {
       EmployeeProjectMapper projectMapper,
       EmployeeAgentAssignmentMapper agentAssignmentMapper,
       LegalEntityService legalEntityService,
-      EmployeeAttendanceCardHelper attendanceCardHelper
+      EmployeeAttendanceCardHelper attendanceCardHelper,
+      EmployeeAdminInfoHelper adminInfoHelper,
+      EmployeeAccommodationHelper accommodationHelper
   ) {
     this.employeeService = employeeService;
     this.fieldCryptoService = fieldCryptoService;
@@ -87,7 +95,9 @@ public class EmployeeArchiveService {
     this.bankAccountMapper = bankAccountMapper;
     this.socialInsuranceMapper = socialInsuranceMapper;
     this.specialBenefitMapper = specialBenefitMapper;
-    this.commuteAccommodationMapper = commuteAccommodationMapper;
+    this.workInjuryMapper = workInjuryMapper;
+    this.adminInfoMapper = adminInfoMapper;
+    this.accommodationMapper = accommodationMapper;
     this.attachmentMapper = attachmentMapper;
     this.educationMapper = educationMapper;
     this.workExperienceMapper = workExperienceMapper;
@@ -102,6 +112,8 @@ public class EmployeeArchiveService {
     this.agentAssignmentMapper = agentAssignmentMapper;
     this.legalEntityService = legalEntityService;
     this.attendanceCardHelper = attendanceCardHelper;
+    this.adminInfoHelper = adminInfoHelper;
+    this.accommodationHelper = accommodationHelper;
   }
 
   public Map<String, Object> getArchiveBundle(long employeeId) {
@@ -117,7 +129,9 @@ public class EmployeeArchiveService {
     bundle.put("bankAccounts", listBankAccounts(employeeId));
     bundle.put("socialInsurances", listSocialInsurances(employeeId));
     bundle.put("specialBenefits", listSpecialBenefits(employeeId));
-    bundle.put("commuteAccommodations", listCommuteAccommodations(employeeId));
+    bundle.put("workInjuries", listWorkInjuries(employeeId));
+    bundle.put("adminInfos", listAdminInfos(employeeId));
+    bundle.put("accommodations", listAccommodations(employeeId));
     bundle.put("attachments", listAttachments(employeeId));
     bundle.put("educations", listEducations(employeeId));
     bundle.put("workExperiences", listWorkExperiences(employeeId));
@@ -575,6 +589,7 @@ public class EmployeeArchiveService {
 
   @Transactional
   public EmployeeSpecialBenefitEntity createSpecialBenefit(long employeeId, EmployeeSpecialBenefitEntity entity) {
+    validateSpecialBenefit(entity);
     return create(specialBenefitMapper, employeeId, entity, EmployeeSpecialBenefitEntity::setEmployeeId);
   }
 
@@ -591,7 +606,10 @@ public class EmployeeArchiveService {
         entity,
         EmployeeSpecialBenefitEntity::getEmployeeId,
         EmployeeSpecialBenefitEntity::getId,
-        this::mergeSpecialBenefit
+        (current, patch) -> {
+          mergeSpecialBenefit(current, patch);
+          validateSpecialBenefit(current);
+        }
     );
   }
 
@@ -600,43 +618,223 @@ public class EmployeeArchiveService {
     delete(specialBenefitMapper, employeeId, id, EmployeeSpecialBenefitEntity::getEmployeeId);
   }
 
-  public List<EmployeeCommuteAccommodationEntity> listCommuteAccommodations(long employeeId) {
-    return listByEmployee(commuteAccommodationMapper, EmployeeCommuteAccommodationEntity::getEmployeeId, employeeId);
+  public List<EmployeeWorkInjuryEntity> listWorkInjuries(long employeeId) {
+    return listByEmployee(workInjuryMapper, EmployeeWorkInjuryEntity::getEmployeeId, employeeId);
   }
 
   @Transactional
-  public EmployeeCommuteAccommodationEntity createCommuteAccommodation(
-      long employeeId,
-      EmployeeCommuteAccommodationEntity entity
-  ) {
-    return create(
-        commuteAccommodationMapper,
-        employeeId,
-        entity,
-        EmployeeCommuteAccommodationEntity::setEmployeeId
-    );
+  public EmployeeWorkInjuryEntity createWorkInjury(long employeeId, EmployeeWorkInjuryEntity entity) {
+    validateWorkInjury(entity);
+    return create(workInjuryMapper, employeeId, entity, EmployeeWorkInjuryEntity::setEmployeeId);
   }
 
   @Transactional
-  public EmployeeCommuteAccommodationEntity updateCommuteAccommodation(
+  public EmployeeWorkInjuryEntity updateWorkInjury(
       long employeeId,
       long id,
-      EmployeeCommuteAccommodationEntity entity
+      EmployeeWorkInjuryEntity entity
   ) {
     return update(
-        commuteAccommodationMapper,
+        workInjuryMapper,
         employeeId,
         id,
         entity,
-        EmployeeCommuteAccommodationEntity::getEmployeeId,
-        EmployeeCommuteAccommodationEntity::getId,
-        this::mergeCommuteAccommodation
+        EmployeeWorkInjuryEntity::getEmployeeId,
+        EmployeeWorkInjuryEntity::getId,
+        (current, patch) -> {
+          mergeWorkInjury(current, patch);
+          validateWorkInjury(current);
+        }
     );
   }
 
   @Transactional
-  public void deleteCommuteAccommodation(long employeeId, long id) {
-    delete(commuteAccommodationMapper, employeeId, id, EmployeeCommuteAccommodationEntity::getEmployeeId);
+  public void deleteWorkInjury(long employeeId, long id) {
+    delete(workInjuryMapper, employeeId, id, EmployeeWorkInjuryEntity::getEmployeeId);
+  }
+
+  public List<EmployeeAdminInfoEntity> listAdminInfos(long employeeId) {
+    return listByEmployee(adminInfoMapper, EmployeeAdminInfoEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeAdminInfoEntity createAdminInfo(long employeeId, EmployeeAdminInfoEntity entity) {
+    employeeService.require(employeeId);
+    if (entity.getEffectiveStartDate() == null) {
+      entity.setEffectiveStartDate(LocalDate.now());
+    }
+    adminInfoHelper.normalizeDefaults(entity);
+    List<EmployeeAdminInfoEntity> existing = listAdminInfos(employeeId);
+    if (!existing.isEmpty()) {
+      throw new IllegalArgumentException("该员工已存在行政信息，请使用新增生效版本");
+    }
+    entity.setEmployeeId(employeeId);
+    entity.setEffectiveEndDate(null);
+    adminInfoMapper.insert(entity);
+    return requireAdminInfo(employeeId, entity.getId());
+  }
+
+  @Transactional
+  public EmployeeAdminInfoEntity updateAdminInfo(long employeeId, long id, EmployeeAdminInfoEntity patch) {
+    EmployeeAdminInfoEntity cur = requireAdminInfo(employeeId, id);
+    String mode = patch.getEditMode() == null || patch.getEditMode().isBlank()
+        ? "CURRENT"
+        : patch.getEditMode().trim().toUpperCase();
+    if (!"CURRENT".equals(mode) && !"NEW_VERSION".equals(mode)) {
+      throw new IllegalArgumentException("无效的 editMode");
+    }
+
+    LocalDate patchStart = patch.getEffectiveStartDate();
+    if (patchStart != null
+        && cur.getEffectiveStartDate() != null
+        && !patchStart.equals(cur.getEffectiveStartDate())) {
+      return createAdminInfoNewVersion(employeeId, cur, patch);
+    }
+
+    if ("NEW_VERSION".equals(mode)) {
+      return createAdminInfoNewVersion(employeeId, cur, patch);
+    }
+
+    adminInfoHelper.applyPatch(cur, patch);
+    adminInfoHelper.normalizeDefaults(cur);
+    adminInfoMapper.updateById(cur);
+    return requireAdminInfo(employeeId, id);
+  }
+
+  private EmployeeAdminInfoEntity createAdminInfoNewVersion(
+      long employeeId,
+      EmployeeAdminInfoEntity base,
+      EmployeeAdminInfoEntity patch
+  ) {
+    if (patch.getEffectiveStartDate() == null) {
+      throw new IllegalArgumentException("新增生效版本时必须填写生效日期");
+    }
+    LocalDate newStart = patch.getEffectiveStartDate();
+    if (newStart.equals(base.getEffectiveStartDate())) {
+      throw new IllegalArgumentException("新生效日不能与当前版本相同");
+    }
+
+    EmployeeAdminInfoEntity newRow = adminInfoHelper.cloneRow(base);
+    newRow.setId(null);
+    newRow.setEmployeeId(employeeId);
+    adminInfoHelper.applyPatch(newRow, patch);
+    adminInfoHelper.normalizeDefaults(newRow);
+
+    List<EmployeeAdminInfoEntity> existing = listAdminInfos(employeeId);
+    EmployeeAdminInfoHelper.VersionSpliceResult splice =
+        adminInfoHelper.resolveVersionSplice(newRow, existing, newStart);
+    for (EmployeeAdminInfoEntity prev : splice.toUpdate()) {
+      adminInfoMapper.updateById(prev);
+    }
+    adminInfoMapper.insert(newRow);
+    return requireAdminInfo(employeeId, newRow.getId());
+  }
+
+  private EmployeeAdminInfoEntity requireAdminInfo(long employeeId, long id) {
+    EmployeeAdminInfoEntity entity = adminInfoMapper.selectById(id);
+    if (entity == null || entity.getEmployeeId() == null || entity.getEmployeeId() != employeeId) {
+      throw new IllegalArgumentException("档案记录不存在");
+    }
+    return entity;
+  }
+
+  @Transactional
+  public void deleteAdminInfo(long employeeId, long id) {
+    delete(adminInfoMapper, employeeId, id, EmployeeAdminInfoEntity::getEmployeeId);
+  }
+
+  public List<EmployeeAccommodationEntity> listAccommodations(long employeeId) {
+    return listByEmployee(accommodationMapper, EmployeeAccommodationEntity::getEmployeeId, employeeId);
+  }
+
+  @Transactional
+  public EmployeeAccommodationEntity createAccommodation(long employeeId, EmployeeAccommodationEntity entity) {
+    employeeService.require(employeeId);
+    if (entity.getEffectiveStartDate() == null) {
+      entity.setEffectiveStartDate(LocalDate.now());
+    }
+    accommodationHelper.normalizeDefaults(entity);
+    List<EmployeeAccommodationEntity> existing = listAccommodations(employeeId);
+    if (!existing.isEmpty()) {
+      throw new IllegalArgumentException("该员工已存在住宿信息，请使用新增生效版本");
+    }
+    entity.setEmployeeId(employeeId);
+    entity.setEffectiveEndDate(null);
+    accommodationMapper.insert(entity);
+    return requireAccommodation(employeeId, entity.getId());
+  }
+
+  @Transactional
+  public EmployeeAccommodationEntity updateAccommodation(
+      long employeeId,
+      long id,
+      EmployeeAccommodationEntity patch
+  ) {
+    EmployeeAccommodationEntity cur = requireAccommodation(employeeId, id);
+    String mode = patch.getEditMode() == null || patch.getEditMode().isBlank()
+        ? "CURRENT"
+        : patch.getEditMode().trim().toUpperCase();
+    if (!"CURRENT".equals(mode) && !"NEW_VERSION".equals(mode)) {
+      throw new IllegalArgumentException("无效的 editMode");
+    }
+
+    LocalDate patchStart = patch.getEffectiveStartDate();
+    if (patchStart != null
+        && cur.getEffectiveStartDate() != null
+        && !patchStart.equals(cur.getEffectiveStartDate())) {
+      return createAccommodationNewVersion(employeeId, cur, patch);
+    }
+
+    if ("NEW_VERSION".equals(mode)) {
+      return createAccommodationNewVersion(employeeId, cur, patch);
+    }
+
+    accommodationHelper.applyPatch(cur, patch);
+    accommodationHelper.normalizeDefaults(cur);
+    accommodationMapper.updateById(cur);
+    return requireAccommodation(employeeId, id);
+  }
+
+  private EmployeeAccommodationEntity createAccommodationNewVersion(
+      long employeeId,
+      EmployeeAccommodationEntity base,
+      EmployeeAccommodationEntity patch
+  ) {
+    if (patch.getEffectiveStartDate() == null) {
+      throw new IllegalArgumentException("新增生效版本时必须填写生效日期");
+    }
+    LocalDate newStart = patch.getEffectiveStartDate();
+    if (newStart.equals(base.getEffectiveStartDate())) {
+      throw new IllegalArgumentException("新生效日不能与当前版本相同");
+    }
+
+    EmployeeAccommodationEntity newRow = accommodationHelper.cloneRow(base);
+    newRow.setId(null);
+    newRow.setEmployeeId(employeeId);
+    accommodationHelper.applyPatch(newRow, patch);
+    accommodationHelper.normalizeDefaults(newRow);
+
+    List<EmployeeAccommodationEntity> existing = listAccommodations(employeeId);
+    EmployeeAccommodationHelper.VersionSpliceResult splice =
+        accommodationHelper.resolveVersionSplice(newRow, existing, newStart);
+    for (EmployeeAccommodationEntity prev : splice.toUpdate()) {
+      accommodationMapper.updateById(prev);
+    }
+    accommodationMapper.insert(newRow);
+    return requireAccommodation(employeeId, newRow.getId());
+  }
+
+  private EmployeeAccommodationEntity requireAccommodation(long employeeId, long id) {
+    EmployeeAccommodationEntity entity = accommodationMapper.selectById(id);
+    if (entity == null || entity.getEmployeeId() == null || entity.getEmployeeId() != employeeId) {
+      throw new IllegalArgumentException("档案记录不存在");
+    }
+    return entity;
+  }
+
+  @Transactional
+  public void deleteAccommodation(long employeeId, long id) {
+    delete(accommodationMapper, employeeId, id, EmployeeAccommodationEntity::getEmployeeId);
   }
 
   public List<EmployeeAttachmentEntity> listAttachments(long employeeId) {
@@ -1123,7 +1321,51 @@ public class EmployeeArchiveService {
   private void mergeBankAccount(EmployeeBankAccountEntity current, EmployeeBankAccountEntity patch) { mergeAll(current, patch); }
   private void mergeSocialInsurance(EmployeeSocialInsuranceEntity current, EmployeeSocialInsuranceEntity patch) { mergeAll(current, patch); }
   private void mergeSpecialBenefit(EmployeeSpecialBenefitEntity current, EmployeeSpecialBenefitEntity patch) { mergeAll(current, patch); }
-  private void mergeCommuteAccommodation(EmployeeCommuteAccommodationEntity current, EmployeeCommuteAccommodationEntity patch) { mergeAll(current, patch); }
+
+  private void validateSpecialBenefit(EmployeeSpecialBenefitEntity entity) {
+    String has = entity.getHasSpecialBenefit();
+    if (has == null || has.isBlank()) {
+      throw new IllegalArgumentException("请选择是否有特殊福利");
+    }
+    has = has.trim().toUpperCase();
+    if (!"YES".equals(has) && !"NO".equals(has)) {
+      throw new IllegalArgumentException("是否有特殊福利仅支持是/否");
+    }
+    entity.setHasSpecialBenefit(has);
+  }
+
+  private void mergeWorkInjury(EmployeeWorkInjuryEntity current, EmployeeWorkInjuryEntity patch) { mergeAll(current, patch); }
+
+  private void validateWorkInjury(EmployeeWorkInjuryEntity entity) {
+    entity.setIsRecognized(normalizeYesNo(entity.getIsRecognized(), "是否认定为工伤"));
+    entity.setParticipatedLaborAssessment(
+        normalizeYesNo(entity.getParticipatedLaborAssessment(), "是否参加劳动力鉴定")
+    );
+    if (entity.getAccidentReason() != null && entity.getAccidentReason().length() > 2000) {
+      throw new IllegalArgumentException("事故原因不能超过 2000 字");
+    }
+    if (entity.getWitness() != null && entity.getWitness().length() > 128) {
+      throw new IllegalArgumentException("见证人不能超过 128 字");
+    }
+    if (entity.getLaborAssessmentLevel() != null && entity.getLaborAssessmentLevel().length() > 2000) {
+      throw new IllegalArgumentException("劳动力鉴定级别不能超过 2000 字");
+    }
+    if (entity.getRemark() != null && entity.getRemark().length() > 2000) {
+      throw new IllegalArgumentException("备注不能超过 2000 字");
+    }
+  }
+
+  private String normalizeYesNo(String raw, String label) {
+    if (raw == null || raw.isBlank()) {
+      return null;
+    }
+    String value = raw.trim().toUpperCase();
+    if (!"YES".equals(value) && !"NO".equals(value)) {
+      throw new IllegalArgumentException(label + "仅支持是/否");
+    }
+    return value;
+  }
+
   private void mergeAttachment(EmployeeAttachmentEntity current, EmployeeAttachmentEntity patch) { mergeAll(current, patch); }
   private void mergeEducation(EmployeeEducationEntity current, EmployeeEducationEntity patch) { mergeAll(current, patch); }
   private void mergeWorkExperience(EmployeeWorkExperienceEntity current, EmployeeWorkExperienceEntity patch) { mergeAll(current, patch); }

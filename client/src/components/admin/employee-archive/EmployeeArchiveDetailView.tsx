@@ -51,8 +51,8 @@ import {
   PERSONAL_INTERNAL_RELATIVE_FIELDS,
   SERVICE_BANK_FIELDS,
   SERVICE_BENEFIT_FIELDS,
-  SERVICE_COMMUTE_FIELDS,
   SERVICE_SOCIAL_FIELDS,
+  SERVICE_WORK_INJURY_FIELDS,
   TALENT_AGENT_FIELDS,
   TALENT_PERFORMANCE_FIELDS,
   TALENT_PROJECT_FIELDS,
@@ -69,6 +69,8 @@ import {
 import { ArchiveAttachmentSection } from "@/components/admin/employee-archive/ArchiveAttachmentSection";
 import { AgreementSection } from "@/components/admin/employee-archive/AgreementSection";
 import { AttendanceCardSection } from "@/components/admin/employee-archive/AttendanceCardSection";
+import { AdminInfoSection } from "@/components/admin/employee-archive/AdminInfoSection";
+import { AccommodationSection } from "@/components/admin/employee-archive/AccommodationSection";
 import { ContractSection } from "@/components/admin/employee-archive/ContractSection";
 import { ArchiveDetailNav } from "@/components/admin/employee-archive/ArchiveDetailNav";
 import { ArchiveMultiSection } from "@/components/admin/employee-archive/ArchiveMultiSection";
@@ -384,7 +386,9 @@ export function EmployeeArchiveDetailView({
       "bank-accounts": archive.bankAccounts.length,
       "social-insurances": archive.socialInsurances.length,
       "special-benefits": archive.specialBenefits.length,
-      "commute-accommodations": archive.commuteAccommodations.length,
+      "work-injuries": archive.workInjuries.length,
+      "admin-infos": archive.adminInfos.length,
+      accommodations: archive.accommodations.length,
       attachments: archive.attachments.length,
       educations: archive.educations.length,
       "work-experiences": archive.workExperiences.length,
@@ -717,13 +721,30 @@ export function EmployeeArchiveDetailView({
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
-                  <ArchiveSectionAnchor id="commute-accommodations">
+                  <ArchiveSectionAnchor id="work-injuries">
                     <ArchiveMultiSection
-                      title="通勤与住宿"
+                      title="工伤信息"
                       employeeId={employee.id}
-                      resourcePath="commute-accommodations"
-                      items={archive.commuteAccommodations}
-                      fieldDefs={SERVICE_COMMUTE_FIELDS}
+                      resourcePath="work-injuries"
+                      items={archive.workInjuries}
+                      fieldDefs={SERVICE_WORK_INJURY_FIELDS}
+                      canEdit={sectionEdit("service")}
+                      onChanged={onArchiveChanged}
+                    />
+                  </ArchiveSectionAnchor>
+                  <ArchiveSectionAnchor id="admin-infos">
+                    <AdminInfoSection
+                      employeeId={employee.id}
+                      items={archive.adminInfos}
+                      canEdit={sectionEdit("service")}
+                      workEnvironments={dictOptions?.workEnvironments ?? []}
+                      onChanged={onArchiveChanged}
+                    />
+                  </ArchiveSectionAnchor>
+                  <ArchiveSectionAnchor id="accommodations">
+                    <AccommodationSection
+                      employeeId={employee.id}
+                      items={archive.accommodations}
                       canEdit={sectionEdit("service")}
                       onChanged={onArchiveChanged}
                     />

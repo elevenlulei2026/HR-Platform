@@ -77,7 +77,7 @@
 | --- | --- |
 | **7.1 个人信息** | #1–5：主档全字段 + 证件/家属/内部亲属子表 CRUD |
 | **7.2 工作信息** | #6–11：任职全字段 + 成本中心分摊 + 合同/协议档案 |
-| **7.3 员工服务** | #12–17：考勤卡、银行卡、社保、特殊福利、班车住宿、附件 |
+| **7.3 员工服务** | #12–17：考勤卡、银行卡、社保、特殊福利、工伤信息、行政信息、住宿信息、附件 |
 | **7.4 背景信息** | #18–21：教育、工作经历、资格职称、奖惩 |
 | **7.5 人才发展档案** | #22–27：培训/绩效/价值观/盘点/项目/智能体归属（只记录） |
 | **7.6 汇报关系** | `reporting_line`，支持 `asOfDate` |
@@ -487,14 +487,14 @@ flowchart TD
 
 #### 7.3 员工服务（档案 #12–17）
 
-- **7.3.1**：shared 增加考勤卡、银行卡、社保、特殊福利、班车住宿、附件类型
+- **7.3.1**：shared 增加考勤卡、银行卡、社保、特殊福利、行政信息、住宿信息、附件类型
   - 验收：与 §4.3 子表字段对齐
-- **7.3.2**：Flyway 创建 `employee_attendance_card`、`employee_bank_account`、`employee_social_insurance`、`employee_special_benefit`、`employee_commute_accommodation`、`employee_attachment`
+- **7.3.2**：Flyway 创建 `employee_attendance_card`、`employee_bank_account`、`employee_social_insurance`、`employee_special_benefit`、`employee_admin_info`、`employee_accommodation`、`employee_attachment`
   - 验收：迁移成功；银行账号/社保号加密
 - **7.3.3**：后端各子表 CRUD + 附件受控下载
   - 验收：鉴权 + 敏感字段脱敏/审计
 - **7.3.4**：前端 Sheet「员工服务」Tab
-  - 验收：6 类信息分块展示；多行可维护；附件可上传/下载
+  - 验收：分块展示；多行可维护；行政/住宿支持生效版本；附件可上传/下载
 
 #### 7.4 背景信息（档案 #18–21）
 
