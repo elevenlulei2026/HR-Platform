@@ -161,6 +161,14 @@ export const EMPTY_EMPLOYEE_FORM_OPTIONS: EmployeeFormOptions = {
   payrollCompanies: [],
   insuranceRegions: [],
   workEnvironments: [],
+  trainingAssessmentMethods: [],
+  trainingAssessmentResults: [],
+  trainingForms: [],
+  trainingTypes: [],
+  performanceAssessmentTypes: [],
+  performanceValuesLevels: [],
+  performanceLevels: [],
+  projectFinalOutcomes: [],
 };
 
 export const EMPLOYEE_STATUS_OPTIONS = [

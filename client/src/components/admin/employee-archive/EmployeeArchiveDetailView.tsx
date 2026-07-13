@@ -300,11 +300,12 @@ export function EmployeeArchiveDetailView({
   const [dictOptions, setDictOptions] = useState<EmployeeFormOptions | null>(archiveDictOptions ?? null);
 
   useEffect(() => {
-    setDictOptions(archiveDictOptions ?? null);
+    if (archiveDictOptions) {
+      setDictOptions((prev) => prev ?? archiveDictOptions);
+    }
   }, [archiveDictOptions]);
 
   useEffect(() => {
-    if (dictOptions) return;
     let cancelled = false;
     void (async () => {
       try {
@@ -312,21 +313,25 @@ export function EmployeeArchiveDetailView({
         if (!cancelled) setDictOptions(res.data);
       } catch (e: unknown) {
         if (cancelled) return;
-        const msg =
-          typeof e === "object" && e !== null && "message" in e && typeof (e as { message: unknown }).message === "string"
-            ? (e as { message: string }).message
-            : "字典选项加载失败";
-        const traceId =
-          typeof e === "object" && e !== null && "traceId" in e && typeof (e as { traceId: unknown }).traceId === "string"
-            ? (e as { traceId: string }).traceId
-            : undefined;
-        toast.error(traceId ? `${msg}（traceId: ${traceId}）` : msg);
+        setDictOptions((prev) => {
+          if (prev) return prev;
+          const msg =
+            typeof e === "object" && e !== null && "message" in e && typeof (e as { message: unknown }).message === "string"
+              ? (e as { message: string }).message
+              : "字典选项加载失败";
+          const traceId =
+            typeof e === "object" && e !== null && "traceId" in e && typeof (e as { traceId: unknown }).traceId === "string"
+              ? (e as { traceId: string }).traceId
+              : undefined;
+          toast.error(traceId ? `${msg}（traceId: ${traceId}）` : msg);
+          return prev;
+        });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [dictOptions]);
+  }, [employee.id]);
 
   const activeVersionId = useMemo(() => {
     const date = asOfDate;
@@ -371,6 +376,14 @@ export function EmployeeArchiveDetailView({
             insuranceRegions: dictOptions.insuranceRegions,
             educations: dictOptions.educations,
             degrees: dictOptions.degrees,
+            trainingAssessmentMethods: dictOptions.trainingAssessmentMethods,
+            trainingAssessmentResults: dictOptions.trainingAssessmentResults,
+            trainingForms: dictOptions.trainingForms,
+            trainingTypes: dictOptions.trainingTypes,
+            performanceAssessmentTypes: dictOptions.performanceAssessmentTypes,
+            performanceValuesLevels: dictOptions.performanceValuesLevels,
+            performanceLevels: dictOptions.performanceLevels,
+            projectFinalOutcomes: dictOptions.projectFinalOutcomes,
           }
         : null,
     [dictOptions],
@@ -829,6 +842,7 @@ export function EmployeeArchiveDetailView({
                       items={archive.trainingRecords}
                       fieldDefs={TALENT_TRAINING_FIELDS}
                       canEdit={sectionEdit("development")}
+                      dictOptions={sectionDictOptions}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -840,6 +854,7 @@ export function EmployeeArchiveDetailView({
                       items={archive.performanceRecords}
                       fieldDefs={TALENT_PERFORMANCE_FIELDS}
                       canEdit={sectionEdit("development")}
+                      dictOptions={sectionDictOptions}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>
@@ -873,6 +888,7 @@ export function EmployeeArchiveDetailView({
                       items={archive.projects}
                       fieldDefs={TALENT_PROJECT_FIELDS}
                       canEdit={sectionEdit("development")}
+                      dictOptions={sectionDictOptions}
                       onChanged={onArchiveChanged}
                     />
                   </ArchiveSectionAnchor>

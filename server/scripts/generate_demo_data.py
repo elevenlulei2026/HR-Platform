@@ -688,29 +688,38 @@ FROM employee e WHERE e.employee_no = {esc(emp_no)}
         if i % 6 == 0:
             lines.append(f"""
 INSERT INTO employee_talent_review (
-  employee_id, review_cycle, grid_position, potential_level, performance_level, reviewer_name, review_date
+  employee_id, year, performance_score, performance_placement, potential_score, potential_placement,
+  values_score, nine_box_placement, subjective_evaluation
 )
-SELECT e.id, '2025', {esc(rng.choice(['9-BOX-高潜', '9-BOX-核心', '9-BOX-稳定']))},
-  {esc(rng.choice(['HIGH', 'MEDIUM']))}, {esc(rng.choice(['HIGH', 'MEDIUM']))}, {esc(gen_name(True))}, '2025-11-30'
+SELECT e.id, '2025',
+  {esc(rng.choice(['3.8', '4.2', '4.5']))}, {esc(rng.choice(['高', '中高', '中']))},
+  {esc(rng.choice(['3.5', '4.0', '4.3']))}, {esc(rng.choice(['高潜', '中潜', '稳']))},
+  {esc(rng.choice(['3.6', '4.1', '4.4']))}, {esc(rng.choice(['高潜', '核心', '稳定']))},
+  {esc('综合表现良好，建议持续关注发展路径。')}
 FROM employee e WHERE e.employee_no = {esc(emp_no)}
-  AND NOT EXISTS (SELECT 1 FROM employee_talent_review t WHERE t.employee_id = e.id AND t.review_cycle = '2025');""")
+  AND NOT EXISTS (SELECT 1 FROM employee_talent_review t WHERE t.employee_id = e.id AND t.year = '2025');""")
 
         lines.append(f"""
 INSERT INTO employee_project (
-  employee_id, project_name, project_code, role, start_date, end_date, contribution
+  employee_id, project_name, project_description, role, start_date, end_date, personal_contribution, final_outcome
 )
 SELECT e.id, {esc(rng.choice(['星河HR中台', '智能制造MES', '海外CRM升级', '数据治理平台']))},
-  {esc(f'PRJ-{emp_no[:6]}')}, {esc(rng.choice(['开发', '产品', '测试', '项目经理']))},
-  {sql_date(hire + timedelta(days=60))}, NULL, {esc('核心模块交付')}
+  {esc('支撑核心业务数字化转型的重点项目')}, {esc(rng.choice(['开发', '产品', '测试', '项目经理']))},
+  {sql_date(hire + timedelta(days=60))}, NULL, {esc('核心模块交付')}, {esc(rng.choice(['1', '2', '3']))}
 FROM employee e WHERE e.employee_no = {esc(emp_no)}
   AND NOT EXISTS (SELECT 1 FROM employee_project p WHERE p.employee_id = e.id);""")
 
         if i % 10 == 0:
             lines.append(f"""
 INSERT INTO employee_agent_assignment (
-  employee_id, agent_id, agent_name, assignment_type, effective_start_date, remark
+  employee_id, primary_agent_tag, start_date, end_date, agent_name, agent_identity, agent_role,
+  is_architect, is_militia, is_data_steward, percentage
 )
-SELECT e.id, {esc(f'AGT-{i:04d}')}, {esc(rng.choice(['招聘助手', '考勤机器人', '知识库助手']))}, 'COPILOT', {sql_date(hire)}, '智能体归属'
+SELECT e.id, {esc(rng.choice(['YES', 'NO']))}, {sql_date(hire)}, NULL,
+  {esc(rng.choice(['招聘助手', '考勤机器人', '知识库助手']))}, {esc(f'AGT-{i:04d}')},
+  {esc(rng.choice(['负责人', '协作者', '顾问']))},
+  {esc(rng.choice(['YES', 'NO']))}, {esc(rng.choice(['YES', 'NO']))}, {esc(rng.choice(['YES', 'NO']))},
+  {rng.choice([20, 30, 50, 80, 100])}
 FROM employee e WHERE e.employee_no = {esc(emp_no)}
   AND NOT EXISTS (SELECT 1 FROM employee_agent_assignment a WHERE a.employee_id = e.id);""")
 

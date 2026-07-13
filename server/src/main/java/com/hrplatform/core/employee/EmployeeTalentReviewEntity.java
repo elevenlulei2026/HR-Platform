@@ -2,20 +2,28 @@ package com.hrplatform.core.employee;
 
 import com.baomidou.mybatisplus.annotation.TableName;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @TableName("employee_talent_review")
 public class EmployeeTalentReviewEntity {
   private Long id;
   private Long employeeId;
-  private String reviewCycle;
-  private String gridPosition;
-  private String potentialLevel;
-  private String performanceLevel;
-  private String reviewerName;
-  private LocalDate reviewDate;
-  private String remark;
+  /** 年份（文本手填） */
+  private String year;
+  /** 绩效得分 */
+  private String performanceScore;
+  /** 绩效落位 */
+  private String performancePlacement;
+  /** 潜力得分 */
+  private String potentialScore;
+  /** 潜力落位 */
+  private String potentialPlacement;
+  /** 价值观得分 */
+  private String valuesScore;
+  /** 九宫格落位 */
+  private String nineBoxPlacement;
+  /** 主观评价（长文本） */
+  private String subjectiveEvaluation;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
   private Long createdBy;
@@ -25,20 +33,22 @@ public class EmployeeTalentReviewEntity {
   public void setId(Long id) { this.id = id; }
   public Long getEmployeeId() { return employeeId; }
   public void setEmployeeId(Long employeeId) { this.employeeId = employeeId; }
-  public String getReviewCycle() { return reviewCycle; }
-  public void setReviewCycle(String reviewCycle) { this.reviewCycle = reviewCycle; }
-  public String getGridPosition() { return gridPosition; }
-  public void setGridPosition(String gridPosition) { this.gridPosition = gridPosition; }
-  public String getPotentialLevel() { return potentialLevel; }
-  public void setPotentialLevel(String potentialLevel) { this.potentialLevel = potentialLevel; }
-  public String getPerformanceLevel() { return performanceLevel; }
-  public void setPerformanceLevel(String performanceLevel) { this.performanceLevel = performanceLevel; }
-  public String getReviewerName() { return reviewerName; }
-  public void setReviewerName(String reviewerName) { this.reviewerName = reviewerName; }
-  public LocalDate getReviewDate() { return reviewDate; }
-  public void setReviewDate(LocalDate reviewDate) { this.reviewDate = reviewDate; }
-  public String getRemark() { return remark; }
-  public void setRemark(String remark) { this.remark = remark; }
+  public String getYear() { return year; }
+  public void setYear(String year) { this.year = year; }
+  public String getPerformanceScore() { return performanceScore; }
+  public void setPerformanceScore(String performanceScore) { this.performanceScore = performanceScore; }
+  public String getPerformancePlacement() { return performancePlacement; }
+  public void setPerformancePlacement(String performancePlacement) { this.performancePlacement = performancePlacement; }
+  public String getPotentialScore() { return potentialScore; }
+  public void setPotentialScore(String potentialScore) { this.potentialScore = potentialScore; }
+  public String getPotentialPlacement() { return potentialPlacement; }
+  public void setPotentialPlacement(String potentialPlacement) { this.potentialPlacement = potentialPlacement; }
+  public String getValuesScore() { return valuesScore; }
+  public void setValuesScore(String valuesScore) { this.valuesScore = valuesScore; }
+  public String getNineBoxPlacement() { return nineBoxPlacement; }
+  public void setNineBoxPlacement(String nineBoxPlacement) { this.nineBoxPlacement = nineBoxPlacement; }
+  public String getSubjectiveEvaluation() { return subjectiveEvaluation; }
+  public void setSubjectiveEvaluation(String subjectiveEvaluation) { this.subjectiveEvaluation = subjectiveEvaluation; }
   public LocalDateTime getCreatedAt() { return createdAt; }
   public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
   public LocalDateTime getUpdatedAt() { return updatedAt; }

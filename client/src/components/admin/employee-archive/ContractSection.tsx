@@ -367,12 +367,11 @@ export function ContractSection({
         }
       >
         {items.length === 0 ? (
-          <div className="p-6">
-            <PanelEmpty
-              title="暂无合同记录"
-              description={canEdit ? "点击右上角新增合同信息" : ""}
-            />
-          </div>
+          <PanelEmpty
+            compact
+            title="暂无合同记录"
+            description={canEdit ? "点击右上角新增合同信息" : ""}
+          />
         ) : (
           <ArchiveRecordList>
             {items.map((item) => {

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Edit, Trash2, UserRound } from "lucide-react";
 
 import type { ApiError } from "@/api/http";
+import { listDictItemsByTypeCode } from "@/api/dict";
 import {
   createEmployeeArchiveResource,
   deleteEmployeeArchiveResource,
@@ -25,6 +26,29 @@ import {
   ArchiveRecordFieldGrid,
   ArchiveRecordList,
 } from "@/components/admin/employee-archive/archive-record-ui";
+import {
+  PerformanceRecordDenseRow,
+  PerformanceRecordsViewMoreButton,
+  type PerformanceRecordListItem,
+} from "@/components/admin/employee-archive/performance-record-ui";
+import {
+  TrainingRecordDenseRow,
+  TrainingRecordsViewMoreButton,
+  type TrainingRecordListItem,
+} from "@/components/admin/employee-archive/training-record-ui";
+import {
+  ValuesAssessmentDenseRow,
+  ValuesAssessmentsViewMoreButton,
+  resolveValuesAssessmentListItem,
+  sortValuesAssessmentItems,
+} from "@/components/admin/employee-archive/values-assessment-ui";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   ArchiveStatusBadge,
   attendanceCardStatusLabel,
@@ -69,6 +93,14 @@ export type ArchiveDictKey = keyof Pick<
   | "insuranceRegions"
   | "educations"
   | "degrees"
+  | "trainingAssessmentMethods"
+  | "trainingAssessmentResults"
+  | "trainingForms"
+  | "trainingTypes"
+  | "performanceAssessmentTypes"
+  | "performanceValuesLevels"
+  | "performanceLevels"
+  | "projectFinalOutcomes"
 >;
 
 export type ArchiveDictOptions = Pick<EmployeeFormOptions, ArchiveDictKey>;
@@ -85,8 +117,10 @@ export type ArchiveFieldDef = {
   sensitive?: boolean;
   /** 关联主数据下拉 */
   reference?: "legalEntity" | "employee";
-  /** 数据字典选项键 */
+  /** 数据字典选项键（对应 EmployeeFormOptions） */
   dictKey?: ArchiveDictKey;
+  /** 数据字典 typeCode；有值时组件会自行拉取，避免花名册缓存的 formOptions 缺项 */
+  dictTypeCode?: string;
   /** 只读展示（如内部亲属自动带出字段） */
   readOnly?: boolean;
   /** 列表是否展示（默认展示）。用于“表单可编辑，但列表不展示”的字段 */
@@ -104,6 +138,8 @@ type ArchiveMultiSectionProps<TPath extends EmployeeArchiveResourcePath> = {
   fieldDefs: ArchiveFieldDef[];
   canEdit: boolean;
   dictOptions?: ArchiveDictOptions | null;
+  /** 列表预览条数；超出后显示「查看更多」。培训记录默认 3 */
+  previewLimit?: number;
   onChanged: () => Promise<void> | void;
 };
 
@@ -354,6 +390,113 @@ function ReadOnlyFieldValue({ value, placeholder }: { value: string; placeholder
   );
 }
 
+function trainingSortKey(item: ArchiveItem) {
+  const end = String(item.endDate ?? "");
+  const start = String(item.startDate ?? "");
+  return `${end || "0000-00-00"}|${start || "0000-00-00"}|${item.id}`;
+}
+
+function sortTrainingItems(items: ArchiveItem[]) {
+  return [...items].sort((a, b) => trainingSortKey(b).localeCompare(trainingSortKey(a)));
+}
+
+function dictLabelOf(
+  item: ArchiveItem,
+  dictOptions: ArchiveDictOptions | null | undefined,
+  key: ArchiveDictKey,
+  value: ArchiveFormPrimitive,
+  fallbackKey: string,
+) {
+  const explicit = item[fallbackKey];
+  if (explicit !== null && explicit !== undefined && String(explicit) !== "") {
+    return String(explicit);
+  }
+  if (value === null || value === undefined || value === "") return undefined;
+  return dictOptions?.[key]?.find((opt) => opt.value === String(value))?.label;
+}
+
+function resolveTrainingListItem(
+  item: ArchiveItem,
+  dictOptions?: ArchiveDictOptions | null,
+): TrainingRecordListItem {
+  return {
+    id: item.id,
+    courseName: item.courseName ? String(item.courseName) : undefined,
+    startDate: item.startDate ? String(item.startDate) : undefined,
+    endDate: item.endDate ? String(item.endDate) : undefined,
+    hours: item.hours as number | string | undefined,
+    assessmentMethodLabel: dictLabelOf(
+      item,
+      dictOptions,
+      "trainingAssessmentMethods",
+      item.assessmentMethod,
+      "assessmentMethodLabel",
+    ),
+    assessmentResult: item.assessmentResult ? String(item.assessmentResult) : undefined,
+    assessmentResultLabel: dictLabelOf(
+      item,
+      dictOptions,
+      "trainingAssessmentResults",
+      item.assessmentResult,
+      "assessmentResultLabel",
+    ),
+    trainingFormLabel: dictLabelOf(item, dictOptions, "trainingForms", item.trainingForm, "trainingFormLabel"),
+    trainingTypeLabel: dictLabelOf(item, dictOptions, "trainingTypes", item.trainingType, "trainingTypeLabel"),
+    trainingLocation: item.trainingLocation ? String(item.trainingLocation) : undefined,
+    trainer: item.trainer ? String(item.trainer) : undefined,
+    trainingCost: item.trainingCost as number | string | undefined,
+  };
+}
+
+function performanceSortKey(item: ArchiveItem) {
+  const year = String(item.year ?? "").padStart(4, "0");
+  const end = String(item.performanceEndDate ?? "");
+  const start = String(item.performanceStartDate ?? "");
+  return `${year}|${end || "0000-00-00"}|${start || "0000-00-00"}|${item.id}`;
+}
+
+function sortPerformanceItems(items: ArchiveItem[]) {
+  return [...items].sort((a, b) => performanceSortKey(b).localeCompare(performanceSortKey(a)));
+}
+
+function resolvePerformanceListItem(
+  item: ArchiveItem,
+  dictOptions?: ArchiveDictOptions | null,
+): PerformanceRecordListItem {
+  return {
+    id: item.id,
+    year: item.year ? String(item.year) : undefined,
+    assessmentTypeLabel: dictLabelOf(
+      item,
+      dictOptions,
+      "performanceAssessmentTypes",
+      item.assessmentType,
+      "assessmentTypeLabel",
+    ),
+    performanceStartDate: item.performanceStartDate ? String(item.performanceStartDate) : undefined,
+    performanceEndDate: item.performanceEndDate ? String(item.performanceEndDate) : undefined,
+    valuesLevel: item.valuesLevel ? String(item.valuesLevel) : undefined,
+    valuesLevelLabel: dictLabelOf(
+      item,
+      dictOptions,
+      "performanceValuesLevels",
+      item.valuesLevel,
+      "valuesLevelLabel",
+    ),
+    performanceLevel: item.performanceLevel ? String(item.performanceLevel) : undefined,
+    performanceLevelLabel: dictLabelOf(
+      item,
+      dictOptions,
+      "performanceLevels",
+      item.performanceLevel,
+      "performanceLevelLabel",
+    ),
+    performanceScore: item.performanceScore ? String(item.performanceScore) : undefined,
+    valuesScore: item.valuesScore ? String(item.valuesScore) : undefined,
+    remark: item.remark ? String(item.remark) : undefined,
+  };
+}
+
 export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
   title,
   employeeId,
@@ -362,6 +505,7 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
   fieldDefs,
   canEdit,
   dictOptions,
+  previewLimit,
   onChanged,
 }: ArchiveMultiSectionProps<TPath>) {
   const archiveItems = items as ArchiveItem[];
@@ -369,6 +513,7 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
   const [form, setForm] = useState<Record<string, string>>(() => initialForm(fieldDefs));
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<ArchiveItem | null>(null);
+  const [viewAllOpen, setViewAllOpen] = useState(false);
   const [legalEntityOptions, setLegalEntityOptions] = useState<Array<{ value: string; label: string }>>(
     [],
   );
@@ -377,6 +522,9 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
   const [employeeLoading, setEmployeeLoading] = useState(false);
   const [relativeLoading, setRelativeLoading] = useState(false);
   const debouncedEmployeeSearch = useDebouncedValue(employeeSearch, 280);
+  const [fetchedDictOptions, setFetchedDictOptions] = useState<
+    Partial<Record<ArchiveDictKey, Array<{ value: string; label: string }>>>
+  >({});
 
   const needsLegalEntities = useMemo(
     () => fieldDefs.some((field) => field.reference === "legalEntity"),
@@ -386,6 +534,58 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
     () => fieldDefs.some((field) => field.reference === "employee"),
     [fieldDefs],
   );
+
+  const dictTypeLoads = useMemo(() => {
+    const map = new Map<ArchiveDictKey, string>();
+    for (const field of fieldDefs) {
+      if (field.dictKey && field.dictTypeCode) {
+        map.set(field.dictKey, field.dictTypeCode);
+      }
+    }
+    return Array.from(map.entries());
+  }, [fieldDefs]);
+
+  const mergedDictOptions = useMemo<ArchiveDictOptions | null>(() => {
+    if (!dictOptions && dictTypeLoads.length === 0 && Object.keys(fetchedDictOptions).length === 0) {
+      return null;
+    }
+    const base = { ...(dictOptions ?? {}) } as ArchiveDictOptions;
+    for (const [key, options] of Object.entries(fetchedDictOptions) as Array<
+      [ArchiveDictKey, Array<{ value: string; label: string }>]
+    >) {
+      if (options.length > 0) {
+        base[key] = options;
+      }
+    }
+    return base;
+  }, [dictOptions, dictTypeLoads.length, fetchedDictOptions]);
+
+  useEffect(() => {
+    if (dictTypeLoads.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const entries = await Promise.all(
+          dictTypeLoads.map(async ([dictKey, typeCode]) => {
+            const res = await listDictItemsByTypeCode(typeCode);
+            const options = res.data
+              .filter((item) => item.status === "ACTIVE")
+              .sort((a, b) => a.sort - b.sort)
+              .map((item) => ({ value: item.value, label: item.label }));
+            return [dictKey, options] as const;
+          }),
+        );
+        if (!cancelled) {
+          setFetchedDictOptions(Object.fromEntries(entries));
+        }
+      } catch {
+        if (!cancelled) setFetchedDictOptions({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dictTypeLoads]);
 
   useEffect(() => {
     if (sheet.type === "closed" || !needsLegalEntities) return;
@@ -432,6 +632,25 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
     [fieldDefs],
   );
   const highlightKey = fieldDefs[0]?.key;
+  const isTrainingRecords = resourcePath === "training-records";
+  const isPerformanceRecords = resourcePath === "performance-records";
+  const isValuesAssessments = resourcePath === "values-assessments";
+  const isDensePreviewList = isTrainingRecords || isPerformanceRecords || isValuesAssessments;
+  const effectivePreviewLimit = previewLimit ?? (isDensePreviewList ? 3 : undefined);
+
+  const sortedDenseItems = useMemo(() => {
+    if (isTrainingRecords) return sortTrainingItems(archiveItems);
+    if (isPerformanceRecords) return sortPerformanceItems(archiveItems);
+    if (isValuesAssessments) return sortValuesAssessmentItems(archiveItems);
+    return archiveItems;
+  }, [archiveItems, isPerformanceRecords, isTrainingRecords, isValuesAssessments]);
+
+  const previewDenseItems = useMemo(() => {
+    if (!isDensePreviewList || effectivePreviewLimit === undefined) return sortedDenseItems;
+    return sortedDenseItems.slice(0, effectivePreviewLimit);
+  }, [effectivePreviewLimit, isDensePreviewList, sortedDenseItems]);
+
+  const hiddenDenseCount = Math.max(0, sortedDenseItems.length - previewDenseItems.length);
 
   const openCreate = () => {
     setForm(initialForm(fieldDefs));
@@ -618,15 +837,16 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
     }
 
     if (field.dictKey) {
+      const options = mergedDictOptions?.[field.dictKey] ?? [];
       return (
         <OptionSelect
           value={form[field.key] ?? ""}
           onValueChange={(value) => setForm((prev) => ({ ...prev, [field.key]: value }))}
-          options={dictOptions?.[field.dictKey] ?? []}
+          options={options}
           allowEmpty={!field.required}
           emptyLabel="不填写"
-          placeholder={dictOptions ? "请选择" : "加载选项…"}
-          disabled={!dictOptions}
+          placeholder={options.length ? "请选择" : "加载选项…"}
+          disabled={options.length === 0}
           className="w-full"
         />
       );
@@ -785,6 +1005,13 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
     <>
       <PanelCard
         title={title}
+        description={
+          isDensePreviewList && archiveItems.length > 0
+            ? hiddenDenseCount > 0
+              ? `最近 ${previewDenseItems.length} 条 · 共 ${sortedDenseItems.length} 条`
+              : `共 ${sortedDenseItems.length} 条`
+            : undefined
+        }
         toolbar={
           canEdit ? (
             <ArchiveAddButton
@@ -797,6 +1024,57 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
       >
         {archiveItems.length === 0 ? (
           <PanelEmpty compact title={`暂无${title}`} description="可通过新增按钮维护档案信息" />
+        ) : isTrainingRecords ? (
+          <div className="space-y-1.5 p-2">
+            {previewDenseItems.map((item, index) => (
+              <TrainingRecordDenseRow
+                key={item.id}
+                item={resolveTrainingListItem(item, mergedDictOptions)}
+                index={index + 1}
+                canEdit={canEdit}
+                onEdit={() => openEdit(item)}
+                onDelete={() => setDeleteTarget(item)}
+              />
+            ))}
+            <TrainingRecordsViewMoreButton
+              hiddenCount={hiddenDenseCount}
+              onClick={() => setViewAllOpen(true)}
+            />
+          </div>
+        ) : isPerformanceRecords ? (
+          <div className="space-y-1.5 p-2">
+            {previewDenseItems.map((item, index) => (
+              <PerformanceRecordDenseRow
+                key={item.id}
+                item={resolvePerformanceListItem(item, mergedDictOptions)}
+                index={index + 1}
+                canEdit={canEdit}
+                onEdit={() => openEdit(item)}
+                onDelete={() => setDeleteTarget(item)}
+              />
+            ))}
+            <PerformanceRecordsViewMoreButton
+              hiddenCount={hiddenDenseCount}
+              onClick={() => setViewAllOpen(true)}
+            />
+          </div>
+        ) : isValuesAssessments ? (
+          <div className="space-y-1.5 p-2">
+            {previewDenseItems.map((item, index) => (
+              <ValuesAssessmentDenseRow
+                key={item.id}
+                item={resolveValuesAssessmentListItem(item)}
+                index={index + 1}
+                canEdit={canEdit}
+                onEdit={() => openEdit(item)}
+                onDelete={() => setDeleteTarget(item)}
+              />
+            ))}
+            <ValuesAssessmentsViewMoreButton
+              hiddenCount={hiddenDenseCount}
+              onClick={() => setViewAllOpen(true)}
+            />
+          </div>
         ) : (
           <ArchiveRecordList>
             {archiveItems.map((item, index) => (
@@ -826,7 +1104,7 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
                     <ArchiveRecordFieldGrid columns={5} className="min-w-[860px] gap-0.5">
                       {displayFields.map((field) => {
                         const masked = isMaskedField(field, item);
-                        const display = formatDisplayValue(field, item, dictOptions);
+                        const display = formatDisplayValue(field, item, mergedDictOptions);
                         return (
                           <ArchiveRecordField
                             key={field.key}
@@ -850,7 +1128,7 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
                     <ArchiveRecordFieldGrid columns={7} className="min-w-[980px] gap-0.5">
                       {displayFields.map((field) => {
                         const masked = isMaskedField(field, item);
-                        const display = formatDisplayValue(field, item, dictOptions);
+                        const display = formatDisplayValue(field, item, mergedDictOptions);
                         return (
                           <ArchiveRecordField
                             key={field.key}
@@ -873,7 +1151,7 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
                   <ArchiveRecordFieldGrid>
                     {displayFields.map((field) => {
                       const masked = isMaskedField(field, item);
-                      const display = formatDisplayValue(field, item, dictOptions);
+                      const display = formatDisplayValue(field, item, mergedDictOptions);
                       return (
                         <ArchiveRecordField
                           key={field.key}
@@ -896,6 +1174,99 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
           </ArchiveRecordList>
         )}
       </PanelCard>
+
+      {isTrainingRecords ? (
+        <Dialog open={viewAllOpen} onOpenChange={setViewAllOpen}>
+          <DialogContent
+            elevated
+            className="flex max-h-[min(80vh,720px)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+          >
+            <DialogHeader className="border-b border-border/50 px-5 py-4">
+              <DialogTitle>全部培训记录</DialogTitle>
+              <DialogDescription>
+                按结束日期倒序，共 {sortedDenseItems.length} 条
+              </DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 py-3">
+              {sortedDenseItems.map((item, index) => (
+                <TrainingRecordDenseRow
+                  key={item.id}
+                  item={resolveTrainingListItem(item, mergedDictOptions)}
+                  index={index + 1}
+                  canEdit={canEdit}
+                  onEdit={() => {
+                    setViewAllOpen(false);
+                    openEdit(item);
+                  }}
+                  onDelete={() => setDeleteTarget(item)}
+                />
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+
+      {isPerformanceRecords ? (
+        <Dialog open={viewAllOpen} onOpenChange={setViewAllOpen}>
+          <DialogContent
+            elevated
+            className="flex max-h-[min(80vh,720px)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+          >
+            <DialogHeader className="border-b border-border/50 px-5 py-4">
+              <DialogTitle>全部绩效记录</DialogTitle>
+              <DialogDescription>
+                按年度与结束日期倒序，共 {sortedDenseItems.length} 条
+              </DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 py-3">
+              {sortedDenseItems.map((item, index) => (
+                <PerformanceRecordDenseRow
+                  key={item.id}
+                  item={resolvePerformanceListItem(item, mergedDictOptions)}
+                  index={index + 1}
+                  canEdit={canEdit}
+                  onEdit={() => {
+                    setViewAllOpen(false);
+                    openEdit(item);
+                  }}
+                  onDelete={() => setDeleteTarget(item)}
+                />
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+
+      {isValuesAssessments ? (
+        <Dialog open={viewAllOpen} onOpenChange={setViewAllOpen}>
+          <DialogContent
+            elevated
+            className="flex max-h-[min(80vh,720px)] w-full flex-col gap-0 overflow-hidden p-0 sm:max-w-3xl"
+          >
+            <DialogHeader className="border-b border-border/50 px-5 py-4">
+              <DialogTitle>全部价值观评估</DialogTitle>
+              <DialogDescription>
+                按考核时间倒序，共 {sortedDenseItems.length} 条
+              </DialogDescription>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 space-y-1.5 overflow-y-auto px-3 py-3">
+              {sortedDenseItems.map((item, index) => (
+                <ValuesAssessmentDenseRow
+                  key={item.id}
+                  item={resolveValuesAssessmentListItem(item)}
+                  index={index + 1}
+                  canEdit={canEdit}
+                  onEdit={() => {
+                    setViewAllOpen(false);
+                    openEdit(item);
+                  }}
+                  onDelete={() => setDeleteTarget(item)}
+                />
+              ))}
+            </div>
+          </DialogContent>
+        </Dialog>
+      ) : null}
 
       <ArchiveFormDialogPortal
         open={sheet.type !== "closed"}

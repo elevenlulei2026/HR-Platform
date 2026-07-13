@@ -256,12 +256,11 @@ export function EducationSection({
         }
       >
         {items.length === 0 ? (
-          <div className="p-6">
-            <PanelEmpty
-              title="暂无教育经历"
-              description={canEdit ? "点击右上角新增教育经历" : ""}
-            />
-          </div>
+          <PanelEmpty
+            compact
+            title="暂无教育经历"
+            description={canEdit ? "点击右上角新增教育经历" : ""}
+          />
         ) : (
           <ArchiveRecordList>
             {items.map((item) => {

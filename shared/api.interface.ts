@@ -1418,6 +1418,22 @@ export type EmployeeFormOptions = {
   insuranceRegions: DictOption[];
   /** 工作环境（数据字典：WORK_ENVIRONMENT） */
   workEnvironments: DictOption[];
+  /** 考核方式（数据字典：TRAINING_ASSESSMENT_METHOD） */
+  trainingAssessmentMethods: DictOption[];
+  /** 考核结果（数据字典：TRAINING_ASSESSMENT_RESULT） */
+  trainingAssessmentResults: DictOption[];
+  /** 培训形式（数据字典：TRAINING_FORM） */
+  trainingForms: DictOption[];
+  /** 培训类型（数据字典：TRAINING_TYPE） */
+  trainingTypes: DictOption[];
+  /** 考核类型（数据字典：PERFORMANCE_ASSESSMENT_TYPE） */
+  performanceAssessmentTypes: DictOption[];
+  /** 价值观等级（数据字典：PERFORMANCE_VALUES_LEVEL） */
+  performanceValuesLevels: DictOption[];
+  /** 绩效等级（数据字典：PERFORMANCE_LEVEL） */
+  performanceLevels: DictOption[];
+  /** 项目最终成果（数据字典：PROJECT_FINAL_OUTCOME） */
+  projectFinalOutcomes: DictOption[];
 };
 
 /** 任职记录表单字典选项（GET /api/v1/employees/assignment-form-options） */
@@ -2046,66 +2062,174 @@ export type EmployeePenalty = EmployeeArchiveRecordBase & {
 };
 
 export type EmployeeTrainingRecord = EmployeeArchiveRecordBase & {
-  trainingName?: string;
-  trainingType?: string;
-  provider?: string;
+  /** 课程名称 */
+  courseName?: string;
   startDate?: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
   hours?: number;
-  result?: string;
-  certificateNo?: string;
-  attachmentId?: string;
+  /** 考核方式（字典：TRAINING_ASSESSMENT_METHOD） */
+  assessmentMethod?: string;
+  assessmentMethodLabel?: string;
+  /** 考核结果（字典：TRAINING_ASSESSMENT_RESULT） */
+  assessmentResult?: string;
+  assessmentResultLabel?: string;
+  /** 评估反馈结果 */
+  feedbackResult?: string;
+  /** 培训形式（字典：TRAINING_FORM） */
+  trainingForm?: string;
+  trainingFormLabel?: string;
+  /** 培训类型（字典：TRAINING_TYPE） */
+  trainingType?: string;
+  trainingTypeLabel?: string;
+  trainingLocation?: string;
+  trainer?: string;
+  /** 培训费用（元） */
+  trainingCost?: number;
   remark?: string;
 };
 
 export type EmployeePerformanceRecord = EmployeeArchiveRecordBase & {
-  period?: string;
-  rating?: string;
-  ratingLabel?: string;
-  score?: number;
-  reviewerName?: string;
-  reviewDate?: string; // YYYY-MM-DD
-  sourceType?: string;
+  /** 年度 */
+  year?: string;
+  /** 考核类型（字典：PERFORMANCE_ASSESSMENT_TYPE） */
+  assessmentType?: string;
+  assessmentTypeLabel?: string;
+  /** 绩效开始日期 YYYY-MM-DD */
+  performanceStartDate?: string;
+  /** 绩效结束日期 YYYY-MM-DD */
+  performanceEndDate?: string;
+  /** 价值观等级（字典：PERFORMANCE_VALUES_LEVEL） */
+  valuesLevel?: string;
+  valuesLevelLabel?: string;
+  /** 绩效等级（字典：PERFORMANCE_LEVEL） */
+  performanceLevel?: string;
+  performanceLevelLabel?: string;
+  /** 绩效得分（文本手填） */
+  performanceScore?: string;
+  /** 价值观得分（文本手填） */
+  valuesScore?: string;
   remark?: string;
 };
 
 export type EmployeeValuesAssessment = EmployeeArchiveRecordBase & {
-  period?: string;
-  dimension?: string;
-  score?: number;
-  level?: string;
-  assessorName?: string;
-  assessDate?: string; // YYYY-MM-DD
-  remark?: string;
+  /** 考核时间（文本手填） */
+  assessmentTime?: string;
+  /** 最终等级（文本手填） */
+  finalLevel?: string;
+  /** 上级评价 */
+  superiorEvaluation?: string;
+  /** 同事评价 */
+  peerEvaluation?: string;
+  /** 下级评价 */
+  subordinateEvaluation?: string;
+  /** 用户第一 */
+  userFirst?: string;
+  /** 目标第一 */
+  goalFirst?: string;
+  /** 实干担当 */
+  pragmaticResponsibility?: string;
+  /** 善于复盘 */
+  goodAtReview?: string;
+  /** 敢为人先 */
+  dareToLead?: string;
+  /** 提质增效 */
+  qualityEfficiency?: string;
+  /** 全情投入 */
+  fullCommitment?: string;
+  /** 热爱事业 */
+  loveCareer?: string;
+  /** 永争第一 */
+  striveForFirst?: string;
+  /** 勇于挑战 */
+  braveChallenge?: string;
+  /** 组织为重 */
+  organizationFirst?: string;
+  /** 成就他人 */
+  helpOthersSucceed?: string;
+  /** 廉洁正直 */
+  integrityHonesty?: string;
+  /** 遵纪守法 */
+  lawAbiding?: string;
+  /** 0分文本（长文本） */
+  zeroScoreText?: string;
+  /** 4分文本（长文本） */
+  fourScoreText?: string;
+  /** 红灯 */
+  redLight?: string;
+  /** 黄灯 */
+  yellowLight?: string;
+  /** 绿灯 */
+  greenLight?: string;
 };
 
 export type EmployeeTalentReview = EmployeeArchiveRecordBase & {
-  reviewCycle?: string;
-  gridPosition?: string;
-  potentialLevel?: string;
-  performanceLevel?: string;
-  reviewerName?: string;
-  reviewDate?: string; // YYYY-MM-DD
-  remark?: string;
+  /** 年份（文本手填） */
+  year?: string;
+  /** 绩效得分（文本手填） */
+  performanceScore?: string;
+  /** 绩效落位（文本手填） */
+  performancePlacement?: string;
+  /** 潜力得分（文本手填） */
+  potentialScore?: string;
+  /** 潜力落位（文本手填） */
+  potentialPlacement?: string;
+  /** 价值观得分（文本手填） */
+  valuesScore?: string;
+  /** 九宫格落位（文本手填） */
+  nineBoxPlacement?: string;
+  /** 主观评价（长文本手填） */
+  subjectiveEvaluation?: string;
 };
 
 export type EmployeeProject = EmployeeArchiveRecordBase & {
+  /** 项目名称（文本手填） */
   projectName?: string;
-  projectCode?: string;
-  role?: string;
+  /** 项目描述（长文本手填） */
+  projectDescription?: string;
+  /** 项目开始日期 */
   startDate?: string; // YYYY-MM-DD
+  /** 项目结束日期 */
   endDate?: string; // YYYY-MM-DD
-  contribution?: string;
-  remark?: string;
+  /** 项目角色（文本手填） */
+  role?: string;
+  /** 具体职责描述（长文本手填） */
+  responsibilityDescription?: string;
+  /** 汇报对象（文本手填） */
+  reportTo?: string;
+  /** 下属或指导人员（文本手填） */
+  subordinatesOrMentees?: string;
+  /** 核心技能（长文本手填） */
+  coreSkills?: string;
+  /** 个人主要贡献（长文本手填） */
+  personalContribution?: string;
+  /** 可量化的成果和指标（长文本手填） */
+  quantifiableResults?: string;
+  /** 项目最终成果（字典：PROJECT_FINAL_OUTCOME） */
+  finalOutcome?: string;
+  finalOutcomeLabel?: string;
 };
 
 export type EmployeeAgentAssignment = EmployeeArchiveRecordBase & {
-  agentId?: string;
+  /** 主智能体标签 YES/NO */
+  primaryAgentTag?: "YES" | "NO";
+  /** 开始日期 YYYY-MM-DD */
+  startDate?: string;
+  /** 结束日期 YYYY-MM-DD */
+  endDate?: string;
+  /** 智能体（手填） */
   agentName?: string;
-  assignmentType?: string;
-  effectiveStartDate?: string; // YYYY-MM-DD
-  effectiveEndDate?: string; // YYYY-MM-DD
-  remark?: string;
+  /** 智能体识别（手填） */
+  agentIdentity?: string;
+  /** 智能体岗位角色（手填） */
+  agentRole?: string;
+  /** 架构师 YES/NO */
+  isArchitect?: "YES" | "NO";
+  /** 民兵 YES/NO */
+  isMilitia?: "YES" | "NO";
+  /** 数据治理师 YES/NO */
+  isDataSteward?: "YES" | "NO";
+  /** 占比（%）0–100 */
+  percentage?: number;
 };
 
 export type EmployeeArchive = {

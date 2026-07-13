@@ -232,12 +232,11 @@ export function QualificationSection({
         }
       >
         {items.length === 0 ? (
-          <div className="p-6">
-            <PanelEmpty
-              title="暂无资格证书"
-              description={canEdit ? "点击右上角新增资格证书" : ""}
-            />
-          </div>
+          <PanelEmpty
+            compact
+            title="暂无资格证书"
+            description={canEdit ? "点击右上角新增资格证书" : ""}
+          />
         ) : (
           <ArchiveRecordList>
             {items.map((item) => {

@@ -257,12 +257,11 @@ export function PenaltySection({ employeeId, items, canEdit, onChanged }: Penalt
         }
       >
         {items.length === 0 ? (
-          <div className="p-6">
-            <PanelEmpty
-              title="暂无惩处记录"
-              description={canEdit ? "点击右上角新增惩处记录" : ""}
-            />
-          </div>
+          <PanelEmpty
+            compact
+            title="暂无惩处记录"
+            description={canEdit ? "点击右上角新增惩处记录" : ""}
+          />
         ) : (
           <ArchiveRecordList>
             {items.map((item, index) => {

@@ -332,12 +332,11 @@ export function AgreementSection({
         }
       >
         {items.length === 0 ? (
-          <div className="p-6">
-            <PanelEmpty
-              title="暂无协议记录"
-              description={canEdit ? "点击右上角新增协议信息" : ""}
-            />
-          </div>
+          <PanelEmpty
+            compact
+            title="暂无协议记录"
+            description={canEdit ? "点击右上角新增协议信息" : ""}
+          />
         ) : (
           <ArchiveRecordList>
             {items.map((item, index) => {

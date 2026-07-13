@@ -228,12 +228,11 @@ export function TitleCertificateSection({
         }
       >
         {items.length === 0 ? (
-          <div className="p-6">
-            <PanelEmpty
-              title="暂无职称证书"
-              description={canEdit ? "点击右上角新增职称证书" : ""}
-            />
-          </div>
+          <PanelEmpty
+            compact
+            title="暂无职称证书"
+            description={canEdit ? "点击右上角新增职称证书" : ""}
+          />
         ) : (
           <ArchiveRecordList>
             {items.map((item) => {

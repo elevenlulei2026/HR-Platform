@@ -1226,6 +1226,7 @@ public class EmployeeArchiveService {
       long employeeId,
       EmployeeAgentAssignmentEntity entity
   ) {
+    validateAgentAssignment(entity);
     return create(agentAssignmentMapper, employeeId, entity, EmployeeAgentAssignmentEntity::setEmployeeId);
   }
 
@@ -1235,6 +1236,7 @@ public class EmployeeArchiveService {
       long id,
       EmployeeAgentAssignmentEntity entity
   ) {
+    validateAgentAssignment(entity);
     return update(
         agentAssignmentMapper,
         employeeId,
@@ -1414,6 +1416,28 @@ public class EmployeeArchiveService {
   private void mergeTalentReview(EmployeeTalentReviewEntity current, EmployeeTalentReviewEntity patch) { mergeAll(current, patch); }
   private void mergeProject(EmployeeProjectEntity current, EmployeeProjectEntity patch) { mergeAll(current, patch); }
   private void mergeAgentAssignment(EmployeeAgentAssignmentEntity current, EmployeeAgentAssignmentEntity patch) { mergeAll(current, patch); }
+
+  private void validateAgentAssignment(EmployeeAgentAssignmentEntity entity) {
+    entity.setPrimaryAgentTag(normalizeYesNo(entity.getPrimaryAgentTag(), "主智能体标签"));
+    entity.setIsArchitect(normalizeYesNo(entity.getIsArchitect(), "架构师"));
+    entity.setIsMilitia(normalizeYesNo(entity.getIsMilitia(), "民兵"));
+    entity.setIsDataSteward(normalizeYesNo(entity.getIsDataSteward(), "数据治理师"));
+    if (entity.getAgentName() != null) {
+      entity.setAgentName(entity.getAgentName().trim());
+    }
+    if (entity.getAgentIdentity() != null) {
+      entity.setAgentIdentity(entity.getAgentIdentity().trim());
+    }
+    if (entity.getAgentRole() != null) {
+      entity.setAgentRole(entity.getAgentRole().trim());
+    }
+    if (entity.getPercentage() != null) {
+      BigDecimal percentage = entity.getPercentage();
+      if (percentage.compareTo(BigDecimal.ZERO) < 0 || percentage.compareTo(new BigDecimal("100")) > 0) {
+        throw new IllegalArgumentException("占比须在 0–100 之间");
+      }
+    }
+  }
 
   private <T> void mergeAll(T current, T patch) {
     java.beans.PropertyDescriptor[] props;

@@ -718,6 +718,23 @@ public class EmployeeArchiveController {
       putDictLabel(dto, "degree", "DEGREE", education.getDegree());
       putDictLabel(dto, "educationLevel", "EDUCATION", education.getEducationLevel());
       putDictLabel(dto, "countryRegion", "COUNTRY_REGION", education.getCountryRegion());
+      return;
+    }
+    if (bean instanceof EmployeeTrainingRecordEntity training) {
+      putDictLabel(dto, "assessmentMethod", "TRAINING_ASSESSMENT_METHOD", training.getAssessmentMethod());
+      putDictLabel(dto, "assessmentResult", "TRAINING_ASSESSMENT_RESULT", training.getAssessmentResult());
+      putDictLabel(dto, "trainingForm", "TRAINING_FORM", training.getTrainingForm());
+      putDictLabel(dto, "trainingType", "TRAINING_TYPE", training.getTrainingType());
+      return;
+    }
+    if (bean instanceof EmployeePerformanceRecordEntity performance) {
+      putDictLabel(dto, "assessmentType", "PERFORMANCE_ASSESSMENT_TYPE", performance.getAssessmentType());
+      putDictLabel(dto, "valuesLevel", "PERFORMANCE_VALUES_LEVEL", performance.getValuesLevel());
+      putDictLabel(dto, "performanceLevel", "PERFORMANCE_LEVEL", performance.getPerformanceLevel());
+      return;
+    }
+    if (bean instanceof EmployeeProjectEntity project) {
+      putDictLabel(dto, "finalOutcome", "PROJECT_FINAL_OUTCOME", project.getFinalOutcome());
     }
   }
 

@@ -136,6 +136,14 @@ public class EmployeeController {
     out.put("payrollCompanies", toDictOptions(employeeService.dictLabels("PAYROLL_COMPANY")));
     out.put("insuranceRegions", toDictOptions(employeeService.dictLabels("INSURANCE_REGION")));
     out.put("workEnvironments", toDictOptions(employeeService.dictLabels("WORK_ENVIRONMENT")));
+    out.put("trainingAssessmentMethods", toDictOptions(employeeService.dictLabels("TRAINING_ASSESSMENT_METHOD")));
+    out.put("trainingAssessmentResults", toDictOptions(employeeService.dictLabels("TRAINING_ASSESSMENT_RESULT")));
+    out.put("trainingForms", toDictOptions(employeeService.dictLabels("TRAINING_FORM")));
+    out.put("trainingTypes", toDictOptions(employeeService.dictLabels("TRAINING_TYPE")));
+    out.put("performanceAssessmentTypes", toDictOptions(employeeService.dictLabels("PERFORMANCE_ASSESSMENT_TYPE")));
+    out.put("performanceValuesLevels", toDictOptions(employeeService.dictLabels("PERFORMANCE_VALUES_LEVEL")));
+    out.put("performanceLevels", toDictOptions(employeeService.dictLabels("PERFORMANCE_LEVEL")));
+    out.put("projectFinalOutcomes", toDictOptions(employeeService.dictLabels("PROJECT_FINAL_OUTCOME")));
     return ApiResponse.ok(out);
   }
 

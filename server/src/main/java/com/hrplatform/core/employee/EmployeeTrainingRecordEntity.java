@@ -10,15 +10,25 @@ import java.time.LocalDateTime;
 public class EmployeeTrainingRecordEntity {
   private Long id;
   private Long employeeId;
-  private String trainingName;
-  private String trainingType;
-  private String provider;
+  /** 课程名称 */
+  private String courseName;
   private LocalDate startDate;
   private LocalDate endDate;
   private BigDecimal hours;
-  private String result;
-  private String certificateNo;
-  private Long attachmentId;
+  /** 考核方式（字典 TRAINING_ASSESSMENT_METHOD） */
+  private String assessmentMethod;
+  /** 考核结果（字典 TRAINING_ASSESSMENT_RESULT） */
+  private String assessmentResult;
+  /** 评估反馈结果 */
+  private String feedbackResult;
+  /** 培训形式（字典 TRAINING_FORM） */
+  private String trainingForm;
+  /** 培训类型（字典 TRAINING_TYPE） */
+  private String trainingType;
+  private String trainingLocation;
+  private String trainer;
+  /** 培训费用（元） */
+  private BigDecimal trainingCost;
   private String remark;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
@@ -29,24 +39,30 @@ public class EmployeeTrainingRecordEntity {
   public void setId(Long id) { this.id = id; }
   public Long getEmployeeId() { return employeeId; }
   public void setEmployeeId(Long employeeId) { this.employeeId = employeeId; }
-  public String getTrainingName() { return trainingName; }
-  public void setTrainingName(String trainingName) { this.trainingName = trainingName; }
-  public String getTrainingType() { return trainingType; }
-  public void setTrainingType(String trainingType) { this.trainingType = trainingType; }
-  public String getProvider() { return provider; }
-  public void setProvider(String provider) { this.provider = provider; }
+  public String getCourseName() { return courseName; }
+  public void setCourseName(String courseName) { this.courseName = courseName; }
   public LocalDate getStartDate() { return startDate; }
   public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
   public LocalDate getEndDate() { return endDate; }
   public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
   public BigDecimal getHours() { return hours; }
   public void setHours(BigDecimal hours) { this.hours = hours; }
-  public String getResult() { return result; }
-  public void setResult(String result) { this.result = result; }
-  public String getCertificateNo() { return certificateNo; }
-  public void setCertificateNo(String certificateNo) { this.certificateNo = certificateNo; }
-  public Long getAttachmentId() { return attachmentId; }
-  public void setAttachmentId(Long attachmentId) { this.attachmentId = attachmentId; }
+  public String getAssessmentMethod() { return assessmentMethod; }
+  public void setAssessmentMethod(String assessmentMethod) { this.assessmentMethod = assessmentMethod; }
+  public String getAssessmentResult() { return assessmentResult; }
+  public void setAssessmentResult(String assessmentResult) { this.assessmentResult = assessmentResult; }
+  public String getFeedbackResult() { return feedbackResult; }
+  public void setFeedbackResult(String feedbackResult) { this.feedbackResult = feedbackResult; }
+  public String getTrainingForm() { return trainingForm; }
+  public void setTrainingForm(String trainingForm) { this.trainingForm = trainingForm; }
+  public String getTrainingType() { return trainingType; }
+  public void setTrainingType(String trainingType) { this.trainingType = trainingType; }
+  public String getTrainingLocation() { return trainingLocation; }
+  public void setTrainingLocation(String trainingLocation) { this.trainingLocation = trainingLocation; }
+  public String getTrainer() { return trainer; }
+  public void setTrainer(String trainer) { this.trainer = trainer; }
+  public BigDecimal getTrainingCost() { return trainingCost; }
+  public void setTrainingCost(BigDecimal trainingCost) { this.trainingCost = trainingCost; }
   public String getRemark() { return remark; }
   public void setRemark(String remark) { this.remark = remark; }
   public LocalDateTime getCreatedAt() { return createdAt; }

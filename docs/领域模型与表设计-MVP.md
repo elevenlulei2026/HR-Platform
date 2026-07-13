@@ -209,12 +209,12 @@
 | `employee_qualification` | 20 | 资格证书 | skill_type, first_issue_date, expiry_date, review_date, certificate_name, certificate_no, handler_name, issuing_org, remark, attachment_ids |
 | `employee_title_certificate` | 20a | 职称证书 | title_name, title_level, approval_date, expiry_date, certificate_no, issuing_org, remark, attachment_ids |
 | `employee_reward` / `employee_penalty` | 21 | 奖励 / 处罚 | effective_date, archive_date, type, level, witness, amount, payment_method, issuing_org, document_no, description |
-| `employee_training_record` | 22 | 培训记录（档案） | training_name, training_type, provider, start_date, end_date, hours, result, certificate_no, attachment_id, remark |
-| `employee_performance_record` | 23 | 历史绩效（档案） | period, rating, rating_label, score, reviewer_name, review_date, source_type, remark |
-| `employee_values_assessment` | 24 | 价值观评价 | period, dimension, score, level, assessor_name, assess_date, remark |
-| `employee_talent_review` | 25 | 人才盘点 | review_cycle, grid_position, potential_level, performance_level, reviewer_name, review_date, remark |
-| `employee_project` | 26 | 项目信息 | project_name, project_code, role, start_date, end_date, contribution, remark |
-| `employee_agent_assignment` | 27 | 智能体归属 | agent_id, agent_name, assignment_type, effective_start_date, effective_end_date, remark |
+| `employee_training_record` | 22 | 培训记录（档案） | course_name, start_date, end_date, hours, assessment_method, assessment_result, feedback_result, training_form, training_type, training_location, trainer, training_cost, remark |
+| `employee_performance_record` | 23 | 历史绩效（档案） | year, assessment_type, performance_start_date, performance_end_date, values_level, performance_level, performance_score, values_score, remark |
+| `employee_values_assessment` | 24 | 价值观评价 | assessment_time, final_level, superior_evaluation, peer_evaluation, subordinate_evaluation, user_first, goal_first, pragmatic_responsibility, good_at_review, dare_to_lead, quality_efficiency, full_commitment, love_career, strive_for_first, brave_challenge, organization_first, help_others_succeed, integrity_honesty, law_abiding, zero_score_text, four_score_text, red_light, yellow_light, green_light |
+| `employee_talent_review` | 25 | 人才盘点 | year, performance_score, performance_placement, potential_score, potential_placement, values_score, nine_box_placement, subjective_evaluation |
+| `employee_project` | 26 | 项目信息 | project_name, project_description, start_date, end_date, role, responsibility_description, report_to, subordinates_or_mentees, core_skills, personal_contribution, quantifiable_results, final_outcome |
+| `employee_agent_assignment` | 27 | 智能体归属 | primary_agent_tag, start_date, end_date, agent_name, agent_identity, agent_role, is_architect, is_militia, is_data_steward, percentage |
 
 > **人才发展子表（#22–27）**：仅存 **档案记录**；不实现 LMS 排课、绩效校准流程、盘点会议、项目 PMO、智能体编排等 **独立模块**。未来业务系统可通过 `employee_id` + 回调/API 回写这些表。
 
