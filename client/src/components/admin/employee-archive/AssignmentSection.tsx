@@ -100,6 +100,8 @@ function AssignmentFormFields({
   readOnlyComputed,
   isNew,
   versioningHint = false,
+  hireDateReadOnly = false,
+  probationFieldsReadOnly = false,
   editMode,
   onEditModeChange,
 }: {
@@ -122,6 +124,10 @@ function AssignmentFormFields({
   };
   isNew: boolean;
   versioningHint?: boolean;
+  /** 入职日期仅首次入职新增时可维护 */
+  hireDateReadOnly?: boolean;
+  /** 转正后试用期期限、实际转正日期不可改 */
+  probationFieldsReadOnly?: boolean;
   editMode?: EmployeeAssignmentEditMode;
   onEditModeChange?: (mode: EmployeeAssignmentEditMode) => void;
 }) {
@@ -231,8 +237,16 @@ function AssignmentFormFields({
       </ArchiveFormSection>
 
       <ArchiveFormSection title="雇佣" columns={4}>
-        <FormField label="入职日期">
-          <Input type="date" value={form.hireDate} onChange={(e) => set("hireDate", e.target.value)} />
+        <FormField
+          label="入职日期"
+          hint={hireDateReadOnly ? "仅入职首次维护时可编辑" : undefined}
+        >
+          <Input
+            type="date"
+            value={form.hireDate}
+            disabled={hireDateReadOnly}
+            onChange={(e) => set("hireDate", e.target.value)}
+          />
         </FormField>
         <FormField label="司龄">
           <Input value={readOnlyComputed.companyTenure || "—"} disabled />
@@ -271,7 +285,10 @@ function AssignmentFormFields({
             className="w-full"
           />
         </FormField>
-        <FormField label="试用期期限">
+        <FormField
+          label="试用期期限"
+          hint={probationFieldsReadOnly ? "转正后不可修改" : undefined}
+        >
           <OptionSelect
             value={form.probationPeriod}
             onValueChange={(value) => set("probationPeriod", value)}
@@ -279,15 +296,20 @@ function AssignmentFormFields({
             emptyLabel="请选择"
             options={dictOptions.probationPeriods.map((o) => ({ value: o.value, label: o.label }))}
             className="w-full"
+            disabled={probationFieldsReadOnly}
           />
         </FormField>
         <FormField label="预计转正日期">
           <Input value={expectedPreview || "—"} disabled />
         </FormField>
-        <FormField label="实际转正日期">
+        <FormField
+          label="实际转正日期"
+          hint={probationFieldsReadOnly ? "转正后不可修改" : undefined}
+        >
           <Input
             type="date"
             value={form.actualRegularizationDate}
+            disabled={probationFieldsReadOnly}
             onChange={(e) => set("actualRegularizationDate", e.target.value)}
           />
         </FormField>
@@ -696,6 +718,17 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
   const createVersioningHint =
     sheet.type === "new" &&
     filterAssignmentsByIndicator(assignments, form.assignmentIndicator).length > 0;
+  /** 仅员工尚无任何任职记录时的首次新增 = 入职维护 */
+  const hireDateReadOnly = !(sheet.type === "new" && assignments.length === 0);
+  const presentForFormIndicator = useMemo(() => {
+    const sameGroup = filterAssignmentsByIndicator(assignments, form.assignmentIndicator);
+    const presentId = pickPresentAssignmentId(sameGroup);
+    return presentId ? sameGroup.find((item) => item.id === presentId) : undefined;
+  }, [assignments, form.assignmentIndicator]);
+  /** 已落库实际转正日期后，试用期相关字段只读（含基于已转正版本新增生效版本） */
+  const probationFieldsReadOnly = Boolean(
+    (editingItem ?? presentForFormIndicator)?.actualRegularizationDate,
+  );
   const readOnlyComputed = {
     expectedRegularizationDate: editingItem?.expectedRegularizationDate ?? "",
     companyTenure: editingItem?.companyTenure ?? "",
@@ -731,6 +764,20 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
   const openCreate = () => {
     const next = emptyAssignmentForm(employee);
     next.organizationId = defaultDepartmentId(flatOrgs);
+    const sameGroup = filterAssignmentsByIndicator(assignments, next.assignmentIndicator);
+    const presentId = pickPresentAssignmentId(sameGroup);
+    const present = presentId ? sameGroup.find((item) => item.id === presentId) : undefined;
+    if (present) {
+      // 同职务类型已有版本时，雇佣区关键字段沿用当前版本（入职日期/转正信息只读展示）
+      next.hireDate = present.hireDate ?? employee.hireDate ?? "";
+      next.isRehire = present.isRehire === undefined ? "" : present.isRehire ? "true" : "false";
+      next.groupResponsibilityStartDate = present.groupResponsibilityStartDate ?? "";
+      next.groupSeniorityStartDate =
+        present.groupSeniorityStartDate ?? employee.groupSeniorityStartDate ?? "";
+      next.supplier = present.supplier ?? "";
+      next.probationPeriod = present.probationPeriod ?? "";
+      next.actualRegularizationDate = present.actualRegularizationDate ?? "";
+    }
     setForm(next);
     setSheet({ type: "new" });
   };
@@ -921,6 +968,8 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
           readOnlyComputed={readOnlyComputed}
           isNew={sheet.type === "new"}
           versioningHint={createVersioningHint}
+          hireDateReadOnly={hireDateReadOnly}
+          probationFieldsReadOnly={probationFieldsReadOnly}
           editMode={editMode}
           onEditModeChange={sheet.type === "edit" ? handleEditModeChange : undefined}
         />

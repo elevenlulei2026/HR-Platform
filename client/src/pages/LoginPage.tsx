@@ -3,8 +3,10 @@ import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { useAuth } from "@/auth/AuthProvider";
+import { AppLogoMark } from "@/components/AppLogoMark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { APP_NAME } from "@/config/app";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 
 type LocationState = {
@@ -77,10 +79,14 @@ export function LoginPage() {
     <div className="min-h-screen bg-background">
       <div className="mx-auto flex min-h-screen max-w-[520px] items-center px-4 py-10">
         <div className="w-full rounded-2xl border bg-card p-6 shadow-sm">
-          <div className="space-y-1">
-            <div className="text-xl font-semibold tracking-tight text-foreground">登录</div>
-            <div className="text-sm text-muted-foreground">
-              使用管理员账号进入系统（MVP：用户名密码登录，后续可接 SSO）。
+          <div className="flex flex-col items-center space-y-3 text-center">
+            <AppLogoMark className="h-12 w-12" />
+            <div className="space-y-1">
+              <div className="text-lg font-semibold tracking-tight text-foreground">{APP_NAME}</div>
+              <div className="text-xl font-semibold tracking-tight text-foreground">登录</div>
+              <div className="text-sm text-muted-foreground">
+                使用管理员账号进入系统（MVP：用户名密码登录，后续可接 SSO）。
+              </div>
             </div>
           </div>
 

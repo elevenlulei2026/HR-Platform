@@ -5,7 +5,7 @@ import type {
 } from "@shared/api.interface";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Edit, Trash2, UserRound } from "lucide-react";
+import { UserRound } from "lucide-react";
 
 import type { ApiError } from "@/api/http";
 import { listDictItemsByTypeCode } from "@/api/dict";
@@ -20,7 +20,8 @@ import { ArchiveFormDialogPortal } from "@/components/admin/employee-archive/Arc
 import { ConfirmDialogPortal } from "@/components/admin/employee-archive/ConfirmDialogPortal";
 import {
   ArchiveAddButton,
-  ArchiveRecordActionButton,
+  ArchiveDeleteRecordButton,
+  ArchiveEditRecordButton,
   ArchiveRecordCard,
   ArchiveRecordField,
   ArchiveRecordFieldGrid,
@@ -652,7 +653,11 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
 
   const hiddenDenseCount = Math.max(0, sortedDenseItems.length - previewDenseItems.length);
 
+  const isSingleRecordSection = resourcePath === "social-insurances";
+  const canAdd = !isSingleRecordSection || archiveItems.length === 0;
+
   const openCreate = () => {
+    if (!canAdd) return;
     setForm(initialForm(fieldDefs));
     setEmployeeSearch("");
     setSheet({ type: "new" });
@@ -1013,17 +1018,13 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
             : undefined
         }
         toolbar={
-          canEdit ? (
-            <ArchiveAddButton
-              label="新增"
-              onClick={openCreate}
-              disabled={resourcePath === "social-insurances" && archiveItems.length > 0}
-            />
+          canEdit && canAdd ? (
+            <ArchiveAddButton label={`新增${title}`} onClick={openCreate} />
           ) : null
         }
       >
         {archiveItems.length === 0 ? (
-          <PanelEmpty compact title={`暂无${title}`} description="可通过新增按钮维护档案信息" />
+          <PanelEmpty compact title={`暂无${title}`} description={`点击「新增${title}」维护档案信息`} />
         ) : isTrainingRecords ? (
           <div className="space-y-1.5 p-2">
             {previewDenseItems.map((item, index) => (
@@ -1084,17 +1085,8 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
                 actions={
                   canEdit ? (
                     <>
-                      <ArchiveRecordActionButton
-                        icon={Edit}
-                        label="编辑"
-                        onClick={() => openEdit(item)}
-                      />
-                      <ArchiveRecordActionButton
-                        icon={Trash2}
-                        label="删除"
-                        destructive
-                        onClick={() => setDeleteTarget(item)}
-                      />
+                      <ArchiveEditRecordButton onClick={() => openEdit(item)} />
+                      <ArchiveDeleteRecordButton onClick={() => setDeleteTarget(item)} />
                     </>
                   ) : null
                 }

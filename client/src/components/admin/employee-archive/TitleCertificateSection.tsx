@@ -1,7 +1,7 @@
 import type { EmployeeAttachment, EmployeeTitleCertificate } from "@shared/api.interface";
 import { useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { BadgeCheck, Download, Edit, FileUp, Plus, Trash2, X } from "lucide-react";
+import { BadgeCheck, Download, FileUp, X } from "lucide-react";
 
 import type { ApiError } from "@/api/http";
 import {
@@ -16,6 +16,8 @@ import { ArchiveFormDialogPortal } from "@/components/admin/employee-archive/Arc
 import { ConfirmDialogPortal } from "@/components/admin/employee-archive/ConfirmDialogPortal";
 import {
   ArchiveAddButton,
+  ArchiveDeleteRecordButton,
+  ArchiveEditRecordButton,
   ArchiveRecordActionButton,
   ArchiveRecordCard,
   ArchiveRecordField,
@@ -223,7 +225,7 @@ export function TitleCertificateSection({
                 {items.length} 条
               </Badge>
             ) : null}
-            {canEdit ? <ArchiveAddButton label="新增职称证书" icon={Plus} onClick={openNew} /> : null}
+            {canEdit ? <ArchiveAddButton label="新增职称证书" onClick={openNew} /> : null}
           </>
         }
       >
@@ -254,13 +256,8 @@ export function TitleCertificateSection({
                       ) : null}
                       {canEdit ? (
                         <>
-                          <ArchiveRecordActionButton onClick={() => openEdit(item)} icon={Edit} label="编辑" />
-                          <ArchiveRecordActionButton
-                            onClick={() => setDeleteTarget(item)}
-                            icon={Trash2}
-                            label="删除"
-                            destructive
-                          />
+                          <ArchiveEditRecordButton onClick={() => openEdit(item)} />
+                          <ArchiveDeleteRecordButton onClick={() => setDeleteTarget(item)} />
                         </>
                       ) : null}
                     </>

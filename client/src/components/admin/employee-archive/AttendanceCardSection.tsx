@@ -5,7 +5,6 @@ import type {
 } from "@shared/api.interface";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { CalendarClock, Edit, Plus, Trash2 } from "lucide-react";
 
 import type { ApiError } from "@/api/http";
 import {
@@ -19,13 +18,14 @@ import {
   ATTENDANCE_CARD_ACCENT_STYLES,
   pickCardAtAsOfDate,
   pickPresentCardId,
-  temporalHint,
   todayStr,
 } from "@/components/admin/employee-archive/attendance-card-utils";
 import { ConfirmDialogPortal } from "@/components/admin/employee-archive/ConfirmDialogPortal";
 import {
   ArchiveAddButton,
-  ArchiveRecordActionButton,
+  ArchiveDeleteRecordButton,
+  ArchiveEditCurrentVersionButton,
+  ArchiveNewEffectiveVersionButton,
   ArchiveRecordCard,
   ArchiveRecordField,
   ArchiveRecordFieldGrid,
@@ -40,8 +40,6 @@ import {
 } from "@/components/admin/employee-archive/archive-status-ui";
 import { FormField, OptionToggle } from "@/components/admin/form-field";
 import { PanelCard, PanelEmpty } from "@/components/admin/page-shell";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const EDIT_MODE_OPTIONS = [
@@ -126,7 +124,7 @@ export function AttendanceCardSection({
   canEdit,
   onChanged,
 }: AttendanceCardSectionProps) {
-  const [asOfDate, setAsOfDate] = useState(() => todayStr());
+  const asOfDate = todayStr();
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [sheet, setSheet] = useState<SheetState>({ type: "closed" });
   const [form, setForm] = useState<AttendanceCardForm>(() => emptyForm());
@@ -134,8 +132,6 @@ export function AttendanceCardSection({
   const [deleteTarget, setDeleteTarget] = useState<EmployeeAttendanceCard | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  const temporal = useMemo(() => temporalHint(asOfDate), [asOfDate]);
-  const isViewingToday = asOfDate === todayStr();
   const sorted = useMemo(
     () => [...items].sort((a, b) => b.effectiveStartDate.localeCompare(a.effectiveStartDate)),
     [items],
@@ -236,34 +232,10 @@ export function AttendanceCardSection({
     }
   };
 
-  const toolbar = (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex items-center gap-1.5">
-        <CalendarClock className="size-3.5 text-muted-foreground" />
-        <Input
-          type="date"
-          value={asOfDate}
-          onChange={(e) => setAsOfDate(e.target.value)}
-          className="h-8 w-[9.5rem] text-xs"
-        />
-        <Badge variant={temporal.variant} className="h-6 text-[10px] font-medium">
-          {temporal.label}
-        </Badge>
-        {!isViewingToday ? (
-          <Button type="button" variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={() => setAsOfDate(todayStr())}>
-            回到今天
-          </Button>
-        ) : null}
-      </div>
-      {canEdit ? (
-        items.length === 0 ? (
-          <ArchiveAddButton label="新增考勤卡" onClick={openCreate} />
-        ) : active ? (
-          <ArchiveAddButton label="新增生效版本" onClick={() => openEdit(active, "NEW_VERSION")} />
-        ) : null
-      ) : null}
-    </div>
-  );
+  const toolbar =
+    canEdit && items.length === 0 ? (
+      <ArchiveAddButton label="新增考勤卡" onClick={openCreate} />
+    ) : null;
 
   return (
     <>
@@ -275,7 +247,7 @@ export function AttendanceCardSection({
         {items.length === 0 ? (
           <PanelEmpty compact title="暂无考勤卡" description="点击「新增考勤卡」维护卡号与参与考勤信息" />
         ) : !active ? (
-          <PanelEmpty compact title="暂无可用快照" description="请调整快照日期或新增生效版本" />
+          <PanelEmpty compact title="暂无可用快照" description="请通过版本时间轴切换，或新增生效版本" />
         ) : (
           <div className="space-y-2 p-2">
             <div className="rounded-lg border border-border/55 bg-muted/10 px-2.5 py-2">
@@ -292,53 +264,38 @@ export function AttendanceCardSection({
               actions={
                 canEdit ? (
                   <>
-                    <ArchiveRecordActionButton icon={Edit} label="编辑" onClick={() => openEdit(active, "CURRENT")} />
-                    <ArchiveRecordActionButton icon={Plus} label="新增生效版本" onClick={() => openEdit(active, "NEW_VERSION")} />
-                    <ArchiveRecordActionButton icon={Trash2} label="删除" destructive onClick={() => setDeleteTarget(active)} />
+                    <ArchiveEditCurrentVersionButton onClick={() => openEdit(active, "CURRENT")} />
+                    <ArchiveNewEffectiveVersionButton onClick={() => openEdit(active, "NEW_VERSION")} />
+                    <ArchiveDeleteRecordButton onClick={() => setDeleteTarget(active)} />
                   </>
                 ) : null
               }
             >
-              <ArchiveRecordFieldGrid columns={4}>
+              <ArchiveRecordFieldGrid columns={3}>
                 <ArchiveRecordField
-                  label="考勤卡/状态"
+                  label="考勤卡号"
                   value={
                     <div className="min-w-0">
                       <div className="truncate font-mono text-[12px] font-semibold tabular-nums">
                         {active.cardNo || "—"}
                       </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1">
+                      <div className="mt-1">
                         <ArchiveStatusBadge
                           active={isAttendanceCardActive(active.status)}
                           label={attendanceCardStatusLabel(active.status)}
                         />
-                        <ArchiveStatusBadge
-                          active={active.participateInAttendance === "YES"}
-                          label={yesNoToggleLabel(active.participateInAttendance)}
-                        />
                       </div>
                     </div>
                   }
                   compact
                 />
                 <ArchiveRecordField
-                  label="生效期"
+                  label="是否参与考勤"
                   value={
-                    <div className="min-w-0">
-                      <div className="truncate text-[12px] font-medium">{active.effectiveStartDate}</div>
-                      <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                        {active.effectiveEndDate ? `至 ${active.effectiveEndDate}` : "至今有效"}
-                      </div>
-                    </div>
-                  }
-                  compact
-                />
-                <ArchiveRecordField
-                  label="快照日期"
-                  value={
-                    <Badge variant={temporal.variant} className="h-5 px-2 text-[10px] font-medium">
-                      {asOfDate}
-                    </Badge>
+                    <ArchiveStatusBadge
+                      active={active.participateInAttendance === "YES"}
+                      label={yesNoToggleLabel(active.participateInAttendance)}
+                    />
                   }
                   compact
                 />

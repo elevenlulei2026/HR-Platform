@@ -95,3 +95,10 @@ export function findSectionLabel(sectionId: string): string {
   }
   return sectionId;
 }
+
+export function getCategorySectionIds(categoryId: string): string[] {
+  const cat = ARCHIVE_NAV.find((c) => c.id === categoryId);
+  return cat?.sections.map((s) => s.id) ?? [];
+}
+
+export type ArchiveViewMode = "filter" | "scroll";

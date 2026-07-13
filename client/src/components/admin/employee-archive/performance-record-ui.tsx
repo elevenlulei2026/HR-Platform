@@ -1,6 +1,6 @@
-import { ChevronRight, Edit, Target, Trash2 } from "lucide-react";
+import { ChevronRight, Target } from "lucide-react";
 
-import { ArchiveRecordActionButton } from "@/components/admin/employee-archive/archive-record-ui";
+import { ArchiveDeleteRecordButton, ArchiveEditRecordButton } from "@/components/admin/employee-archive/archive-record-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -189,8 +189,8 @@ export function PerformanceRecordDenseRow({
         <PerformanceGradeBadge level={item.performanceLevel} label={gradeLabel} size="lg" />
         {canEdit ? (
           <div className="flex items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
-            <ArchiveRecordActionButton icon={Edit} label="编辑" onClick={onEdit} />
-            <ArchiveRecordActionButton icon={Trash2} label="删除" destructive onClick={onDelete} />
+            <ArchiveEditRecordButton onClick={onEdit} />
+            <ArchiveDeleteRecordButton onClick={onDelete} />
           </div>
         ) : null}
       </div>

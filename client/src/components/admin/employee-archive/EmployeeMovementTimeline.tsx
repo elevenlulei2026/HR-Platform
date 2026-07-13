@@ -2,6 +2,7 @@ import type { EmployeeAssignment, EmployeeMovement } from "@shared/api.interface
 import { Building2, GitBranch, MapPin } from "lucide-react";
 
 import { PanelEmpty } from "@/components/admin/page-shell";
+import { buildMovementTimelineItems } from "@/components/admin/employee-archive/movement-timeline-data";
 import { visualForMovement } from "@/components/admin/employee-archive/movement-type-visual";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -9,61 +10,18 @@ import { cn } from "@/lib/utils";
 /** 轨道节点中心相对行顶（图标环 size-8 的一半） */
 const NODE_CENTER_Y = 16;
 
-type TimelineItem = {
-  id: string;
-  effectiveDate: string;
-  movementType: string;
-  movementTypeName: string;
-  reasonDescription?: string;
-  reasonSubDescription?: string;
-  organizationName?: string;
-  positionName?: string;
-  jobGradeLabel?: string;
-  workLocationLabel?: string;
-  assignmentIndicatorLabel?: string;
-};
-
 type EmployeeMovementTimelineProps = {
   movements: EmployeeMovement[];
   /** 任职记录：优先用于轨迹（异动类型 = 任职职务异动） */
   assignments?: EmployeeAssignment[];
 };
 
-function fromAssignments(assignments: EmployeeAssignment[]): TimelineItem[] {
-  return assignments
-    .filter((a) => Boolean(a.movementType))
-    .map((a) => ({
-      id: `asg-${a.id}`,
-      effectiveDate: a.effectiveStartDate,
-      movementType: a.movementType!,
-      movementTypeName: a.movementTypeName || a.movementType!,
-      reasonDescription: a.reasonDescription,
-      reasonSubDescription: a.reasonSubDescription,
-      organizationName: a.organizationName,
-      positionName: a.positionName,
-      jobGradeLabel: a.jobGradeLabel,
-      workLocationLabel: a.workLocationLabel,
-      assignmentIndicatorLabel: a.assignmentIndicatorLabel,
-    }));
-}
-
-function fromMovements(movements: EmployeeMovement[]): TimelineItem[] {
-  return movements.map((m) => ({
-    id: `mov-${m.id}`,
-    effectiveDate: m.effectiveDate,
-    movementType: m.movementType,
-    movementTypeName: m.movementTypeName,
-    reasonDescription: m.reasonDescription,
-    reasonSubDescription: m.reasonSubDescription,
-  }));
-}
-
 function formatDateParts(iso: string) {
   const [year, month, day] = iso.split("-");
   return { year: year ?? iso, monthDay: month && day ? `${month}-${day}` : iso };
 }
 
-function contextLine(item: TimelineItem): string | undefined {
+function contextLine(item: ReturnType<typeof buildMovementTimelineItems>[number]): string | undefined {
   const parts = [
     item.organizationName,
     item.positionName,
@@ -77,14 +35,7 @@ export function EmployeeMovementTimeline({
   movements,
   assignments,
 }: EmployeeMovementTimelineProps) {
-  const fromAsg = assignments ? fromAssignments(assignments) : [];
-  const items = fromAsg.length > 0 ? fromAsg : fromMovements(movements);
-
-  const sorted = [...items].sort((a, b) => {
-    const dateCmp = b.effectiveDate.localeCompare(a.effectiveDate);
-    if (dateCmp !== 0) return dateCmp;
-    return b.id.localeCompare(a.id);
-  });
+  const sorted = buildMovementTimelineItems(movements, assignments);
 
   if (sorted.length === 0) {
     return (
@@ -113,13 +64,13 @@ export function EmployeeMovementTimeline({
 
       <div className="relative space-y-4 p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="flex size-6 items-center justify-center rounded-md border border-border/55 bg-background/80">
               <GitBranch className="size-3 text-primary/80" />
             </span>
             <span>
               共{" "}
-              <span className="font-mono text-[12px] font-semibold tabular-nums text-foreground">
+              <span className="font-mono text-sm font-semibold tabular-nums text-foreground">
                 {sorted.length}
               </span>{" "}
               次 · 生效日倒序
@@ -152,10 +103,10 @@ export function EmployeeMovementTimeline({
                     isFirst ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
-                  <span className="font-mono text-[10px] tracking-wider opacity-70">{year}</span>
+                  <span className="font-mono text-xs tracking-wider opacity-70">{year}</span>
                   <span
                     className={cn(
-                      "font-mono text-[13px] leading-none tracking-tight",
+                      "font-mono text-sm leading-none tracking-tight",
                       isFirst && "font-semibold",
                     )}
                   >
@@ -220,22 +171,19 @@ export function EmployeeMovementTimeline({
                           {typeName}
                         </h4>
                         {isFirst ? (
-                          <Badge
-                            variant="secondary"
-                            className="h-4 px-1.5 text-[9px] font-medium tracking-wide"
-                          >
+                          <Badge variant="secondary" className="h-5 px-1.5 text-[11px] font-medium tracking-wide">
                             最近
                           </Badge>
                         ) : null}
                         {item.assignmentIndicatorLabel ? (
                           <Badge
                             variant="outline"
-                            className="h-4 border-border/60 px-1.5 text-[9px] font-normal text-muted-foreground"
+                            className="h-5 border-border/60 px-1.5 text-[11px] font-normal text-muted-foreground"
                           >
                             {item.assignmentIndicatorLabel}
                           </Badge>
                         ) : null}
-                        <span className="ml-auto font-mono text-[10px] tracking-wide text-muted-foreground/65">
+                        <span className="ml-auto font-mono text-xs tracking-wide text-muted-foreground/65">
                           {item.movementType}
                         </span>
                       </div>

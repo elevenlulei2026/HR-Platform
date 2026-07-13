@@ -1386,11 +1386,19 @@ export type Employee = {
   /** 主任职摘要（列表/详情 Hero） */
   primaryOrganizationId?: string;
   primaryOrganizationName?: string;
+  /** 主任职组织路径（按 asOfDate 快照） */
+  primaryOrganizationPath?: string;
   primaryPositionId?: string;
   primaryPositionName?: string;
+  /** 主任职完整快照（列表/导出按 asOfDate 取当前有效版本） */
+  primaryAssignment?: EmployeeAssignment;
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type EmployeeListFilterMode = "FUZZY" | "ADVANCED";
+
+export type EmployeeRosterExportColumnKey = string;
 
 export type EmployeeFormOptions = {
   maritalStatuses: DictOption[];
@@ -1585,9 +1593,23 @@ export type EmployeeMovement = {
 };
 
 export type EmployeeListQuery = {
+  /** 筛选模式：FUZZY 模糊 / ADVANCED 高级精确；默认 FUZZY */
+  filterMode?: EmployeeListFilterMode;
+  /** 模糊：姓名 / 工号 / 岗位 / 部门 / 邮箱 */
   keyword?: string;
+  /** 高级精确：姓名（完全匹配） */
+  fullName?: string;
+  /** 高级精确：工号（完全匹配） */
+  employeeNo?: string;
+  companyEmail?: string;
+  personalEmail?: string;
+  /** 高级精确：主任职岗位 ID */
+  positionId?: string;
   status?: EmployeeStatus;
   organizationId?: string;
+  gender?: string;
+  hireDateFrom?: string;
+  hireDateTo?: string;
   /** 快照日期 YYYY-MM-DD；不传则默认今天，列表字段取当日个人主档版本 */
   asOfDate?: string;
   /** 显式申请查看敏感字段明文（须 employee:sensitive:view） */
@@ -2380,9 +2402,27 @@ export type EmployeeApi = {
     req: EmployeeImportErrorReportRequest,
   ) => Promise<Blob>;
   /** GET /api/v1/employees/export */
-  /** GET /api/v1/employees/export?keyword=&status=&organizationId=&asOfDate= */
+  /** GET /api/v1/employees/export?columns=&filterMode=&... */
   exportEmployees: (
-    query?: Pick<EmployeeListQuery, "keyword" | "status" | "organizationId" | "asOfDate">,
+    query?: Pick<
+      EmployeeListQuery,
+      | "filterMode"
+      | "keyword"
+      | "fullName"
+      | "employeeNo"
+      | "companyEmail"
+      | "personalEmail"
+      | "positionId"
+      | "status"
+      | "organizationId"
+      | "gender"
+      | "hireDateFrom"
+      | "hireDateTo"
+      | "asOfDate"
+    > & {
+      /** 逗号分隔的列 key，与花名册列配置一致 */
+      columns?: string;
+    },
   ) => Promise<Blob>;
   /** GET /api/v1/employees/{id}/archive */
   getEmployeeArchive: (employeeId: string) => Promise<ApiResponse<EmployeeArchive>>;

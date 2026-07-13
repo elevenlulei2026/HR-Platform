@@ -87,7 +87,30 @@ public class EmployeeService {
       long page,
       long pageSize
   ) {
-    LocalDate asOf = asOfDate == null ? LocalDate.now() : asOfDate;
+    EmployeeListFilter filter = new EmployeeListFilter(
+        "FUZZY",
+        keyword,
+        null,
+        null,
+        null,
+        null,
+        organizationId,
+        null,
+        status,
+        null,
+        null,
+        null,
+        asOfDate
+    );
+    return page(filter, page, pageSize);
+  }
+
+  public PageResult page(EmployeeListFilter filter, long page, long pageSize) {
+    LocalDate asOf = filter == null ? LocalDate.now() : filter.snapshotDate();
+    EmployeeListFilter f = filter == null
+        ? new EmployeeListFilter("FUZZY", null, null, null, null, null, null, null, null, null, null, null, asOf)
+        : filter;
+
     LambdaQueryWrapper<EmployeeEntity> qw = new LambdaQueryWrapper<EmployeeEntity>()
         .orderByDesc(EmployeeEntity::getHireDate)
         .orderByDesc(EmployeeEntity::getId);
@@ -100,8 +123,8 @@ public class EmployeeService {
       qw.in(EmployeeEntity::getId, allowed);
     }
 
-    if (organizationId != null) {
-      List<Long> orgIds = organizationMapper.selectOrgSubtreeIds(organizationId);
+    if (f.organizationId() != null) {
+      List<Long> orgIds = organizationMapper.selectOrgSubtreeIds(f.organizationId());
       List<Long> orgEmpIds = orgIds == null || orgIds.isEmpty()
           ? List.of()
           : employeeMapper.selectEmployeeIdsByPrimaryOrganizations(orgIds);
@@ -116,23 +139,10 @@ public class EmployeeService {
       }
     }
 
-    // 状态按 asOfDate 主档快照过滤（employee 表可能滞后于已到生效日的新版本）
-    if (status != null && !status.isBlank()) {
-      List<Long> statusIds = findEmployeeIdsByMasterStatus(status.trim().toUpperCase(), asOf);
-      if (statusIds.isEmpty()) return new PageResult(List.of(), 0);
-      qw.in(EmployeeEntity::getId, statusIds);
-    }
-    if (keyword != null && !keyword.isBlank()) {
-      String kw = keyword.trim();
-      List<Long> nameIds = findEmployeeIdsByMasterNameLike(kw, asOf);
-      qw.and(w -> {
-        w.like(EmployeeEntity::getFullName, kw)
-            .or().like(EmployeeEntity::getEmployeeNo, kw)
-            .or().like(EmployeeEntity::getCompanyEmail, kw);
-        if (!nameIds.isEmpty()) {
-          w.or().in(EmployeeEntity::getId, nameIds);
-        }
-      });
+    if (f.isAdvanced()) {
+      applyAdvancedFilters(qw, f, asOf);
+    } else {
+      applyFuzzyFilters(qw, f, asOf);
     }
 
     long p = Math.max(1, page);
@@ -143,17 +153,188 @@ public class EmployeeService {
     return new PageResult(records, total == null ? 0 : total);
   }
 
-  public List<EmployeeEntity> listForExport(String keyword, String status, Long organizationId) {
-    return listForExport(keyword, status, organizationId, LocalDate.now());
+  private void applyFuzzyFilters(
+      LambdaQueryWrapper<EmployeeEntity> qw,
+      EmployeeListFilter filter,
+      LocalDate asOf
+  ) {
+    if (filter.status() != null && !filter.status().isBlank()) {
+      List<Long> statusIds = findEmployeeIdsByMasterStatus(filter.status().trim().toUpperCase(), asOf);
+      if (statusIds.isEmpty()) {
+        qw.eq(EmployeeEntity::getId, -1L);
+        return;
+      }
+      qw.in(EmployeeEntity::getId, statusIds);
+    }
+    if (filter.keyword() == null || filter.keyword().isBlank()) return;
+
+    String kw = filter.keyword().trim();
+    List<Long> masterIds = findEmployeeIdsByMasterFuzzy(kw, asOf);
+    List<Long> positionEmpIds = findEmployeeIdsByPrimaryPositionNameLike(kw, asOf);
+    List<Long> orgEmpIds = findEmployeeIdsByPrimaryOrganizationNameLike(kw, asOf);
+    Set<Long> relatedIds = new HashSet<>();
+    relatedIds.addAll(masterIds);
+    relatedIds.addAll(positionEmpIds);
+    relatedIds.addAll(orgEmpIds);
+
+    qw.and(w -> {
+      w.like(EmployeeEntity::getFullName, kw)
+          .or().like(EmployeeEntity::getEmployeeNo, kw)
+          .or().like(EmployeeEntity::getCompanyEmail, kw);
+      if (!relatedIds.isEmpty()) {
+        w.or().in(EmployeeEntity::getId, relatedIds);
+      }
+    });
   }
 
-  public List<EmployeeEntity> listForExport(
-      String keyword,
-      String status,
-      Long organizationId,
-      LocalDate asOfDate
+  private void applyAdvancedFilters(
+      LambdaQueryWrapper<EmployeeEntity> qw,
+      EmployeeListFilter filter,
+      LocalDate asOf
   ) {
-    return page(keyword, status, organizationId, asOfDate, 1, 10_000).records();
+    if (filter.status() != null && !filter.status().isBlank()) {
+      List<Long> statusIds = findEmployeeIdsByMasterStatus(filter.status().trim().toUpperCase(), asOf);
+      if (statusIds.isEmpty()) {
+        qw.eq(EmployeeEntity::getId, -1L);
+        return;
+      }
+      qw.in(EmployeeEntity::getId, statusIds);
+    }
+    if (filter.fullName() != null && !filter.fullName().isBlank()) {
+      List<Long> ids = findEmployeeIdsByMasterExact(EmployeeMasterVersionEntity::getFullName, filter.fullName().trim(), asOf);
+      if (ids.isEmpty()) {
+        qw.eq(EmployeeEntity::getId, -1L);
+        return;
+      }
+      qw.in(EmployeeEntity::getId, ids);
+    }
+    if (filter.employeeNo() != null && !filter.employeeNo().isBlank()) {
+      qw.eq(EmployeeEntity::getEmployeeNo, filter.employeeNo().trim());
+    }
+    if (filter.companyEmail() != null && !filter.companyEmail().isBlank()) {
+      List<Long> ids = findEmployeeIdsByMasterExact(
+          EmployeeMasterVersionEntity::getCompanyEmail,
+          filter.companyEmail().trim(),
+          asOf
+      );
+      if (ids.isEmpty()) {
+        qw.eq(EmployeeEntity::getId, -1L);
+        return;
+      }
+      qw.in(EmployeeEntity::getId, ids);
+    }
+    if (filter.personalEmail() != null && !filter.personalEmail().isBlank()) {
+      List<Long> ids = findEmployeeIdsByMasterExact(
+          EmployeeMasterVersionEntity::getPersonalEmail,
+          filter.personalEmail().trim(),
+          asOf
+      );
+      if (ids.isEmpty()) {
+        qw.eq(EmployeeEntity::getId, -1L);
+        return;
+      }
+      qw.in(EmployeeEntity::getId, ids);
+    }
+    if (filter.gender() != null && !filter.gender().isBlank()) {
+      List<Long> ids = findEmployeeIdsByMasterExact(
+          EmployeeMasterVersionEntity::getGender,
+          filter.gender().trim().toUpperCase(),
+          asOf
+      );
+      if (ids.isEmpty()) {
+        qw.eq(EmployeeEntity::getId, -1L);
+        return;
+      }
+      qw.in(EmployeeEntity::getId, ids);
+    }
+    if (filter.hireDateFrom() != null || filter.hireDateTo() != null) {
+      List<Long> ids = findEmployeeIdsByMasterHireDateRange(filter.hireDateFrom(), filter.hireDateTo(), asOf);
+      if (ids.isEmpty()) {
+        qw.eq(EmployeeEntity::getId, -1L);
+        return;
+      }
+      qw.in(EmployeeEntity::getId, ids);
+    }
+    if (filter.positionId() != null) {
+      List<Long> ids = findEmployeeIdsByPrimaryPositionId(filter.positionId(), asOf);
+      if (ids.isEmpty()) {
+        qw.eq(EmployeeEntity::getId, -1L);
+        return;
+      }
+      qw.in(EmployeeEntity::getId, ids);
+    }
+  }
+
+  public List<EmployeeEntity> listForExport(EmployeeListFilter filter) {
+    return page(filter, 1, 10_000).records();
+  }
+
+  public Map<Long, String> organizationPathMap(List<Long> orgIds, LocalDate asOfDate) {
+    if (orgIds == null || orgIds.isEmpty()) return Map.of();
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+    List<OrganizationEntity> all = organizationMapper.selectList(
+        new LambdaQueryWrapper<OrganizationEntity>()
+            .le(OrganizationEntity::getEffectiveStartDate, date)
+            .and(w -> w.isNull(OrganizationEntity::getEffectiveEndDate)
+                .or().ge(OrganizationEntity::getEffectiveEndDate, date))
+    );
+    Map<String, OrganizationEntity> byCode = all.stream()
+        .collect(Collectors.toMap(OrganizationEntity::getCode, o -> o, (a, b) -> a));
+    Map<Long, String> out = new HashMap<>();
+    for (Long orgId : orgIds.stream().filter(id -> id != null).distinct().toList()) {
+      OrganizationEntity start = all.stream().filter(o -> orgId.equals(o.getId())).findFirst().orElse(null);
+      if (start == null) {
+        start = organizationMapper.selectById(orgId);
+      }
+      if (start == null) continue;
+      out.put(orgId, buildOrganizationPath(start, byCode));
+    }
+    return out;
+  }
+
+  private String buildOrganizationPath(OrganizationEntity start, Map<String, OrganizationEntity> byCode) {
+    List<String> names = new ArrayList<>();
+    Set<String> visited = new HashSet<>();
+    OrganizationEntity cur = start;
+    while (cur != null) {
+      if (cur.getCode() != null && visited.contains(cur.getCode())) break;
+      if (cur.getCode() != null) visited.add(cur.getCode());
+      if (cur.getName() != null && !cur.getName().isBlank()) {
+        names.add(0, cur.getName());
+      }
+      String parentCode = cur.getParentCode();
+      if (parentCode == null || parentCode.isBlank()) break;
+      cur = byCode.get(parentCode);
+    }
+    return String.join(" / ", names);
+  }
+
+  public Map<String, Object> primaryAssignmentDto(
+      EmployeeAssignmentEntity primary,
+      LocalDate asOfDate,
+      Map<Long, OrganizationEntity> orgMap,
+      Map<Long, PositionEntity> posMap
+  ) {
+    if (primary == null) return null;
+    assignmentHelper.computeDerivedFields(primary, List.of(primary), asOfDate);
+    Map<Long, EmployeeEntity> handoverMap = employeeMap(
+        primary.getHandoverEmployeeId() == null
+            ? List.of()
+            : List.of(primary.getHandoverEmployeeId())
+    );
+    Map<String, Object> dto = assignmentHelper.enrichDto(primary, handoverMap, this::dictLabel);
+    OrganizationEntity org = orgMap.get(primary.getOrganizationId());
+    PositionEntity pos = posMap.get(primary.getPositionId());
+    if (org != null) {
+      dto.put("organizationName", org.getName());
+      dto.put("organizationCode", org.getCode());
+    }
+    if (pos != null) {
+      dto.put("positionName", pos.getName());
+      dto.put("positionCode", pos.getCode());
+    }
+    dto.put("activeAsOf", assignmentHelper.isActiveAsOf(primary, asOfDate));
+    return dto;
   }
 
   public EmployeeEntity require(long id) {
@@ -205,16 +386,116 @@ public class EmployeeService {
     return map;
   }
 
+  private List<Long> findEmployeeIdsByPrimaryPositionNameLike(String keyword, LocalDate asOfDate) {
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+    List<Long> positionIds = positionMapper.selectList(
+            new LambdaQueryWrapper<PositionEntity>()
+                .select(PositionEntity::getId)
+                .like(PositionEntity::getName, keyword)
+        ).stream()
+        .map(PositionEntity::getId)
+        .distinct()
+        .toList();
+    if (positionIds.isEmpty()) return List.of();
+    return findEmployeeIdsByPrimaryAssignmentMatch(date, wrapper ->
+        wrapper.in(EmployeeAssignmentEntity::getPositionId, positionIds)
+    );
+  }
+
+  private List<Long> findEmployeeIdsByPrimaryOrganizationNameLike(String keyword, LocalDate asOfDate) {
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+    List<Long> organizationIds = organizationMapper.selectList(
+            new LambdaQueryWrapper<OrganizationEntity>()
+                .select(OrganizationEntity::getId)
+                .like(OrganizationEntity::getName, keyword)
+        ).stream()
+        .map(OrganizationEntity::getId)
+        .distinct()
+        .toList();
+    if (organizationIds.isEmpty()) return List.of();
+    return findEmployeeIdsByPrimaryAssignmentMatch(date, wrapper ->
+        wrapper.in(EmployeeAssignmentEntity::getOrganizationId, organizationIds)
+    );
+  }
+
+  private List<Long> findEmployeeIdsByPrimaryPositionId(Long positionId, LocalDate asOfDate) {
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+    return findEmployeeIdsByPrimaryAssignmentMatch(date, wrapper ->
+        wrapper.eq(EmployeeAssignmentEntity::getPositionId, positionId)
+    );
+  }
+
+  private List<Long> findEmployeeIdsByPrimaryAssignmentMatch(
+      LocalDate asOfDate,
+      java.util.function.Consumer<LambdaQueryWrapper<EmployeeAssignmentEntity>> matcher
+  ) {
+    LambdaQueryWrapper<EmployeeAssignmentEntity> qw = new LambdaQueryWrapper<EmployeeAssignmentEntity>()
+        .select(EmployeeAssignmentEntity::getEmployeeId)
+        .eq(EmployeeAssignmentEntity::getIsPrimary, true)
+        .le(EmployeeAssignmentEntity::getEffectiveStartDate, asOfDate)
+        .and(w -> w.isNull(EmployeeAssignmentEntity::getEffectiveEndDate)
+            .or().ge(EmployeeAssignmentEntity::getEffectiveEndDate, asOfDate));
+    matcher.accept(qw);
+    return assignmentMapper.selectList(qw).stream()
+        .map(EmployeeAssignmentEntity::getEmployeeId)
+        .distinct()
+        .toList();
+  }
+
   private List<Long> findEmployeeIdsByMasterNameLike(String keyword, LocalDate asOfDate) {
+    return findEmployeeIdsByMasterFuzzy(keyword, asOfDate);
+  }
+
+  private List<Long> findEmployeeIdsByMasterFuzzy(String keyword, LocalDate asOfDate) {
     LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
     return masterVersionMapper.selectList(
             new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
                 .select(EmployeeMasterVersionEntity::getEmployeeId)
-                .like(EmployeeMasterVersionEntity::getFullName, keyword)
+                .and(w -> w.like(EmployeeMasterVersionEntity::getFullName, keyword)
+                    .or().like(EmployeeMasterVersionEntity::getCompanyEmail, keyword)
+                    .or().like(EmployeeMasterVersionEntity::getPersonalEmail, keyword))
                 .le(EmployeeMasterVersionEntity::getEffectiveStartDate, date)
                 .and(w -> w.isNull(EmployeeMasterVersionEntity::getEffectiveEndDate)
                     .or().ge(EmployeeMasterVersionEntity::getEffectiveEndDate, date))
         ).stream()
+        .map(EmployeeMasterVersionEntity::getEmployeeId)
+        .distinct()
+        .toList();
+  }
+
+  private List<Long> findEmployeeIdsByMasterExact(
+      com.baomidou.mybatisplus.core.toolkit.support.SFunction<EmployeeMasterVersionEntity, ?> field,
+      String value,
+      LocalDate asOfDate
+  ) {
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+    return masterVersionMapper.selectList(
+            new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
+                .select(EmployeeMasterVersionEntity::getEmployeeId)
+                .eq(field, value)
+                .le(EmployeeMasterVersionEntity::getEffectiveStartDate, date)
+                .and(w -> w.isNull(EmployeeMasterVersionEntity::getEffectiveEndDate)
+                    .or().ge(EmployeeMasterVersionEntity::getEffectiveEndDate, date))
+        ).stream()
+        .map(EmployeeMasterVersionEntity::getEmployeeId)
+        .distinct()
+        .toList();
+  }
+
+  private List<Long> findEmployeeIdsByMasterHireDateRange(
+      LocalDate from,
+      LocalDate to,
+      LocalDate asOfDate
+  ) {
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+    LambdaQueryWrapper<EmployeeMasterVersionEntity> qw = new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
+        .select(EmployeeMasterVersionEntity::getEmployeeId)
+        .le(EmployeeMasterVersionEntity::getEffectiveStartDate, date)
+        .and(w -> w.isNull(EmployeeMasterVersionEntity::getEffectiveEndDate)
+            .or().ge(EmployeeMasterVersionEntity::getEffectiveEndDate, date));
+    if (from != null) qw.ge(EmployeeMasterVersionEntity::getHireDate, from);
+    if (to != null) qw.le(EmployeeMasterVersionEntity::getHireDate, to);
+    return masterVersionMapper.selectList(qw).stream()
         .map(EmployeeMasterVersionEntity::getEmployeeId)
         .distinct()
         .toList();
@@ -611,15 +892,21 @@ public class EmployeeService {
 
   @Transactional
   public EmployeeAssignmentEntity createAssignmentFromBody(long employeeId, EmployeeAssignmentEntity body) {
-    require(employeeId);
+    EmployeeEntity employee = require(employeeId);
     if (body.getEffectiveStartDate() == null) throw new IllegalArgumentException("生效日期不能为空");
     body.setId(null);
     body.setEmployeeId(employeeId);
     assignmentHelper.normalizeIndicator(body);
+    List<EmployeeAssignmentEntity> existing = listAssignments(employeeId);
+    // 入职日期仅首次任职可维护；已有任职时强制沿用员工主档入职日期
+    if (!existing.isEmpty()) {
+      body.setHireDate(employee.getHireDate());
+    } else if (body.getHireDate() == null) {
+      body.setHireDate(employee.getHireDate());
+    }
     prepareAssignmentForWrite(body);
     PositionEntity position = positionMapper.selectById(body.getPositionId());
     assignmentHelper.applyPositionDefaults(body, position);
-    List<EmployeeAssignmentEntity> existing = listAssignments(employeeId);
     EmployeeAssignmentHelper.AssignmentVersionSpliceResult splice =
         assignmentHelper.resolveVersionSplice(body, existing, body.getEffectiveStartDate());
     for (EmployeeAssignmentEntity prev : splice.toUpdate()) {
@@ -762,15 +1049,21 @@ public class EmployeeService {
     if (patch.getGroupAttrLevel() != null) cur.setGroupAttrLevel(patch.getGroupAttrLevel());
     if (patch.getSalaryGroup() != null) cur.setSalaryGroup(patch.getSalaryGroup());
     if (patch.getSupplier() != null) cur.setSupplier(patch.getSupplier());
-    if (patch.getProbationPeriod() != null) cur.setProbationPeriod(patch.getProbationPeriod());
-    if (patch.getActualRegularizationDate() != null) cur.setActualRegularizationDate(patch.getActualRegularizationDate());
+    // 转正后不可再改试用期期限、实际转正日期
+    boolean alreadyRegularized = cur.getActualRegularizationDate() != null;
+    if (!alreadyRegularized) {
+      if (patch.getProbationPeriod() != null) cur.setProbationPeriod(patch.getProbationPeriod());
+      if (patch.getActualRegularizationDate() != null) {
+        cur.setActualRegularizationDate(patch.getActualRegularizationDate());
+      }
+    }
     if (patch.getGroupResponsibilityStartDate() != null) {
       cur.setGroupResponsibilityStartDate(patch.getGroupResponsibilityStartDate());
     }
     if (patch.getGroupSeniorityStartDate() != null) {
       cur.setGroupSeniorityStartDate(patch.getGroupSeniorityStartDate());
     }
-    if (patch.getHireDate() != null) cur.setHireDate(patch.getHireDate());
+    // 入职日期仅首次任职创建可维护；更新 / 新增生效版本保留原值
     if (patch.getIsRehire() != null) cur.setIsRehire(patch.getIsRehire());
     if (patch.getMovementType() != null) cur.setMovementType(patch.getMovementType());
     if (patch.getReasonCode() != null) cur.setReasonCode(patch.getReasonCode());

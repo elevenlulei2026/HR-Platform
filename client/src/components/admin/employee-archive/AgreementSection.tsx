@@ -1,7 +1,7 @@
 import type { EmployeeAgreement, EmployeeAttachment } from "@shared/api.interface";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Download, Edit, FileUp, Plus, Trash2, X } from "lucide-react";
+import { Download, FileUp, X } from "lucide-react";
 
 import type { ApiError } from "@/api/http";
 import {
@@ -24,6 +24,8 @@ import { ArchiveFormDialogPortal } from "@/components/admin/employee-archive/Arc
 import { ConfirmDialogPortal } from "@/components/admin/employee-archive/ConfirmDialogPortal";
 import {
   ArchiveAddButton,
+  ArchiveDeleteRecordButton,
+  ArchiveEditRecordButton,
   ArchiveRecordActionButton,
   ArchiveRecordCard,
   ArchiveRecordField,
@@ -322,11 +324,7 @@ export function AgreementSection({
               </Badge>
             ) : null}
             {canEdit ? (
-              <ArchiveAddButton
-                label="新增协议"
-                icon={Plus}
-                onClick={openNew}
-              />
+              <ArchiveAddButton label="新增协议" onClick={openNew} />
             ) : null}
           </>
         }
@@ -376,13 +374,8 @@ export function AgreementSection({
                       ) : null}
                       {canEdit ? (
                         <>
-                          <ArchiveRecordActionButton onClick={() => openEdit(item)} icon={Edit} label="编辑" />
-                          <ArchiveRecordActionButton
-                            onClick={() => setDeleteTarget(item)}
-                            icon={Trash2}
-                            label="删除"
-                            destructive
-                          />
+                          <ArchiveEditRecordButton onClick={() => openEdit(item)} />
+                          <ArchiveDeleteRecordButton onClick={() => setDeleteTarget(item)} />
                         </>
                       ) : null}
                     </>

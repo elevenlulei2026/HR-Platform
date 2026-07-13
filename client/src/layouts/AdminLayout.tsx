@@ -42,6 +42,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
+import { AppLogoMark } from "@/components/AppLogoMark";
 import { APP_NAME } from "@/config/app";
 import { useDocumentTitle } from "@/hooks/useDocumentTitle";
 import { usePermission } from "@/hooks/usePermission";
@@ -49,7 +50,7 @@ import { usePermission } from "@/hooks/usePermission";
 function HrLogo() {
   return (
     <div className="flex items-center gap-2">
-      <div className="h-9 w-9 rounded-xl bg-gradient-to-br from-blue-600 to-violet-500 shadow-sm" />
+      <AppLogoMark className="h-9 w-9" />
       <div className="hidden sm:block">
         <div className="text-sm font-semibold leading-tight text-foreground">{APP_NAME}</div>
         <div className="text-xs text-muted-foreground">HR Platform</div>

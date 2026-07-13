@@ -4,7 +4,6 @@ import type {
   EmployeeAssignmentEditMode,
   OrganizationTreeNode,
 } from "@shared/api.interface";
-import { CalendarClock, Edit } from "lucide-react";
 
 import { AssignmentRecordDisplay } from "@/components/admin/employee-archive/AssignmentRecordDisplay";
 import { AssignmentVersionTimeline } from "@/components/admin/employee-archive/AssignmentVersionTimeline";
@@ -13,7 +12,7 @@ import {
   assignmentVersionTemporal,
   type AssignmentIndicatorAccent,
 } from "@/components/admin/employee-archive/assignment-indicator";
-import { ArchiveRecordActionButton } from "@/components/admin/employee-archive/archive-record-ui";
+import { ArchiveEditCurrentVersionButton, ArchiveNewEffectiveVersionButton } from "@/components/admin/employee-archive/archive-record-ui";
 import { cn } from "@/lib/utils";
 
 type AssignmentIndicatorSectionProps = {
@@ -93,16 +92,8 @@ export function AssignmentIndicatorSection({
           </div>
           {canEdit ? (
             <div className="flex shrink-0 items-center gap-0.5">
-              <ArchiveRecordActionButton
-                icon={Edit}
-                label="编辑任职"
-                onClick={() => onEdit(active, "CURRENT")}
-              />
-              <ArchiveRecordActionButton
-                icon={CalendarClock}
-                label="新增生效版本"
-                onClick={() => onEdit(active, "NEW_VERSION")}
-              />
+              <ArchiveEditCurrentVersionButton onClick={() => onEdit(active, "CURRENT")} />
+              <ArchiveNewEffectiveVersionButton onClick={() => onEdit(active, "NEW_VERSION")} />
             </div>
           ) : null}
         </div>

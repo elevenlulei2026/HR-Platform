@@ -1,7 +1,6 @@
 import type { EmployeePenalty } from "@shared/api.interface";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Edit, Plus, Trash2 } from "lucide-react";
 
 import type { ApiError } from "@/api/http";
 import {
@@ -15,7 +14,8 @@ import { ArchiveFormDialogPortal } from "@/components/admin/employee-archive/Arc
 import { ConfirmDialogPortal } from "@/components/admin/employee-archive/ConfirmDialogPortal";
 import {
   ArchiveAddButton,
-  ArchiveRecordActionButton,
+  ArchiveDeleteRecordButton,
+  ArchiveEditRecordButton,
   ArchiveRecordCard,
   ArchiveRecordField,
   ArchiveRecordFieldGrid,
@@ -252,7 +252,7 @@ export function PenaltySection({ employeeId, items, canEdit, onChanged }: Penalt
                 {items.length} 条
               </Badge>
             ) : null}
-            {canEdit ? <ArchiveAddButton label="新增惩处" icon={Plus} onClick={openNew} /> : null}
+            {canEdit ? <ArchiveAddButton label="新增惩处记录" onClick={openNew} /> : null}
           </>
         }
       >
@@ -281,13 +281,8 @@ export function PenaltySection({ employeeId, items, canEdit, onChanged }: Penalt
                   actions={
                     canEdit ? (
                       <>
-                        <ArchiveRecordActionButton onClick={() => openEdit(item)} icon={Edit} label="编辑" />
-                        <ArchiveRecordActionButton
-                          onClick={() => setDeleteTarget(item)}
-                          icon={Trash2}
-                          label="删除"
-                          destructive
-                        />
+                        <ArchiveEditRecordButton onClick={() => openEdit(item)} />
+                        <ArchiveDeleteRecordButton onClick={() => setDeleteTarget(item)} />
                       </>
                     ) : null
                   }

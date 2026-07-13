@@ -5,13 +5,22 @@ import type { LucideIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { Plus, Shield } from "lucide-react";
+import { GitBranchPlus, PencilLine, Plus, Shield, Trash2 } from "lucide-react";
+
+/** 档案操作按钮统一图标 */
+export const ARCHIVE_ACTION_ICONS = {
+  add: Plus,
+  edit: PencilLine,
+  editCurrentVersion: PencilLine,
+  newEffectiveVersion: GitBranchPlus,
+  delete: Trash2,
+} as const;
 
 /** 分区工具栏「新增」按钮 */
 export function ArchiveAddButton({
   label,
   onClick,
-  icon: Icon = Plus,
+  icon: Icon = ARCHIVE_ACTION_ICONS.add,
   disabled,
 }: {
   label: string;
@@ -67,7 +76,7 @@ export function ArchiveRecordCard({
     >
       {index !== undefined ? (
         <div className="flex w-8 shrink-0 flex-col items-center pt-2.5 pl-2.5">
-          <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold tabular-nums text-primary ring-1 ring-primary/15">
+          <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold tabular-nums text-primary ring-1 ring-primary/15">
             {index}
           </span>
         </div>
@@ -76,7 +85,7 @@ export function ArchiveRecordCard({
         {children}
       </div>
       {actions ? (
-        <div className="flex shrink-0 items-center gap-0.5 py-2 pr-2 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+        <div className="flex shrink-0 items-center gap-0.5 py-2 pr-2 opacity-90 transition-opacity group-focus-within:opacity-100 sm:opacity-75">
           {actions}
         </div>
       ) : null}
@@ -106,7 +115,7 @@ export function ArchiveRecordFieldGrid({
           : columns === 6
             ? "grid-cols-6"
             : "grid-cols-4";
-  return <div className={cn("grid gap-1", colClass, className)}>{children}</div>;
+  return <div className={cn("grid gap-x-4 gap-y-3", colClass, className)}>{children}</div>;
 }
 
 export function ArchiveRecordField({
@@ -115,6 +124,7 @@ export function ArchiveRecordField({
   masked,
   mono,
   highlight,
+  wide,
   icon: Icon,
   compact = false,
 }: {
@@ -123,6 +133,8 @@ export function ArchiveRecordField({
   masked?: boolean;
   mono?: boolean;
   highlight?: boolean;
+  /** 跨两列展示（地址、长文本） */
+  wide?: boolean;
   icon?: LucideIcon;
   compact?: boolean;
 }) {
@@ -130,27 +142,24 @@ export function ArchiveRecordField({
   return (
     <div
       className={cn(
-        "rounded-md transition-colors",
-        compact ? "px-1.5 py-1" : "px-2 py-1.5",
-        highlight
-          ? "bg-primary/5 ring-1 ring-primary/10"
-          : "bg-muted/20 hover:bg-muted/35",
+        "min-w-0",
+        wide && "col-span-2",
+        highlight && "rounded-md bg-primary/[0.04] px-2 py-1.5 ring-1 ring-primary/10",
       )}
     >
       <div
         className={cn(
-          "flex items-center gap-1 font-medium text-muted-foreground",
-          compact ? "text-[9px]" : "text-[10px]",
+          "flex items-center gap-1 text-xs font-medium text-muted-foreground",
+          compact && "text-[11px]",
         )}
       >
-        {Icon ? <Icon className="size-2.5 shrink-0 opacity-55" /> : null}
+        {Icon ? <Icon className="size-3 shrink-0 opacity-50" /> : null}
         <span className="truncate">{label}</span>
       </div>
       <div
         className={cn(
-          "mt-0.5 leading-tight font-medium text-foreground",
-          compact ? "text-[12px]" : "text-[13px]",
-          mono && (compact ? "font-mono text-[11px]" : "font-mono text-xs"),
+          "mt-0.5 text-sm leading-snug font-medium text-foreground",
+          mono && "font-mono text-[13px]",
           isEmpty && "text-muted-foreground/70",
         )}
       >
@@ -163,7 +172,7 @@ export function ArchiveRecordField({
 
 export function ArchiveMaskedBadge() {
   return (
-    <Badge variant="outline" className="ml-1.5 h-4 px-1 text-[10px] font-normal">
+    <Badge variant="outline" className="ml-1.5 h-5 px-1.5 text-[11px] font-normal">
       <Shield className="mr-0.5 size-2.5" />
       脱敏
     </Badge>
@@ -196,6 +205,51 @@ export function ArchiveRecordActionButton({
       <Icon className="size-3.5" />
       <span className="sr-only">{label}</span>
     </Button>
+  );
+}
+
+/** 编辑单条档案记录 */
+export function ArchiveEditRecordButton({ onClick }: { onClick: () => void }) {
+  return (
+    <ArchiveRecordActionButton
+      icon={ARCHIVE_ACTION_ICONS.edit}
+      label="编辑"
+      onClick={onClick}
+    />
+  );
+}
+
+/** 修改当前生效版本 */
+export function ArchiveEditCurrentVersionButton({ onClick }: { onClick: () => void }) {
+  return (
+    <ArchiveRecordActionButton
+      icon={ARCHIVE_ACTION_ICONS.editCurrentVersion}
+      label="修改当前版本"
+      onClick={onClick}
+    />
+  );
+}
+
+/** 基于当前记录新增后续生效版本 */
+export function ArchiveNewEffectiveVersionButton({ onClick }: { onClick: () => void }) {
+  return (
+    <ArchiveRecordActionButton
+      icon={ARCHIVE_ACTION_ICONS.newEffectiveVersion}
+      label="新增生效版本"
+      onClick={onClick}
+    />
+  );
+}
+
+/** 删除档案记录 */
+export function ArchiveDeleteRecordButton({ onClick }: { onClick: () => void }) {
+  return (
+    <ArchiveRecordActionButton
+      icon={ARCHIVE_ACTION_ICONS.delete}
+      label="删除"
+      destructive
+      onClick={onClick}
+    />
   );
 }
 

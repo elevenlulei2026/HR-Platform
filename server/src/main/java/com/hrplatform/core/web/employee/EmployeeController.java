@@ -4,9 +4,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrplatform.core.employee.EmployeeAssignmentEntity;
 import com.hrplatform.core.employee.EmployeeEntity;
 import com.hrplatform.core.employee.EmployeeImportService;
+import com.hrplatform.core.employee.EmployeeListFilter;
 import com.hrplatform.core.employee.EmployeeMasterVersionEntity;
 import com.hrplatform.core.employee.EmployeeMovementEntity;
 import com.hrplatform.core.employee.EmployeeMovementService;
+import com.hrplatform.core.employee.EmployeeRosterExportService;
 import com.hrplatform.core.employee.EmployeeService;
 import com.hrplatform.core.organization.OrganizationEntity;
 import com.hrplatform.core.organization.PositionEntity;
@@ -41,6 +43,7 @@ public class EmployeeController {
   private final EmployeeService employeeService;
   private final EmployeeMovementService movementService;
   private final EmployeeImportService importService;
+  private final EmployeeRosterExportService rosterExportService;
   private final RbacService rbacService;
   private final AuditLogService auditLogService;
   private final ObjectMapper objectMapper;
@@ -49,6 +52,7 @@ public class EmployeeController {
       EmployeeService employeeService,
       EmployeeMovementService movementService,
       EmployeeImportService importService,
+      EmployeeRosterExportService rosterExportService,
       RbacService rbacService,
       AuditLogService auditLogService,
       ObjectMapper objectMapper
@@ -56,6 +60,7 @@ public class EmployeeController {
     this.employeeService = employeeService;
     this.movementService = movementService;
     this.importService = importService;
+    this.rosterExportService = rosterExportService;
     this.rbacService = rbacService;
     this.auditLogService = auditLogService;
     this.objectMapper = objectMapper;
@@ -63,17 +68,41 @@ public class EmployeeController {
 
   @GetMapping("/employees")
   public ApiResponse<Map<String, Object>> listEmployees(
+      @RequestParam(required = false) String filterMode,
       @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) String fullName,
+      @RequestParam(required = false) String employeeNo,
+      @RequestParam(required = false) String companyEmail,
+      @RequestParam(required = false) String personalEmail,
+      @RequestParam(required = false) Long positionId,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) Long organizationId,
+      @RequestParam(required = false) String gender,
+      @RequestParam(required = false) String hireDateFrom,
+      @RequestParam(required = false) String hireDateTo,
       @RequestParam(required = false) String asOfDate,
       @RequestParam(defaultValue = "false") boolean revealSensitive,
       @RequestParam @Min(1) long page,
       @RequestParam @Min(1) @Max(200) long pageSize
   ) {
     requireRosterView();
-    LocalDate snapshotDate = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate.trim());
-    var p = employeeService.page(keyword, status, organizationId, snapshotDate, page, pageSize);
+    LocalDate snapshotDate = parseDateOrToday(asOfDate);
+    EmployeeListFilter filter = new EmployeeListFilter(
+        filterMode,
+        keyword,
+        fullName,
+        employeeNo,
+        companyEmail,
+        personalEmail,
+        organizationId,
+        positionId,
+        status,
+        gender,
+        parseDate(hireDateFrom),
+        parseDate(hireDateTo),
+        snapshotDate
+    );
+    var p = employeeService.page(filter, page, pageSize);
     boolean reveal = employeeService.shouldRevealSensitive(revealSensitive);
     List<Long> empIds = p.records().stream().map(EmployeeEntity::getId).toList();
     Map<Long, EmployeeMasterVersionEntity> masterMap = employeeService.masterVersionMapAsOf(empIds, snapshotDate);
@@ -82,6 +111,7 @@ public class EmployeeController {
     List<Long> posIds = primaryMap.values().stream().map(EmployeeAssignmentEntity::getPositionId).distinct().toList();
     Map<Long, OrganizationEntity> orgMap = employeeService.organizationMap(orgIds);
     Map<Long, PositionEntity> posMap = employeeService.positionMap(posIds);
+    Map<Long, String> orgPathMap = employeeService.organizationPathMap(orgIds, snapshotDate);
 
     List<Map<String, Object>> items = p.records().stream().map(e -> {
       EmployeeMasterVersionEntity master = masterMap.get(e.getId());
@@ -91,7 +121,12 @@ public class EmployeeController {
       EmployeeAssignmentEntity pa = primaryMap.get(e.getId());
       OrganizationEntity org = pa == null ? null : orgMap.get(pa.getOrganizationId());
       PositionEntity pos = pa == null ? null : posMap.get(pa.getPositionId());
-      return toEmployeeDto(e, master, org, pos, pa, reveal);
+      Map<String, Object> dto = toEmployeeDto(e, master, org, pos, pa, reveal);
+      if (pa != null) {
+        dto.put("primaryOrganizationPath", orgPathMap.get(pa.getOrganizationId()));
+        dto.put("primaryAssignment", employeeService.primaryAssignmentDto(pa, snapshotDate, orgMap, posMap));
+      }
+      return dto;
     }).toList();
 
     Map<String, Object> result = new HashMap<>();
@@ -370,25 +405,83 @@ public class EmployeeController {
   @GetMapping("/employees/export")
   public ResponseEntity<byte[]> exportEmployees(
       HttpServletRequest request,
+      @RequestParam(required = false) String columns,
+      @RequestParam(required = false) String filterMode,
       @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) String fullName,
+      @RequestParam(required = false) String employeeNo,
+      @RequestParam(required = false) String companyEmail,
+      @RequestParam(required = false) String personalEmail,
+      @RequestParam(required = false) Long positionId,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) Long organizationId,
+      @RequestParam(required = false) String gender,
+      @RequestParam(required = false) String hireDateFrom,
+      @RequestParam(required = false) String hireDateTo,
       @RequestParam(required = false) String asOfDate
   ) {
     requireExport();
     boolean reveal = employeeService.canViewSensitive();
-    LocalDate snapshotDate = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate.trim());
-    List<EmployeeEntity> list = employeeService.listForExport(keyword, status, organizationId, snapshotDate);
-    Map<Long, EmployeeMasterVersionEntity> masterMap = employeeService.masterVersionMapAsOf(
-        list.stream().map(EmployeeEntity::getId).toList(),
+    LocalDate snapshotDate = parseDateOrToday(asOfDate);
+    EmployeeListFilter filter = new EmployeeListFilter(
+        filterMode,
+        keyword,
+        fullName,
+        employeeNo,
+        companyEmail,
+        personalEmail,
+        organizationId,
+        positionId,
+        status,
+        gender,
+        parseDate(hireDateFrom),
+        parseDate(hireDateTo),
         snapshotDate
     );
-    byte[] bytes = importService.exportExcel(list, masterMap, reveal);
+    List<EmployeeEntity> list = employeeService.listForExport(filter);
+    List<Long> empIds = list.stream().map(EmployeeEntity::getId).toList();
+    Map<Long, EmployeeMasterVersionEntity> masterMap = employeeService.masterVersionMapAsOf(empIds, snapshotDate);
+    Map<Long, EmployeeAssignmentEntity> primaryMap = employeeService.primaryAssignmentMap(empIds, snapshotDate);
+    List<Long> orgIds = primaryMap.values().stream().map(EmployeeAssignmentEntity::getOrganizationId).distinct().toList();
+    List<Long> posIds = primaryMap.values().stream().map(EmployeeAssignmentEntity::getPositionId).distinct().toList();
+    Map<Long, OrganizationEntity> orgMap = employeeService.organizationMap(orgIds);
+    Map<Long, PositionEntity> posMap = employeeService.positionMap(posIds);
+    Map<Long, String> orgPathMap = employeeService.organizationPathMap(orgIds, snapshotDate);
+    List<Long> handoverIds = primaryMap.values().stream()
+        .map(EmployeeAssignmentEntity::getHandoverEmployeeId)
+        .filter(id -> id != null)
+        .distinct()
+        .toList();
+    Map<Long, EmployeeEntity> handoverMap = employeeService.employeeMap(handoverIds);
+    List<String> columnKeys = columns == null || columns.isBlank()
+        ? List.of()
+        : List.of(columns.split(","));
+    byte[] bytes = rosterExportService.exportExcel(
+        columnKeys,
+        list,
+        masterMap,
+        primaryMap,
+        orgMap,
+        posMap,
+        orgPathMap,
+        handoverMap,
+        reveal,
+        snapshotDate
+    );
     logExport(request, list.size());
     return ResponseEntity.ok()
         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=employee-roster.xlsx")
         .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
         .body(bytes);
+  }
+
+  private LocalDate parseDateOrToday(String value) {
+    return value == null || value.isBlank() ? LocalDate.now() : LocalDate.parse(value.trim());
+  }
+
+  private LocalDate parseDate(String value) {
+    if (value == null || value.isBlank()) return null;
+    return LocalDate.parse(value.trim());
   }
 
   private void requireRosterView() { rbacService.requirePermission("employee:roster:view"); }

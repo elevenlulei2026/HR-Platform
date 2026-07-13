@@ -115,12 +115,40 @@ export async function importEmployees(file: File) {
 }
 
 export async function exportEmployees(
-  query?: Pick<EmployeeListQuery, "keyword" | "status" | "organizationId">,
+  query?: Pick<
+    EmployeeListQuery,
+    | "filterMode"
+    | "keyword"
+    | "fullName"
+    | "employeeNo"
+    | "companyEmail"
+    | "personalEmail"
+    | "positionId"
+    | "status"
+    | "organizationId"
+    | "gender"
+    | "hireDateFrom"
+    | "hireDateTo"
+    | "asOfDate"
+  > & {
+    columns?: string;
+  },
 ) {
   const qs = pageQuery({
+    columns: query?.columns,
+    filterMode: query?.filterMode,
     keyword: query?.keyword,
+    fullName: query?.fullName,
+    employeeNo: query?.employeeNo,
+    companyEmail: query?.companyEmail,
+    personalEmail: query?.personalEmail,
+    positionId: query?.positionId,
     status: query?.status,
     organizationId: query?.organizationId,
+    gender: query?.gender,
+    hireDateFrom: query?.hireDateFrom,
+    hireDateTo: query?.hireDateTo,
+    asOfDate: query?.asOfDate,
   });
   return getBlob(`/api/v1/employees/export${qs ? `?${qs}` : ""}`);
 }

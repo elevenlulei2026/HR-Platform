@@ -2,45 +2,50 @@ import type {
   Employee,
   EmployeeArchive,
   EmployeeFormOptions,
-  EmployeeImportResult,
   EmployeeMovement,
-  EmployeeStatus,
   OrganizationTreeNode,
 } from "@shared/api.interface";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Eye, EyeOff, Inbox, Plus, RefreshCw, Shield, Upload } from "lucide-react";
+import { Download, Eye, EyeOff, Inbox, Plus, RefreshCw, Shield } from "lucide-react";
 import { toast } from "sonner";
 
 import type { ApiError } from "@/api/http";
+import { getEmployeeArchive } from "@/api/employee-archive";
 import {
-  downloadImportErrorReport,
-  getEmployeeArchive,
-} from "@/api/employee-archive";
-import {
-  EMPLOYEE_STATUS_OPTIONS,
   createEmployee,
-  downloadEmployeeImportTemplate,
   employeeStatusLabel,
   exportEmployees,
   getEmployee,
   getEmployeeSnapshot,
   getEmployeeFormOptions,
-  importEmployees,
   listEmployeeMovements,
   listEmployees,
   statusBadgeClass,
   updateEmployee,
 } from "@/api/employee";
-import { flattenOrgTree, getOrganizationTree } from "@/api/organization";
+import { flattenOrgTree, getOrganizationTree, listAllPositions } from "@/api/organization";
 import { Can } from "@/components/admin/can";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
-import {
-  SearchableSelect,
-  type SearchableSelectOption,
-} from "@/components/admin/searchable-select";
+import type { SearchableSelectOption } from "@/components/admin/searchable-select";
 import { ArchiveFormDialog } from "@/components/admin/employee-archive/ArchiveFormDialog";
 import { ArchiveDialogMountProvider } from "@/components/admin/employee-archive/archive-dialog-mount";
 import { EmployeeArchiveDetailView } from "@/components/admin/employee-archive/EmployeeArchiveDetailView";
+import {
+  RosterColumnPicker,
+  RosterColumnPickerTrigger,
+} from "@/components/admin/employees/RosterColumnPicker";
+import {
+  EMPTY_ROSTER_FILTER,
+  RosterFilterPanel,
+  rosterFilterToQuery,
+  type RosterFilterState,
+} from "@/components/admin/employees/RosterFilterPanel";
+import {
+  getRosterColumnDef,
+  loadVisibleColumnKeys,
+  resolveRosterCellValue,
+  saveVisibleColumnKeys,
+} from "@/components/admin/employees/roster-columns";
 import {
   EmployeeMasterFormBody,
   EmployeeMasterSheetForm,
@@ -52,7 +57,6 @@ import {
   emptyEmployeeForm,
 } from "@/components/admin/employee-archive/employee-master-form";
 import { FormField, OptionToggle } from "@/components/admin/form-field";
-import { OptionSelect } from "@/components/admin/option-select";
 import {
   NoPermissionCard,
   PageHeader,
@@ -61,7 +65,6 @@ import {
   PanelError,
   PanelLoading,
   PaginationBar,
-  SearchInput,
 } from "@/components/admin/page-shell";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -119,14 +122,15 @@ export function AdminEmployeesRosterPage() {
   const canViewSensitive = archivePerm.canViewSensitive();
   const [revealSensitive, setRevealSensitive] = useState(false);
 
-  const [keyword, setKeyword] = useState("");
-  const debouncedKeyword = useDebouncedValue(keyword);
-  const [statusFilter, setStatusFilter] = useState("");
-  const [orgFilter, setOrgFilter] = useState("");
+  const [rosterFilter, setRosterFilter] = useState<RosterFilterState>(EMPTY_ROSTER_FILTER);
+  const debouncedFilter = useDebouncedValue(rosterFilter, 280);
   const [page, setPage] = useState(1);
   const [state, setState] = useState<ListLoadState>({ type: "loading" });
   const [orgs, setOrgs] = useState<OrganizationTreeNode[]>([]);
+  const [positions, setPositions] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [formOptions, setFormOptions] = useState<EmployeeFormOptions | null>(null);
+  const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(() => loadVisibleColumnKeys());
+  const [columnPickerOpen, setColumnPickerOpen] = useState(false);
   const [sheet, setSheet] = useState<SheetMode>({ type: "closed" });
   const [detailAsOfDate, setDetailAsOfDate] = useState(todayStr());
   const [masterVersionsRefreshSeq, setMasterVersionsRefreshSeq] = useState(0);
@@ -137,12 +141,11 @@ export function AdminEmployeesRosterPage() {
   const [form, setForm] = useState(emptyEmployeeForm());
   const [saving, setSaving] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [archiveLoadError, setArchiveLoadError] = useState<ApiError | null>(null);
   const [archive, setArchive] = useState<EmployeeArchive | null>(null);
   const [movements, setMovements] = useState<EmployeeMovement[]>([]);
-  const [importResult, setImportResult] = useState<EmployeeImportResult | null>(null);
   const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const importRef = useRef<HTMLInputElement>(null);
   const archiveDialogMountRef = useRef<HTMLDivElement>(null);
   const pageSize = 20;
 
@@ -157,11 +160,30 @@ export function AdminEmployeesRosterPage() {
       })),
     [flatOrgs],
   );
+  const positionFilterOptions = useMemo<SearchableSelectOption[]>(
+    () =>
+      positions.map((position) => ({
+        value: position.id,
+        label: position.name,
+        code: position.code,
+        keywords: `${position.code} ${position.name}`,
+      })),
+    [positions],
+  );
+  const visibleColumns = useMemo(
+    () => visibleColumnKeys.map((key) => getRosterColumnDef(key)).filter((col) => col !== undefined),
+    [visibleColumnKeys],
+  );
+  const listQuery = useMemo(
+    () => rosterFilterToQuery(debouncedFilter),
+    [debouncedFilter],
+  );
 
   const loadRefs = useCallback(async () => {
-    const [treeRes, optionsRes] = await Promise.allSettled([
+    const [treeRes, optionsRes, positionsRes] = await Promise.allSettled([
       getOrganizationTree(),
       getEmployeeFormOptions(),
+      listAllPositions(),
     ]);
 
     if (treeRes.status === "fulfilled") {
@@ -185,6 +207,17 @@ export function AdminEmployeesRosterPage() {
           : `字典选项加载失败：${err.message}`,
       );
     }
+
+    if (positionsRes.status === "fulfilled") {
+      setPositions(positionsRes.value);
+    } else {
+      const err = toApiError(positionsRes.reason);
+      toast.error(
+        err.traceId
+          ? `岗位数据加载失败：${err.message}（traceId: ${err.traceId}）`
+          : `岗位数据加载失败：${err.message}`,
+      );
+    }
   }, []);
 
   const load = useCallback(async () => {
@@ -194,17 +227,14 @@ export function AdminEmployeesRosterPage() {
       const res = await listEmployees({
         page,
         pageSize,
-        keyword: debouncedKeyword || undefined,
-        status: (statusFilter || undefined) as EmployeeStatus | undefined,
-        organizationId: orgFilter || undefined,
-        asOfDate: todayStr(),
+        ...listQuery,
         revealSensitive: revealSensitive && canViewSensitive,
       });
       setState({ type: "ok", items: res.data.items, total: res.data.total });
     } catch (e: unknown) {
       setState({ type: "error", error: toApiError(e) });
     }
-  }, [canView, canViewSensitive, debouncedKeyword, orgFilter, page, pageSize, revealSensitive, statusFilter]);
+  }, [canView, canViewSensitive, listQuery, page, pageSize, revealSensitive]);
 
   const loadArchiveOnly = useCallback(async (employeeId: string) => {
     const res = await getEmployeeArchive(employeeId);
@@ -214,6 +244,9 @@ export function AdminEmployeesRosterPage() {
   const loadDetailTabs = useCallback(
     async (employeeId: string) => {
       setDetailLoading(true);
+      setArchiveLoadError(null);
+      setArchive(null);
+      setMovements([]);
       try {
         const [movementRes, archiveRes] = await Promise.all([
           listEmployeeMovements(employeeId),
@@ -223,6 +256,7 @@ export function AdminEmployeesRosterPage() {
         setArchive(archiveRes.data);
       } catch (e: unknown) {
         const err = toApiError(e);
+        setArchiveLoadError(err);
         toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
       } finally {
         setDetailLoading(false);
@@ -245,12 +279,14 @@ export function AdminEmployeesRosterPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedKeyword, statusFilter, orgFilter]);
+  }, [debouncedFilter]);
 
   const openView = async (employee: Employee) => {
-    // 永远默认选中“当前有效”（今天）版本
     const today = todayStr();
     setDetailAsOfDate(today);
+    setArchive(null);
+    setMovements([]);
+    setArchiveLoadError(null);
     setSheet({ type: "view", employee });
     void loadDetailTabs(employee.id);
     try {
@@ -368,31 +404,14 @@ export function AdminEmployeesRosterPage() {
     }
   };
 
-  const handleImport = async (file: File) => {
-    try {
-      const res = await importEmployees(file);
-      setImportResult(res.data);
-      if (res.data.failureCount > 0) {
-        toast.error(`导入完成：成功 ${res.data.successCount} 条，失败 ${res.data.failureCount} 条`);
-      } else {
-        toast.success(`导入成功 ${res.data.successCount} 条`);
-      }
-      void load();
-    } catch (e: unknown) {
-      const err = toApiError(e);
-      toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
-    }
-  };
-
   const handleExport = async () => {
     setExporting(true);
     try {
       const blob = await exportEmployees({
-        keyword: debouncedKeyword || undefined,
-        status: (statusFilter || undefined) as EmployeeStatus | undefined,
-        organizationId: orgFilter || undefined,
+        ...listQuery,
+        columns: visibleColumnKeys.join(","),
       });
-      downloadBlob(blob, "employee-roster.xlsx");
+      downloadBlob(blob, `employee-roster-${todayStr()}.xlsx`);
       setExportConfirmOpen(false);
       toast.success("导出已开始下载");
     } catch (e: unknown) {
@@ -403,26 +422,9 @@ export function AdminEmployeesRosterPage() {
     }
   };
 
-  const handleTemplate = async () => {
-    try {
-      const blob = await downloadEmployeeImportTemplate();
-      downloadBlob(blob, "employee-import-template.xlsx");
-    } catch (e: unknown) {
-      const err = toApiError(e);
-      toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
-    }
-  };
-
-  const handleDownloadImportErrors = async () => {
-    if (!importResult || importResult.failureCount === 0) return;
-    try {
-      const blob = await downloadImportErrorReport({ errors: importResult.errors });
-      downloadBlob(blob, "employee-import-errors.xlsx");
-      toast.success("失败明细已下载");
-    } catch (e: unknown) {
-      const err = toApiError(e);
-      toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
-    }
+  const handleColumnChange = (keys: string[]) => {
+    setVisibleColumnKeys(keys);
+    saveVisibleColumnKeys(keys);
   };
 
   if (!canView) {
@@ -456,29 +458,6 @@ export function AdminEmployeesRosterPage() {
                 {revealSensitive ? "隐藏敏感信息" : "查看敏感信息"}
               </Button>
             </Can>
-            <Can permission={["employee:roster:import", "employee:edit"]}>
-              <>
-                <Button variant="outline" size="sm" onClick={() => void handleTemplate()}>
-                  <Download />
-                  模板
-                </Button>
-                <Button variant="outline" size="sm" onClick={() => importRef.current?.click()}>
-                  <Upload />
-                  导入
-                </Button>
-                <input
-                  ref={importRef}
-                  type="file"
-                  accept=".xlsx"
-                  className="hidden"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    if (file) void handleImport(file);
-                    event.target.value = "";
-                  }}
-                />
-              </>
-            </Can>
             <Can permission="employee:export">
               <Button variant="outline" size="sm" onClick={() => setExportConfirmOpen(true)}>
                 <Download />
@@ -495,66 +474,29 @@ export function AdminEmployeesRosterPage() {
         }
       />
 
-      {importResult && importResult.failureCount > 0 ? (
-        <PanelCard title="导入异常明细">
-          <div className="space-y-3 p-4">
-            <div className="text-sm text-muted-foreground">
-              本次导入成功 {importResult.successCount} 条，失败 {importResult.failureCount} 条。
-            </div>
-            <div className="max-h-48 space-y-1 overflow-y-auto rounded-lg border bg-muted/20 p-3 text-sm">
-              {importResult.errors.map((error, index) => (
-                <div key={`${error.rowNumber}-${index}`}>
-                  第 {error.rowNumber} 行{error.field ? `（${error.field}）` : ""}：{error.message}
-                </div>
-              ))}
-            </div>
-            <div>
-              <Button size="sm" variant="outline" onClick={() => void handleDownloadImportErrors()}>
-                <Download />
-                下载错误报告
-              </Button>
-            </div>
-          </div>
-        </PanelCard>
-      ) : null}
-
       <PanelCard
-        title="筛选"
+        title="查询条件"
+        description="主档与主任职按今日生效快照检索"
+        className="border-t-primary/45"
         toolbar={
-          <Button variant="ghost" size="sm" onClick={() => void load()}>
-            <RefreshCw />
-            刷新
-          </Button>
+          <div className="flex items-center gap-1.5">
+            <RosterColumnPickerTrigger
+              visibleCount={visibleColumnKeys.length}
+              onClick={() => setColumnPickerOpen(true)}
+            />
+            <Button variant="outline" size="sm" onClick={() => void load()}>
+              <RefreshCw />
+              刷新
+            </Button>
+          </div>
         }
       >
-        <div className="flex flex-wrap items-end gap-3 p-4">
-          <SearchInput placeholder="姓名 / 工号 / 邮箱" value={keyword} onChange={setKeyword} />
-          <FormField label="状态">
-            <OptionSelect
-              value={statusFilter}
-              onValueChange={setStatusFilter}
-              allowEmpty
-              emptyLabel="全部"
-              options={EMPLOYEE_STATUS_OPTIONS.map((option) => ({
-                value: option.id,
-                label: option.label,
-              }))}
-              className="w-[140px]"
-            />
-          </FormField>
-          <FormField label="部门">
-            <SearchableSelect
-              value={orgFilter}
-              onChange={setOrgFilter}
-              options={departmentFilterOptions}
-              placeholder="全部部门"
-              searchPlaceholder="搜索部门编码 / 名称…"
-              allowEmpty
-              emptyLabel="全部部门"
-              className="w-[260px]"
-            />
-          </FormField>
-        </div>
+        <RosterFilterPanel
+          value={rosterFilter}
+          onChange={setRosterFilter}
+          departmentOptions={departmentFilterOptions}
+          positionOptions={positionFilterOptions}
+        />
       </PanelCard>
 
       <PanelCard title="花名册">
@@ -573,11 +515,15 @@ export function AdminEmployeesRosterPage() {
               <table className="w-full text-sm">
                 <thead className="sticky top-0 bg-muted/50 text-[11px] uppercase tracking-wide text-muted-foreground">
                   <tr className="border-b">
-                    <th className="px-4 py-3 text-left font-medium">员工</th>
-                    <th className="px-4 py-3 text-left font-medium">工号</th>
-                    <th className="px-4 py-3 text-left font-medium">部门 / 岗位</th>
-                    <th className="px-4 py-3 text-left font-medium">状态</th>
-                    <th className="px-4 py-3 text-left font-medium">入职日</th>
+                    {visibleColumns.map((column) => (
+                      <th
+                        key={column.key}
+                        className="px-4 py-3 text-left font-medium"
+                        style={column.minWidth ? { minWidth: column.minWidth } : undefined}
+                      >
+                        {column.label}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -587,37 +533,58 @@ export function AdminEmployeesRosterPage() {
                       className="cursor-pointer border-b transition-colors hover:bg-muted/40"
                       onClick={() => void openView(employee)}
                     >
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="size-8">
-                            <AvatarFallback className="text-xs">
-                              {employee.fullName.slice(0, 1)}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <div className="font-medium">{employee.fullName}</div>
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <span className="font-mono">{employee.mobile}</span>
-                              {employee.mobileMasked ? (
-                                <Badge variant="outline" className="h-4 px-1 text-[10px]">
-                                  脱敏
-                                </Badge>
-                              ) : null}
-                            </div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs">{employee.employeeNo}</td>
-                      <td className="px-4 py-3 text-muted-foreground">
-                        <div>{employee.primaryOrganizationName ?? "—"}</div>
-                        <div className="text-xs">{employee.primaryPositionName ?? ""}</div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge variant="secondary" className={cn(statusBadgeClass(employee.status))}>
-                          {employee.statusLabel ?? employeeStatusLabel(employee.status)}
-                        </Badge>
-                      </td>
-                      <td className="px-4 py-3 font-mono text-xs">{employee.hireDate}</td>
+                      {visibleColumns.map((column) => {
+                        const value = resolveRosterCellValue(employee, column.key);
+                        if (column.key === "fullName") {
+                          return (
+                            <td key={column.key} className="px-4 py-3">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="size-8">
+                                  <AvatarFallback className="text-xs">
+                                    {employee.fullName.slice(0, 1)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div className="font-medium">{employee.fullName}</div>
+                              </div>
+                            </td>
+                          );
+                        }
+                        if (column.key === "status") {
+                          return (
+                            <td key={column.key} className="px-4 py-3">
+                              <Badge variant="secondary" className={cn(statusBadgeClass(employee.status))}>
+                                {employee.statusLabel ?? employeeStatusLabel(employee.status)}
+                              </Badge>
+                            </td>
+                          );
+                        }
+                        if (column.key === "mobile") {
+                          return (
+                            <td key={column.key} className="px-4 py-3">
+                              <div className="flex items-center gap-1.5">
+                                <span className={cn("text-xs", column.mono && "font-mono")}>{value}</span>
+                                {employee.mobileMasked ? (
+                                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                                    脱敏
+                                  </Badge>
+                                ) : null}
+                              </div>
+                            </td>
+                          );
+                        }
+                        return (
+                          <td
+                            key={column.key}
+                            className={cn(
+                              "px-4 py-3 text-muted-foreground",
+                              column.mono && "font-mono text-xs",
+                              column.key === "fullName" && "text-foreground",
+                            )}
+                          >
+                            {value}
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -654,7 +621,27 @@ export function AdminEmployeesRosterPage() {
               masterVersionsRefreshSeq={masterVersionsRefreshSeq}
               archive={archive}
               movements={movements}
-              detailLoading={detailLoading}
+              archiveLoadState={
+                detailLoading ? "loading" : archiveLoadError ? "error" : archive ? "ready" : "loading"
+              }
+              archiveError={archiveLoadError}
+              onArchiveRetry={() => void loadDetailTabs(sheet.employee.id)}
+              revealSensitive={revealSensitive}
+              canViewSensitive={canViewSensitive}
+              onRevealSensitiveChange={async (next) => {
+                setRevealSensitive(next);
+                if (sheet.type !== "view") return;
+                try {
+                  const res = await getEmployeeSnapshot(sheet.employee.id, {
+                    asOfDate: detailAsOfDate,
+                    revealSensitive: next && canViewSensitive,
+                  });
+                  setSheet({ type: "view", employee: res.data });
+                } catch (e: unknown) {
+                  const err = toApiError(e);
+                  toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
+                }
+              }}
               canEdit={canEdit}
               canEditSection={(section) => archivePerm.canEditSection(section)}
               orgs={orgs}
@@ -770,11 +757,18 @@ export function AdminEmployeesRosterPage() {
         </div>
       </ArchiveFormDialog>
 
+      <RosterColumnPicker
+        open={columnPickerOpen}
+        onOpenChange={setColumnPickerOpen}
+        visibleKeys={visibleColumnKeys}
+        onChange={handleColumnChange}
+      />
+
       <ConfirmDialog
         open={exportConfirmOpen}
         onOpenChange={setExportConfirmOpen}
         title="确认导出员工花名册"
-        description="导出将基于当前筛选条件生成文件，是否继续？"
+        description={`将导出当前筛选结果，共 ${visibleColumnKeys.length} 列（与列表显示一致）；字典字段导出名称，任职字段取今日有效主任职快照。`}
         confirmLabel="确认导出"
         loading={exporting}
         onConfirm={() => void handleExport()}

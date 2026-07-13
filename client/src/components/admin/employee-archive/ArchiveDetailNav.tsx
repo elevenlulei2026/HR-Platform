@@ -58,7 +58,7 @@ export function ArchiveDetailNav({
   return (
     <div className="shrink-0 border-b bg-gradient-to-b from-muted/25 via-background to-background">
       {/* 一级：分段式分类导航 */}
-      <div className="px-4 pt-2.5 pb-2">
+      <div className="px-4 pt-2 pb-2">
         <div
           className="grid gap-0.5 rounded-lg bg-muted/45 p-0.5 ring-1 ring-border/35"
           style={{ gridTemplateColumns: `repeat(${ARCHIVE_NAV.length}, minmax(0, 1fr))` }}
@@ -94,7 +94,7 @@ export function ArchiveDetailNav({
                 ) : null}
                 <span
                   className={cn(
-                    "w-full truncate text-center text-[11px] leading-tight",
+                    "w-full truncate text-center text-xs leading-tight",
                     isActive ? "font-semibold" : "font-medium",
                   )}
                 >
@@ -111,7 +111,7 @@ export function ArchiveDetailNav({
 
       {/* 二级：当前分类下的模块锚点 */}
       <div className="flex items-center gap-2 border-t border-border/30 bg-muted/10 px-4 py-1.5">
-        <span className="hidden shrink-0 text-[10px] font-semibold tracking-wide text-muted-foreground/80 sm:inline">
+        <span className="hidden shrink-0 text-xs font-semibold tracking-wide text-muted-foreground/80 sm:inline">
           {activeCategory?.label}
         </span>
         <span className="hidden h-3 w-px shrink-0 bg-border/50 sm:block" />
@@ -133,7 +133,7 @@ export function ArchiveDetailNav({
                 aria-selected={isActive}
                 onClick={() => onSectionClick(sec.id)}
                 className={cn(
-                  "relative flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-[11px] font-medium transition-colors",
+                  "relative flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
                   isActive
                     ? "bg-primary/10 text-primary"
@@ -144,7 +144,7 @@ export function ArchiveDetailNav({
                 {count !== undefined && count > 0 ? (
                   <span
                     className={cn(
-                      "min-w-[1.1rem] rounded-full px-1 py-px text-center text-[9px] tabular-nums leading-none",
+                      "min-w-[1.1rem] rounded-full px-1 py-px text-center text-[11px] tabular-nums leading-none",
                       isActive
                         ? "bg-primary/20 font-semibold text-primary"
                         : "bg-muted text-muted-foreground",

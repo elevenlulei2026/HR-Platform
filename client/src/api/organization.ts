@@ -92,6 +92,22 @@ export async function listPositions(query: PositionListQuery) {
   return getJson<PageResult<Position>>(`/api/v1/positions?${pageQuery(query)}`);
 }
 
+/** 分页拉取全部岗位（单页最大 200，与后端校验一致） */
+export async function listAllPositions(query?: Omit<PositionListQuery, "page" | "pageSize">) {
+  const pageSize = 200;
+  const first = await listPositions({ ...query, page: 1, pageSize });
+  const items = [...first.data.items];
+  const total = first.data.total;
+  let page = 2;
+  while (items.length < total) {
+    const res = await listPositions({ ...query, page, pageSize });
+    items.push(...res.data.items);
+    page += 1;
+    if (res.data.items.length === 0) break;
+  }
+  return items;
+}
+
 export async function createPosition(req: PositionCreateRequest) {
   return postJson<Position, PositionCreateRequest>("/api/v1/positions", req);
 }

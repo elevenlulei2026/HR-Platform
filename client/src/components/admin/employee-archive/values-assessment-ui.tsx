@@ -1,6 +1,6 @@
-import { ChevronRight, Edit, HeartHandshake, Trash2 } from "lucide-react";
+import { ChevronRight, HeartHandshake } from "lucide-react";
 
-import { ArchiveRecordActionButton } from "@/components/admin/employee-archive/archive-record-ui";
+import { ArchiveDeleteRecordButton, ArchiveEditRecordButton } from "@/components/admin/employee-archive/archive-record-ui";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -103,8 +103,8 @@ export function ValuesAssessmentDenseRow({
 
       {canEdit ? (
         <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <ArchiveRecordActionButton icon={Edit} label="编辑" onClick={onEdit} />
-          <ArchiveRecordActionButton icon={Trash2} label="删除" destructive onClick={onDelete} />
+          <ArchiveEditRecordButton onClick={onEdit} />
+          <ArchiveDeleteRecordButton onClick={onDelete} />
         </div>
       ) : null}
     </article>
