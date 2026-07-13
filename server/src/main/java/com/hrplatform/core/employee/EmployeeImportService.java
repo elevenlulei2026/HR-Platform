@@ -21,6 +21,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class EmployeeImportService {
@@ -190,7 +191,11 @@ public class EmployeeImportService {
     ));
   }
 
-  public byte[] exportExcel(List<EmployeeEntity> employees, boolean revealSensitive) {
+  public byte[] exportExcel(
+      List<EmployeeEntity> employees,
+      Map<Long, EmployeeMasterVersionEntity> masterMap,
+      boolean revealSensitive
+  ) {
     try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
       Sheet sheet = wb.createSheet("花名册");
       String[] headers = {"工号", "姓名", "性别", "手机号", "公司邮箱", "入职日期", "状态"};
@@ -200,14 +205,24 @@ public class EmployeeImportService {
       }
       int r = 1;
       for (EmployeeEntity e : employees) {
+        EmployeeMasterVersionEntity master = masterMap == null ? null : masterMap.get(e.getId());
         Row row = sheet.createRow(r++);
         row.createCell(0).setCellValue(e.getEmployeeNo());
-        row.createCell(1).setCellValue(e.getFullName());
-        row.createCell(2).setCellValue(e.getGender() == null ? "" : e.getGender());
-        row.createCell(3).setCellValue(employeeService.displayMobile(e, revealSensitive));
-        row.createCell(4).setCellValue(e.getCompanyEmail() == null ? "" : e.getCompanyEmail());
-        row.createCell(5).setCellValue(e.getHireDate() == null ? "" : e.getHireDate().toString());
-        row.createCell(6).setCellValue(e.getStatus());
+        if (master != null) {
+          row.createCell(1).setCellValue(master.getFullName());
+          row.createCell(2).setCellValue(master.getGender() == null ? "" : master.getGender());
+          row.createCell(3).setCellValue(employeeService.displayMobileEncrypted(master.getMobile(), revealSensitive));
+          row.createCell(4).setCellValue(master.getCompanyEmail() == null ? "" : master.getCompanyEmail());
+          row.createCell(5).setCellValue(master.getHireDate() == null ? "" : master.getHireDate().toString());
+          row.createCell(6).setCellValue(master.getStatus() == null ? "" : master.getStatus());
+        } else {
+          row.createCell(1).setCellValue(e.getFullName());
+          row.createCell(2).setCellValue(e.getGender() == null ? "" : e.getGender());
+          row.createCell(3).setCellValue(employeeService.displayMobile(e, revealSensitive));
+          row.createCell(4).setCellValue(e.getCompanyEmail() == null ? "" : e.getCompanyEmail());
+          row.createCell(5).setCellValue(e.getHireDate() == null ? "" : e.getHireDate().toString());
+          row.createCell(6).setCellValue(e.getStatus());
+        }
       }
       wb.write(out);
       return out.toByteArray();

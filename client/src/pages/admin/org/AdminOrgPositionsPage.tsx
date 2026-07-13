@@ -508,7 +508,11 @@ export function AdminOrgPositionsPage() {
   };
 
   const openEdit = (item: Position, mode: PositionEditMode = "CURRENT") => {
-    setForm(formFromPosition(item));
+    const next = formFromPosition(item);
+    if (mode === "NEW_VERSION") {
+      next.effectiveStartDate = todayStr();
+    }
+    setForm(next);
     setEditMode(mode);
     setSheet({ type: "edit", item });
   };
@@ -927,8 +931,11 @@ export function AdminOrgPositionsPage() {
                     value={editMode}
                     onChange={(mode) => {
                       setEditMode(mode);
-                      if (mode === "CURRENT" && sheet.type === "edit") {
+                      if (sheet.type !== "edit") return;
+                      if (mode === "CURRENT") {
                         patchForm("effectiveStartDate", sheet.item.effectiveStartDate);
+                      } else {
+                        patchForm("effectiveStartDate", todayStr());
                       }
                     }}
                   />

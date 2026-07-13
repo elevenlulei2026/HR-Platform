@@ -762,7 +762,9 @@ export function AdminOrgStructurePage() {
   };
 
   const openNewVersion = (org: Organization) => {
-    setForm(formFromOrg(org));
+    const next = formFromOrg(org);
+    next.effectiveStartDate = todayStr();
+    setForm(next);
     setEditMode("NEW_VERSION");
     setSheet({ type: "edit", org });
   };
@@ -1050,8 +1052,11 @@ export function AdminOrgStructurePage() {
                     value={editMode}
                     onChange={(mode) => {
                       setEditMode(mode);
-                      if (mode === "CURRENT" && sheet.type === "edit") {
+                      if (sheet.type !== "edit") return;
+                      if (mode === "CURRENT") {
                         patchForm("effectiveStartDate", sheet.org.effectiveStartDate);
+                      } else {
+                        patchForm("effectiveStartDate", todayStr());
                       }
                     }}
                   />

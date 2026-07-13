@@ -217,7 +217,14 @@ function AssignmentFormFields({
           />
         </FormField>
         {!isNew ? (
-          <FormField label="创建日期">
+          <FormField
+            label="创建日期"
+            hint={
+              editMode === "NEW_VERSION"
+                ? "新版本保存后由系统生成，当前预览为今天"
+                : "系统生成，不可编辑"
+            }
+          >
             <Input value={readOnlyComputed.createdAt || "—"} disabled />
           </FormField>
         ) : null}
@@ -694,7 +701,9 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
     companyTenure: editingItem?.companyTenure ?? "",
     positionStartDate: editingItem?.positionStartDate ?? "",
     tenureOnPosition: editingItem?.tenureOnPosition ?? "",
-    createdAt: editingItem?.createdAt?.slice(0, 10) ?? "",
+    // 新增生效版本将写入新记录，创建日期预览为今天；修改当前版本则展示原记录创建日
+    createdAt:
+      editMode === "NEW_VERSION" ? todayStr() : (editingItem?.createdAt?.slice(0, 10) ?? ""),
   };
 
   const handoverEmployeeOptions = useMemo(() => {

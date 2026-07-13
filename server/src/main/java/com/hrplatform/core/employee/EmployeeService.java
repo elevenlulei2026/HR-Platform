@@ -76,6 +76,18 @@ public class EmployeeService {
   }
 
   public PageResult page(String keyword, String status, Long organizationId, long page, long pageSize) {
+    return page(keyword, status, organizationId, LocalDate.now(), page, pageSize);
+  }
+
+  public PageResult page(
+      String keyword,
+      String status,
+      Long organizationId,
+      LocalDate asOfDate,
+      long page,
+      long pageSize
+  ) {
+    LocalDate asOf = asOfDate == null ? LocalDate.now() : asOfDate;
     LambdaQueryWrapper<EmployeeEntity> qw = new LambdaQueryWrapper<EmployeeEntity>()
         .orderByDesc(EmployeeEntity::getHireDate)
         .orderByDesc(EmployeeEntity::getId);
@@ -104,14 +116,23 @@ public class EmployeeService {
       }
     }
 
+    // 状态按 asOfDate 主档快照过滤（employee 表可能滞后于已到生效日的新版本）
     if (status != null && !status.isBlank()) {
-      qw.eq(EmployeeEntity::getStatus, status.trim().toUpperCase());
+      List<Long> statusIds = findEmployeeIdsByMasterStatus(status.trim().toUpperCase(), asOf);
+      if (statusIds.isEmpty()) return new PageResult(List.of(), 0);
+      qw.in(EmployeeEntity::getId, statusIds);
     }
     if (keyword != null && !keyword.isBlank()) {
       String kw = keyword.trim();
-      qw.and(w -> w.like(EmployeeEntity::getFullName, kw)
-          .or().like(EmployeeEntity::getEmployeeNo, kw)
-          .or().like(EmployeeEntity::getCompanyEmail, kw));
+      List<Long> nameIds = findEmployeeIdsByMasterNameLike(kw, asOf);
+      qw.and(w -> {
+        w.like(EmployeeEntity::getFullName, kw)
+            .or().like(EmployeeEntity::getEmployeeNo, kw)
+            .or().like(EmployeeEntity::getCompanyEmail, kw);
+        if (!nameIds.isEmpty()) {
+          w.or().in(EmployeeEntity::getId, nameIds);
+        }
+      });
     }
 
     long p = Math.max(1, page);
@@ -123,7 +144,16 @@ public class EmployeeService {
   }
 
   public List<EmployeeEntity> listForExport(String keyword, String status, Long organizationId) {
-    return page(keyword, status, organizationId, 1, 10_000).records();
+    return listForExport(keyword, status, organizationId, LocalDate.now());
+  }
+
+  public List<EmployeeEntity> listForExport(
+      String keyword,
+      String status,
+      Long organizationId,
+      LocalDate asOfDate
+  ) {
+    return page(keyword, status, organizationId, asOfDate, 1, 10_000).records();
   }
 
   public EmployeeEntity require(long id) {
@@ -148,6 +178,62 @@ public class EmployeeService {
     );
     if (list.isEmpty()) throw new IllegalArgumentException("员工主档快照不存在");
     return list.get(0);
+  }
+
+  /**
+   * 批量解析 asOfDate 下的个人主档快照。同一员工多条命中时取 effectiveStartDate / id 最大者。
+   */
+  public Map<Long, EmployeeMasterVersionEntity> masterVersionMapAsOf(
+      List<Long> employeeIds,
+      LocalDate asOfDate
+  ) {
+    if (employeeIds == null || employeeIds.isEmpty()) return Map.of();
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+    List<EmployeeMasterVersionEntity> list = masterVersionMapper.selectList(
+        new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
+            .in(EmployeeMasterVersionEntity::getEmployeeId, employeeIds)
+            .le(EmployeeMasterVersionEntity::getEffectiveStartDate, date)
+            .and(w -> w.isNull(EmployeeMasterVersionEntity::getEffectiveEndDate)
+                .or().ge(EmployeeMasterVersionEntity::getEffectiveEndDate, date))
+            .orderByDesc(EmployeeMasterVersionEntity::getEffectiveStartDate)
+            .orderByDesc(EmployeeMasterVersionEntity::getId)
+    );
+    Map<Long, EmployeeMasterVersionEntity> map = new HashMap<>();
+    for (EmployeeMasterVersionEntity v : list) {
+      map.putIfAbsent(v.getEmployeeId(), v);
+    }
+    return map;
+  }
+
+  private List<Long> findEmployeeIdsByMasterNameLike(String keyword, LocalDate asOfDate) {
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+    return masterVersionMapper.selectList(
+            new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
+                .select(EmployeeMasterVersionEntity::getEmployeeId)
+                .like(EmployeeMasterVersionEntity::getFullName, keyword)
+                .le(EmployeeMasterVersionEntity::getEffectiveStartDate, date)
+                .and(w -> w.isNull(EmployeeMasterVersionEntity::getEffectiveEndDate)
+                    .or().ge(EmployeeMasterVersionEntity::getEffectiveEndDate, date))
+        ).stream()
+        .map(EmployeeMasterVersionEntity::getEmployeeId)
+        .distinct()
+        .toList();
+  }
+
+  private List<Long> findEmployeeIdsByMasterStatus(String status, LocalDate asOfDate) {
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+    // 同一员工在 asOfDate 至多一条有效主档，按状态 + 生效区间过滤即可
+    return masterVersionMapper.selectList(
+            new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
+                .select(EmployeeMasterVersionEntity::getEmployeeId)
+                .eq(EmployeeMasterVersionEntity::getStatus, status)
+                .le(EmployeeMasterVersionEntity::getEffectiveStartDate, date)
+                .and(w -> w.isNull(EmployeeMasterVersionEntity::getEffectiveEndDate)
+                    .or().ge(EmployeeMasterVersionEntity::getEffectiveEndDate, date))
+        ).stream()
+        .map(EmployeeMasterVersionEntity::getEmployeeId)
+        .distinct()
+        .toList();
   }
 
   public List<EmployeeMasterVersionEntity> listMasterVersions(long employeeId) {
@@ -829,15 +915,21 @@ public class EmployeeService {
   }
 
   public Map<Long, EmployeeAssignmentEntity> primaryAssignmentMap(List<Long> employeeIds) {
+    return primaryAssignmentMap(employeeIds, LocalDate.now());
+  }
+
+  public Map<Long, EmployeeAssignmentEntity> primaryAssignmentMap(List<Long> employeeIds, LocalDate asOfDate) {
     if (employeeIds == null || employeeIds.isEmpty()) return Map.of();
-    LocalDate today = LocalDate.now();
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
     List<EmployeeAssignmentEntity> list = assignmentMapper.selectList(
         new LambdaQueryWrapper<EmployeeAssignmentEntity>()
             .in(EmployeeAssignmentEntity::getEmployeeId, employeeIds)
             .eq(EmployeeAssignmentEntity::getIsPrimary, true)
-            .le(EmployeeAssignmentEntity::getEffectiveStartDate, today)
+            .le(EmployeeAssignmentEntity::getEffectiveStartDate, date)
             .and(w -> w.isNull(EmployeeAssignmentEntity::getEffectiveEndDate)
-                .or().ge(EmployeeAssignmentEntity::getEffectiveEndDate, today))
+                .or().ge(EmployeeAssignmentEntity::getEffectiveEndDate, date))
+            .orderByDesc(EmployeeAssignmentEntity::getEffectiveStartDate)
+            .orderByDesc(EmployeeAssignmentEntity::getId)
     );
     Map<Long, EmployeeAssignmentEntity> map = new HashMap<>();
     for (EmployeeAssignmentEntity a : list) {

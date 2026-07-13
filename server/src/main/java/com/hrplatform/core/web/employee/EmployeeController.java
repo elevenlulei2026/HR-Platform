@@ -66,25 +66,32 @@ public class EmployeeController {
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) String status,
       @RequestParam(required = false) Long organizationId,
+      @RequestParam(required = false) String asOfDate,
       @RequestParam(defaultValue = "false") boolean revealSensitive,
       @RequestParam @Min(1) long page,
       @RequestParam @Min(1) @Max(200) long pageSize
   ) {
     requireRosterView();
-    var p = employeeService.page(keyword, status, organizationId, page, pageSize);
+    LocalDate snapshotDate = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate.trim());
+    var p = employeeService.page(keyword, status, organizationId, snapshotDate, page, pageSize);
     boolean reveal = employeeService.shouldRevealSensitive(revealSensitive);
     List<Long> empIds = p.records().stream().map(EmployeeEntity::getId).toList();
-    Map<Long, EmployeeAssignmentEntity> primaryMap = employeeService.primaryAssignmentMap(empIds);
+    Map<Long, EmployeeMasterVersionEntity> masterMap = employeeService.masterVersionMapAsOf(empIds, snapshotDate);
+    Map<Long, EmployeeAssignmentEntity> primaryMap = employeeService.primaryAssignmentMap(empIds, snapshotDate);
     List<Long> orgIds = primaryMap.values().stream().map(EmployeeAssignmentEntity::getOrganizationId).distinct().toList();
     List<Long> posIds = primaryMap.values().stream().map(EmployeeAssignmentEntity::getPositionId).distinct().toList();
     Map<Long, OrganizationEntity> orgMap = employeeService.organizationMap(orgIds);
     Map<Long, PositionEntity> posMap = employeeService.positionMap(posIds);
 
     List<Map<String, Object>> items = p.records().stream().map(e -> {
+      EmployeeMasterVersionEntity master = masterMap.get(e.getId());
+      if (master == null) {
+        master = employeeService.requireMasterVersionAsOf(e.getId(), snapshotDate);
+      }
       EmployeeAssignmentEntity pa = primaryMap.get(e.getId());
       OrganizationEntity org = pa == null ? null : orgMap.get(pa.getOrganizationId());
       PositionEntity pos = pa == null ? null : posMap.get(pa.getPositionId());
-      return toEmployeeDto(e, org, pos, pa, reveal);
+      return toEmployeeDto(e, master, org, pos, pa, reveal);
     }).toList();
 
     Map<String, Object> result = new HashMap<>();
@@ -365,12 +372,18 @@ public class EmployeeController {
       HttpServletRequest request,
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) String status,
-      @RequestParam(required = false) Long organizationId
+      @RequestParam(required = false) Long organizationId,
+      @RequestParam(required = false) String asOfDate
   ) {
     requireExport();
     boolean reveal = employeeService.canViewSensitive();
-    List<EmployeeEntity> list = employeeService.listForExport(keyword, status, organizationId);
-    byte[] bytes = importService.exportExcel(list, reveal);
+    LocalDate snapshotDate = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate.trim());
+    List<EmployeeEntity> list = employeeService.listForExport(keyword, status, organizationId, snapshotDate);
+    Map<Long, EmployeeMasterVersionEntity> masterMap = employeeService.masterVersionMapAsOf(
+        list.stream().map(EmployeeEntity::getId).toList(),
+        snapshotDate
+    );
+    byte[] bytes = importService.exportExcel(list, masterMap, reveal);
     logExport(request, list.size());
     return ResponseEntity.ok()
         .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=employee-roster.xlsx")
@@ -502,76 +515,6 @@ public class EmployeeController {
     dto.put("temporal", temporal);
     dto.put("temporalLabel", temporalLabel);
     dto.put("isOpen", v.getEffectiveEndDate() == null);
-    return dto;
-  }
-
-  private Map<String, Object> toEmployeeDto(
-      EmployeeEntity e,
-      OrganizationEntity org,
-      PositionEntity pos,
-      EmployeeAssignmentEntity pa,
-      boolean revealSensitive
-  ) {
-    // 列表口径：以 employee 表当前数据为准（不返回主档版本生效区间）
-    Map<String, Object> dto = new HashMap<>();
-    dto.put("id", String.valueOf(e.getId()));
-    dto.put("employeeNo", e.getEmployeeNo());
-    dto.put("fullName", e.getFullName());
-    dto.put("gender", e.getGender());
-    dto.put("genderLabel", employeeService.dictLabel("GENDER", e.getGender()));
-    dto.put("mobile", employeeService.displayMobile(e, revealSensitive));
-    dto.put("mobileMasked", !revealSensitive);
-    dto.put("companyEmail", e.getCompanyEmail());
-    dto.put("personalEmail", e.getPersonalEmail());
-    dto.put("adAccount", e.getAdAccount());
-    dto.put("maritalStatus", e.getMaritalStatus());
-    dto.put("maritalStatusLabel", employeeService.dictLabel("MARITAL_STATUS", e.getMaritalStatus()));
-    dto.put("politicalAffiliation", e.getPoliticalAffiliation());
-    dto.put("politicalAffiliationLabel", employeeService.dictLabel("POLITICAL_AFFILIATION", e.getPoliticalAffiliation()));
-    dto.put("highestEducation", e.getHighestEducation());
-    dto.put("highestEducationLabel", employeeService.dictLabel("EDUCATION", e.getHighestEducation()));
-    dto.put("highestEducationGradDate", e.getHighestEducationGradDate() == null ? null : e.getHighestEducationGradDate().toString());
-    dto.put("fertilityStatus", e.getFertilityStatus());
-    dto.put("fertilityStatusLabel", employeeService.dictLabel("FERTILITY_STATUS", e.getFertilityStatus()));
-    dto.put("ethnicity", e.getEthnicity());
-    dto.put("ethnicityLabel", employeeService.dictLabel("ETHNICITY", e.getEthnicity()));
-    dto.put("hobbies", e.getHobbies());
-    dto.put("nationality", e.getNationality());
-    dto.put("nationalityLabel", employeeService.dictLabel("NATIONALITY", e.getNationality()));
-    dto.put("householdType", e.getHouseholdType());
-    dto.put("householdTypeLabel", employeeService.dictLabel("HOUSEHOLD_TYPE", e.getHouseholdType()));
-    dto.put("householdLocation", e.getHouseholdLocation());
-    dto.put("partyOrgTransferred", e.getPartyOrgTransferred());
-    dto.put("workStartDate", e.getWorkStartDate() == null ? null : e.getWorkStartDate().toString());
-    dto.put("wechat", e.getWechat());
-    dto.put("officePhone", e.getOfficePhone());
-    dto.put("officeExtension", e.getOfficeExtension());
-    dto.put("homePhone", e.getHomePhone());
-    dto.put("idCardAddress", e.getIdCardAddress());
-    dto.put("residenceAddress", e.getResidenceAddress());
-    dto.put("emergencyContactName", e.getEmergencyContactName());
-    dto.put("emergencyContactPhone", e.getEmergencyContactPhone());
-    dto.put("emergencyContactRelation", e.getEmergencyContactRelation());
-    dto.put("emergencyContactRelationLabel", employeeService.dictLabel("EMPLOYEE_RELATION", e.getEmergencyContactRelation()));
-    dto.put("recruitmentChannel", e.getRecruitmentChannel());
-    dto.put("recruitmentChannelLabel", employeeService.dictLabel("RECRUITMENT_CHANNEL", e.getRecruitmentChannel()));
-    dto.put("recruitmentChannelDetail", e.getRecruitmentChannelDetail());
-    dto.put("groupSeniorityStartDate", e.getGroupSeniorityStartDate() == null ? null : e.getGroupSeniorityStartDate().toString());
-    dto.put("hireDate", e.getHireDate() == null ? null : e.getHireDate().toString());
-    dto.put("status", e.getStatus());
-    dto.put("statusLabel", employeeService.dictLabel("EMPLOYEE_STATUS", e.getStatus()));
-    if (pa != null) {
-      dto.put("primaryOrganizationId", String.valueOf(pa.getOrganizationId()));
-      dto.put("primaryPositionId", String.valueOf(pa.getPositionId()));
-    }
-    if (org != null) {
-      dto.put("primaryOrganizationName", org.getName());
-    }
-    if (pos != null) {
-      dto.put("primaryPositionName", pos.getName());
-    }
-    dto.put("createdAt", e.getCreatedAt() == null ? null : e.getCreatedAt().toString());
-    dto.put("updatedAt", e.getUpdatedAt() == null ? null : e.getUpdatedAt().toString());
     return dto;
   }
 

@@ -1329,8 +1329,7 @@ export type Employee = {
   id: string;
   employeeNo: string;
   /**
-   * 个人主档生效开始日期（用于历史快照/未来预览）
-   * - 仅在详情快照接口返回；列表可能不返回
+   * 个人主档生效开始日期（列表/详情均按 asOfDate 快照返回）
    */
   effectiveStartDate?: string; // YYYY-MM-DD
   /**
@@ -1589,6 +1588,8 @@ export type EmployeeListQuery = {
   keyword?: string;
   status?: EmployeeStatus;
   organizationId?: string;
+  /** 快照日期 YYYY-MM-DD；不传则默认今天，列表字段取当日个人主档版本 */
+  asOfDate?: string;
   /** 显式申请查看敏感字段明文（须 employee:sensitive:view） */
   revealSensitive?: boolean;
   page: number;
@@ -2336,7 +2337,7 @@ export type EmployeeImportErrorReportRequest = {
 };
 
 export type EmployeeApi = {
-  /** GET /api/v1/employees?page=&pageSize=&keyword=&status=&organizationId= */
+  /** GET /api/v1/employees?page=&pageSize=&keyword=&status=&organizationId=&asOfDate= */
   listEmployees: (query: EmployeeListQuery) => Promise<ApiResponse<PageResult<Employee>>>;
   /** GET /api/v1/employees/form-options */
   getEmployeeFormOptions: () => Promise<ApiResponse<EmployeeFormOptions>>;
@@ -2379,7 +2380,10 @@ export type EmployeeApi = {
     req: EmployeeImportErrorReportRequest,
   ) => Promise<Blob>;
   /** GET /api/v1/employees/export */
-  exportEmployees: (query?: Pick<EmployeeListQuery, "keyword" | "status" | "organizationId">) => Promise<Blob>;
+  /** GET /api/v1/employees/export?keyword=&status=&organizationId=&asOfDate= */
+  exportEmployees: (
+    query?: Pick<EmployeeListQuery, "keyword" | "status" | "organizationId" | "asOfDate">,
+  ) => Promise<Blob>;
   /** GET /api/v1/employees/{id}/archive */
   getEmployeeArchive: (employeeId: string) => Promise<ApiResponse<EmployeeArchive>>;
   /**

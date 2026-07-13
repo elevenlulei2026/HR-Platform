@@ -2,6 +2,7 @@ import type {
   ArchivePermissionSection,
   Employee,
   EmployeeArchive,
+  EmployeeAssignment,
   EmployeeFormOptions,
   EmployeeMasterVersion,
   EmployeeMovement,
@@ -14,6 +15,7 @@ import type { LucideIcon } from "lucide-react";
 import {
   AtSign,
   Baby,
+  Briefcase,
   Building2,
   Calendar,
   CalendarClock,
@@ -77,8 +79,9 @@ import { ArchiveDetailNav } from "@/components/admin/employee-archive/ArchiveDet
 import { ArchiveMultiSection } from "@/components/admin/employee-archive/ArchiveMultiSection";
 import { ArchiveSectionAnchor } from "@/components/admin/employee-archive/ArchiveSectionAnchor";
 import { AssignmentSection } from "@/components/admin/employee-archive/AssignmentSection";
+import { summarizePrimaryAssignmentHeader } from "@/components/admin/employee-archive/assignment-header-summary";
 import { PanelCard, PanelLoading } from "@/components/admin/page-shell";
-import { listEmployeeMasterVersions } from "@/api/employee";
+import { listEmployeeAssignments, listEmployeeMasterVersions } from "@/api/employee";
 import { employeeStatusLabel, statusBadgeClass } from "@/api/employee";
 import { getEmployeeFormOptions } from "@/api/employee";
 import { EmployeeAvatar } from "@/components/admin/employee-archive/EmployeeAvatar";
@@ -298,6 +301,32 @@ export function EmployeeArchiveDetailView({
   const [versions, setVersions] = useState<EmployeeMasterVersion[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [dictOptions, setDictOptions] = useState<EmployeeFormOptions | null>(archiveDictOptions ?? null);
+  const [headerAssignments, setHeaderAssignments] = useState<EmployeeAssignment[]>([]);
+  const [assignmentRefreshSeq, setAssignmentRefreshSeq] = useState(0);
+
+  const assignmentHeader = useMemo(
+    () => summarizePrimaryAssignmentHeader(headerAssignments),
+    [headerAssignments],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void listEmployeeAssignments(employee.id)
+      .then((res) => {
+        if (!cancelled) setHeaderAssignments(res.data);
+      })
+      .catch(() => {
+        if (!cancelled) setHeaderAssignments([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [employee.id, assignmentRefreshSeq]);
+
+  const handleAssignmentsChanged = async () => {
+    setAssignmentRefreshSeq((n) => n + 1);
+    await onAssignmentsChanged();
+  };
 
   useEffect(() => {
     if (archiveDictOptions) {
@@ -467,6 +496,42 @@ export function EmployeeArchiveDetailView({
                 <span className="text-xs text-muted-foreground">
                   · 主档生效 {employee.effectiveStartDate}
                   {employee.effectiveEndDate ? ` 至 ${employee.effectiveEndDate}` : " · 至今"}
+                </span>
+              ) : null}
+              {assignmentHeader.versionCount > 0 ? (
+                <span className="inline-flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  <span className="text-muted-foreground/50">·</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Briefcase className="size-3 opacity-70" />
+                    任职 {assignmentHeader.rangeLabel}
+                  </span>
+                  <Badge
+                    variant={
+                      assignmentHeader.temporalLabel === "当前"
+                        ? "default"
+                        : assignmentHeader.temporalLabel === "将来"
+                          ? "outline"
+                          : "secondary"
+                    }
+                    className="h-4 px-1.5 text-[10px] font-normal"
+                  >
+                    {assignmentHeader.temporalLabel}
+                  </Badge>
+                  {assignmentHeader.hasFuture ? (
+                    <Badge
+                      variant="outline"
+                      className="h-4 border-amber-500/40 bg-amber-500/10 px-1.5 text-[10px] font-normal text-amber-800 dark:text-amber-300"
+                    >
+                      将来 {assignmentHeader.futureCount} 版
+                    </Badge>
+                  ) : (
+                    <span className="text-[11px] text-muted-foreground/80">无将来版本</span>
+                  )}
+                  {assignmentHeader.versionCount > 1 ? (
+                    <span className="font-mono text-[10px] tabular-nums text-muted-foreground/70">
+                      共 {assignmentHeader.versionCount} 版
+                    </span>
+                  ) : null}
                 </span>
               ) : null}
             </div>
@@ -662,7 +727,7 @@ export function EmployeeArchiveDetailView({
                       employee={employee}
                       orgs={orgs}
                       canEdit={sectionEdit("work")}
-                      onChanged={onAssignmentsChanged}
+                      onChanged={handleAssignmentsChanged}
                     />
                   </ArchiveSectionAnchor>
                   <ArchiveSectionAnchor id="cost-center-allocations">
@@ -907,8 +972,11 @@ export function EmployeeArchiveDetailView({
               ) : null}
 
               <ArchiveSectionAnchor id="movements">
-                <PanelCard title="异动记录" description="入转调离职务数据异动轨迹">
-                  <EmployeeMovementTimeline movements={movements} />
+                <PanelCard title="异动记录" description="任职记录异动轨迹 · 按生效日排列">
+                  <EmployeeMovementTimeline
+                    movements={movements}
+                    assignments={headerAssignments}
+                  />
                 </PanelCard>
               </ArchiveSectionAnchor>
             </>

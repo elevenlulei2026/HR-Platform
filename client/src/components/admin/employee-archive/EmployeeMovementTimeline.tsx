@@ -1,229 +1,273 @@
-import type { EmployeeMovement, ParentChildOption3 } from "@shared/api.interface";
+import type { EmployeeAssignment, EmployeeMovement } from "@shared/api.interface";
+import { Building2, GitBranch, MapPin } from "lucide-react";
 
-import { useEffect, useMemo, useState } from "react";
-
-import { getParentChildOptions3 } from "@/api/parent-child-catalog";
 import { PanelEmpty } from "@/components/admin/page-shell";
-import {
-  MOVEMENT_TYPE_VISUALS,
-  MOVEMENT_VISUAL_MAP,
-  visualForMovement,
-} from "@/components/admin/employee-archive/movement-type-visual";
+import { visualForMovement } from "@/components/admin/employee-archive/movement-type-visual";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-const PHASE_LEGEND = [
-  { id: "hire", label: "入职", color: "bg-emerald-500" },
-  { id: "change", label: "在职变动", color: "bg-blue-500" },
-  { id: "leave", label: "离职", color: "bg-rose-500" },
-] as const;
+/** 轨道节点中心相对行顶（图标环 size-8 的一半） */
+const NODE_CENTER_Y = 16;
 
-function phaseFromApi(phase: string): "hire" | "change" | "leave" {
-  if (phase === "HIRE") return "hire";
-  if (phase === "LEAVE") return "leave";
-  return "change";
-}
+type TimelineItem = {
+  id: string;
+  effectiveDate: string;
+  movementType: string;
+  movementTypeName: string;
+  reasonDescription?: string;
+  reasonSubDescription?: string;
+  organizationName?: string;
+  positionName?: string;
+  jobGradeLabel?: string;
+  workLocationLabel?: string;
+  assignmentIndicatorLabel?: string;
+};
 
 type EmployeeMovementTimelineProps = {
   movements: EmployeeMovement[];
+  /** 任职记录：优先用于轨迹（异动类型 = 任职职务异动） */
+  assignments?: EmployeeAssignment[];
 };
 
-export function EmployeeMovementTimeline({ movements }: EmployeeMovementTimelineProps) {
-  const [catalogOptions, setCatalogOptions] = useState<ParentChildOption3[]>([]);
+function fromAssignments(assignments: EmployeeAssignment[]): TimelineItem[] {
+  return assignments
+    .filter((a) => Boolean(a.movementType))
+    .map((a) => ({
+      id: `asg-${a.id}`,
+      effectiveDate: a.effectiveStartDate,
+      movementType: a.movementType!,
+      movementTypeName: a.movementTypeName || a.movementType!,
+      reasonDescription: a.reasonDescription,
+      reasonSubDescription: a.reasonSubDescription,
+      organizationName: a.organizationName,
+      positionName: a.positionName,
+      jobGradeLabel: a.jobGradeLabel,
+      workLocationLabel: a.workLocationLabel,
+      assignmentIndicatorLabel: a.assignmentIndicatorLabel,
+    }));
+}
 
-  useEffect(() => {
-    let cancelled = false;
-    void getParentChildOptions3("MOVEMENT_CATALOG")
-      .then((res) => {
-        if (!cancelled) setCatalogOptions(res.data);
-      })
-      .catch(() => {
-        if (!cancelled) setCatalogOptions([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+function fromMovements(movements: EmployeeMovement[]): TimelineItem[] {
+  return movements.map((m) => ({
+    id: `mov-${m.id}`,
+    effectiveDate: m.effectiveDate,
+    movementType: m.movementType,
+    movementTypeName: m.movementTypeName,
+    reasonDescription: m.reasonDescription,
+    reasonSubDescription: m.reasonSubDescription,
+  }));
+}
 
-  const typeLegend = useMemo(() => {
-    if (catalogOptions.length === 0) {
-      return MOVEMENT_TYPE_VISUALS.map((visual) => ({
-        code: visual.code,
-        label: visual.code,
-        visual,
-      }));
-    }
-    return catalogOptions.map((opt) => {
-      const phase = typeof opt.meta?.phase === "string" ? opt.meta.phase : "CHANGE";
-      const visual = MOVEMENT_VISUAL_MAP[opt.parentCode as keyof typeof MOVEMENT_VISUAL_MAP];
-      return {
-        code: opt.parentCode,
-        label: opt.parentName,
-        visual: visual
-          ? { ...visual, phase: phaseFromApi(phase) }
-          : visualForMovement(opt.parentCode, opt.parentName),
-      };
-    });
-  }, [catalogOptions]);
+function formatDateParts(iso: string) {
+  const [year, month, day] = iso.split("-");
+  return { year: year ?? iso, monthDay: month && day ? `${month}-${day}` : iso };
+}
 
-  const sorted = [...movements].sort((a, b) => {
+function contextLine(item: TimelineItem): string | undefined {
+  const parts = [
+    item.organizationName,
+    item.positionName,
+    item.jobGradeLabel ? `职级 ${item.jobGradeLabel}` : undefined,
+  ].filter(Boolean);
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
+/** 异动轨迹：任职职务异动类型 + 生效日，卡片化时间轴 */
+export function EmployeeMovementTimeline({
+  movements,
+  assignments,
+}: EmployeeMovementTimelineProps) {
+  const fromAsg = assignments ? fromAssignments(assignments) : [];
+  const items = fromAsg.length > 0 ? fromAsg : fromMovements(movements);
+
+  const sorted = [...items].sort((a, b) => {
     const dateCmp = b.effectiveDate.localeCompare(a.effectiveDate);
     if (dateCmp !== 0) return dateCmp;
     return b.id.localeCompare(a.id);
   });
 
-  return (
-    <div className="space-y-5 p-4">
-      <div className="rounded-xl border border-border/50 bg-gradient-to-br from-muted/30 to-background p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-          <div>
-            <h4 className="text-sm font-semibold tracking-tight">异动类型</h4>
-            <p className="mt-0.5 text-xs text-muted-foreground">覆盖入转调离全部职务数据操作码</p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {PHASE_LEGEND.map((phase) => (
-              <span
-                key={phase.id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/60 bg-background/80 px-2.5 py-1 text-[11px] text-muted-foreground"
-              >
-                <span className={cn("size-2 rounded-full", phase.color)} />
-                {phase.label}
-              </span>
-            ))}
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          {typeLegend.map((type) => {
-            const Icon = type.visual.icon;
-            const count = movements.filter((m) => m.movementType === type.code).length;
-            return (
-              <span
-                key={type.code}
-                title={type.label}
-                className={cn(
-                  "inline-flex items-center gap-1 rounded-md border border-border/40 bg-background/60 px-2 py-1 text-[11px]",
-                  count > 0 ? "font-medium text-foreground" : "text-muted-foreground/70",
-                )}
-              >
-                <Icon className={cn("size-3", type.visual.accent)} strokeWidth={2.25} />
-                <span>{type.label}</span>
-                <span className="font-mono text-[10px] opacity-60">{type.code}</span>
-                {count > 0 ? (
-                  <Badge variant="secondary" className="h-4 px-1 text-[10px]">
-                    {count}
-                  </Badge>
-                ) : null}
-              </span>
-            );
-          })}
-        </div>
+  if (sorted.length === 0) {
+    return (
+      <div className="p-5">
+        <PanelEmpty
+          compact
+          icon={<GitBranch className="size-5 text-muted-foreground/70" />}
+          title="暂无异动记录"
+          description="该员工尚未维护任职职务异动。"
+        />
       </div>
+    );
+  }
 
-      {sorted.length === 0 ? (
-        <PanelEmpty title="暂无异动记录" description="该员工尚未产生职务数据异动事件。" />
-      ) : (
-        <ol className="relative space-y-0">
-          {sorted.map((movement, index) => {
-            const meta = visualForMovement(movement.movementType, movement.movementTypeName);
+  return (
+    <div className="relative overflow-hidden">
+      {/* 氛围底纹：细网格 + 顶部淡光 */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,hsl(var(--border)/0.35)_1px,transparent_1px),linear-gradient(to_bottom,hsl(var(--border)/0.35)_1px,transparent_1px)] bg-[size:18px_18px] [mask-image:linear-gradient(to_bottom,black,transparent_92%)] opacity-40"
+      />
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-primary/[0.04] to-transparent"
+      />
+
+      <div className="relative space-y-4 p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+            <span className="flex size-6 items-center justify-center rounded-md border border-border/55 bg-background/80">
+              <GitBranch className="size-3 text-primary/80" />
+            </span>
+            <span>
+              共{" "}
+              <span className="font-mono text-[12px] font-semibold tabular-nums text-foreground">
+                {sorted.length}
+              </span>{" "}
+              次 · 生效日倒序
+            </span>
+          </div>
+        </div>
+
+        <ol className="m-0 list-none space-y-0 p-0">
+          {sorted.map((item, index) => {
+            const meta = visualForMovement(item.movementType, item.movementTypeName);
             const Icon = meta.icon;
+            const isFirst = index === 0;
             const isLast = index === sorted.length - 1;
+            const typeName = item.movementTypeName || meta.label;
+            const { year, monthDay } = formatDateParts(item.effectiveDate);
+            const place = contextLine(item);
+            const reasonParts = [item.reasonDescription, item.reasonSubDescription].filter(Boolean);
+            const delayMs = Math.min(index, 8) * 45;
 
             return (
-              <li key={movement.id} className="relative pb-5 last:pb-0">
-                {!isLast ? (
-                  <span
-                    aria-hidden
-                    className="absolute left-[17px] top-9 bottom-0 w-px bg-border/80"
-                  />
-                ) : null}
-
-                <div
+              <li
+                key={item.id}
+                className="grid grid-cols-[4.25rem_2rem_minmax(0,1fr)] items-stretch gap-x-2.5 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
+                style={{ animationDelay: `${delayMs}ms`, animationFillMode: "both" }}
+              >
+                <time
+                  dateTime={item.effectiveDate}
                   className={cn(
-                    "relative overflow-hidden rounded-xl border border-border/60 bg-card shadow-sm transition-shadow hover:shadow-md",
+                    "flex flex-col items-end gap-0.5 pt-1.5 text-right tabular-nums",
+                    isFirst ? "text-foreground" : "text-muted-foreground",
                   )}
                 >
-                  <div
+                  <span className="font-mono text-[10px] tracking-wider opacity-70">{year}</span>
+                  <span
                     className={cn(
-                      "absolute inset-x-0 top-0 h-12 bg-gradient-to-b to-transparent opacity-80",
-                      meta.wash,
+                      "font-mono text-[13px] leading-none tracking-tight",
+                      isFirst && "font-semibold",
                     )}
-                  />
-                  <div className="relative flex gap-3 p-4">
-                    <div
-                      className={cn(
-                        "flex size-9 shrink-0 items-center justify-center rounded-full ring-2 ring-offset-2 ring-offset-background",
-                        meta.ring,
-                        "bg-background",
-                      )}
-                    >
-                      <Icon className={cn("size-4", meta.accent)} strokeWidth={2.25} />
-                    </div>
+                  >
+                    {monthDay}
+                  </span>
+                </time>
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-start justify-between gap-2">
-                        <div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h5 className="text-sm font-semibold tracking-tight">
-                              {movement.movementTypeName || meta.label}
-                            </h5>
-                            <Badge variant="outline" className="font-mono text-[10px]">
-                              {movement.movementType}
-                            </Badge>
-                            <Badge variant="secondary" className="text-[10px]">
-                              {meta.phaseLabel}
-                            </Badge>
-                          </div>
-                          {movement.reasonDescription ? (
-                            <p className="mt-1 text-sm text-foreground/90">{movement.reasonDescription}</p>
-                          ) : null}
-                        </div>
-                        <time
-                          dateTime={movement.effectiveDate}
-                          className="shrink-0 text-xs font-medium text-muted-foreground"
+                <div className="relative flex justify-center self-stretch" aria-hidden>
+                  {!isFirst ? (
+                    <span
+                      className="absolute left-1/2 top-0 w-px -translate-x-1/2 bg-gradient-to-b from-border to-border/60"
+                      style={{ height: NODE_CENTER_Y }}
+                    />
+                  ) : null}
+                  {!isLast ? (
+                    <span
+                      className="absolute left-1/2 bottom-0 w-px -translate-x-1/2 bg-gradient-to-b from-border/80 to-border/40"
+                      style={{ top: NODE_CENTER_Y }}
+                    />
+                  ) : null}
+                  <span
+                    className={cn(
+                      "absolute left-1/2 top-0 z-10 flex size-8 -translate-x-1/2 items-center justify-center rounded-full",
+                      "border border-border/50 bg-background shadow-sm ring-2",
+                      meta.ring,
+                      isFirst && "shadow-md",
+                    )}
+                  >
+                    <Icon className={cn("size-3.5", meta.accent)} strokeWidth={2.25} />
+                  </span>
+                </div>
+
+                <div className={cn("min-w-0 pb-3", isLast && "pb-0")}>
+                  <article
+                    className={cn(
+                      "group relative overflow-hidden rounded-xl border border-border/55 bg-background/90",
+                      "shadow-[0_1px_0_hsl(var(--foreground)/0.03)] transition-[border-color,box-shadow,transform] duration-200",
+                      "hover:border-border hover:shadow-sm",
+                      isFirst && "ring-1 ring-primary/10",
+                    )}
+                  >
+                    <span
+                      aria-hidden
+                      className={cn("absolute inset-y-3 left-0 w-[3px] rounded-full", meta.dot)}
+                    />
+                    <div
+                      aria-hidden
+                      className={cn(
+                        "pointer-events-none absolute inset-0 bg-gradient-to-r to-transparent",
+                        meta.wash,
+                      )}
+                    />
+
+                    <div className="relative space-y-2 px-3.5 py-3 pl-4">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <h4
+                          className={cn(
+                            "text-[13.5px] leading-5 tracking-tight",
+                            isFirst ? "font-semibold text-foreground" : "font-medium text-foreground/95",
+                          )}
                         >
-                          {movement.effectiveDate}
-                        </time>
+                          {typeName}
+                        </h4>
+                        {isFirst ? (
+                          <Badge
+                            variant="secondary"
+                            className="h-4 px-1.5 text-[9px] font-medium tracking-wide"
+                          >
+                            最近
+                          </Badge>
+                        ) : null}
+                        {item.assignmentIndicatorLabel ? (
+                          <Badge
+                            variant="outline"
+                            className="h-4 border-border/60 px-1.5 text-[9px] font-normal text-muted-foreground"
+                          >
+                            {item.assignmentIndicatorLabel}
+                          </Badge>
+                        ) : null}
+                        <span className="ml-auto font-mono text-[10px] tracking-wide text-muted-foreground/65">
+                          {item.movementType}
+                        </span>
                       </div>
 
-                      {(movement.reasonCode ||
-                        movement.reasonSubDescription ||
-                        movement.sourceRequestType ||
-                        movement.remark) && (
-                        <dl className="mt-3 grid gap-2 rounded-lg border border-border/40 bg-muted/20 p-3 text-xs sm:grid-cols-2">
-                          {movement.reasonCode ? (
-                            <div>
-                              <dt className="text-muted-foreground">原因码</dt>
-                              <dd className="mt-0.5 font-mono font-medium">{movement.reasonCode}</dd>
-                            </div>
-                          ) : null}
-                          {movement.reasonSubDescription ? (
-                            <div>
-                              <dt className="text-muted-foreground">原因子项</dt>
-                              <dd className="mt-0.5 font-medium">{movement.reasonSubDescription}</dd>
-                            </div>
-                          ) : null}
-                          {movement.sourceRequestType ? (
-                            <div>
-                              <dt className="text-muted-foreground">来源</dt>
-                              <dd className="mt-0.5 font-medium">{movement.sourceRequestType}</dd>
-                            </div>
-                          ) : null}
-                          {movement.remark ? (
-                            <div className="sm:col-span-2">
-                              <dt className="text-muted-foreground">备注</dt>
-                              <dd className="mt-0.5 font-medium">{movement.remark}</dd>
-                            </div>
-                          ) : null}
-                        </dl>
-                      )}
+                      {place ? (
+                        <p className="flex items-start gap-1.5 text-[12px] leading-5 text-foreground/80">
+                          <Building2 className="mt-0.5 size-3 shrink-0 text-muted-foreground/70" />
+                          <span className="min-w-0">{place}</span>
+                        </p>
+                      ) : null}
+
+                      {item.workLocationLabel ? (
+                        <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <MapPin className="size-2.5 shrink-0 opacity-70" />
+                          {item.workLocationLabel}
+                        </p>
+                      ) : null}
+
+                      {reasonParts.length > 0 ? (
+                        <p className="border-t border-border/40 pt-2 text-[11px] leading-relaxed text-muted-foreground">
+                          <span className="text-muted-foreground/70">原因 </span>
+                          {reasonParts.join(" · ")}
+                        </p>
+                      ) : null}
                     </div>
-                  </div>
+                  </article>
                 </div>
               </li>
             );
           })}
         </ol>
-      )}
+      </div>
     </div>
   );
 }

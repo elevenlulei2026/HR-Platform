@@ -14,9 +14,12 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
+export type MovementPhase = "hire" | "change" | "leave";
+
 export type MovementVisualMeta = {
   code: MovementType;
-  phase: "hire" | "change" | "leave";
+  /** 内部阶段（离职判断等），不用于 UI 分类展示 */
+  phase: MovementPhase;
   phaseLabel: string;
   icon: LucideIcon;
   accent: string;
@@ -25,7 +28,7 @@ export type MovementVisualMeta = {
   wash: string;
 };
 
-/** 异动类型视觉样式（label 以 API / 异动记录冗余字段为准） */
+/** 异动类型视觉样式（展示名以任职记录 / API 的 movementTypeName 为准） */
 export const MOVEMENT_TYPE_VISUALS: MovementVisualMeta[] = [
   {
     code: "HIR",

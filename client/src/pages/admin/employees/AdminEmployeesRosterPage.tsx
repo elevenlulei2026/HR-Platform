@@ -197,6 +197,7 @@ export function AdminEmployeesRosterPage() {
         keyword: debouncedKeyword || undefined,
         status: (statusFilter || undefined) as EmployeeStatus | undefined,
         organizationId: orgFilter || undefined,
+        asOfDate: todayStr(),
         revealSensitive: revealSensitive && canViewSensitive,
       });
       setState({ type: "ok", items: res.data.items, total: res.data.total });
@@ -726,9 +727,12 @@ export function AdminEmployeesRosterPage() {
                 <OptionToggle
                   value={masterEditMode}
                   onChange={(v) => {
-                    setMasterEditMode(v as MasterEditMode);
-                    if (v === "CURRENT") {
+                    const mode = v as MasterEditMode;
+                    setMasterEditMode(mode);
+                    if (mode === "CURRENT") {
                       setMasterEffectiveStartDate(masterEditEmployee?.effectiveStartDate ?? todayStr());
+                    } else {
+                      setMasterEffectiveStartDate(todayStr());
                     }
                   }}
                   options={[
@@ -740,7 +744,11 @@ export function AdminEmployeesRosterPage() {
               <FormField
                 label="生效日期"
                 required
-                hint={masterEditMode === "CURRENT" ? "修改当前版本时生效日期不可变更" : undefined}
+                hint={
+                  masterEditMode === "CURRENT"
+                    ? "修改当前版本时生效日期不可变更"
+                    : "指定新版本的生效开始日，默认今天"
+                }
               >
                 <Input
                   type="date"
