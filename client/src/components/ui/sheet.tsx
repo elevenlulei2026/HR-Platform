@@ -26,13 +26,48 @@ function SheetOverlay({ className, ...props }: SheetPrimitive.Backdrop.Props) {
     <SheetPrimitive.Backdrop
       data-slot="sheet-overlay"
       className={cn(
-        "fixed inset-0 z-50 bg-black/10 transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 supports-backdrop-filter:backdrop-blur-xs",
+        "fixed inset-0 z-50 bg-black/30 transition-[opacity,backdrop-filter] duration-300 ease-out",
+        "data-ending-style:opacity-0 data-starting-style:opacity-0",
+        "supports-backdrop-filter:backdrop-blur-sm",
+        "dark:bg-black/55 dark:supports-backdrop-filter:backdrop-blur-md",
+        "motion-reduce:transition-none motion-reduce:backdrop-blur-none",
         className
       )}
       {...props}
     />
   )
 }
+
+const sheetSideClassName = {
+  right: [
+    "inset-y-0 right-0 h-full w-full max-w-[min(560px,100vw)] border-l",
+    "shadow-[-16px_0_48px_-8px_rgba(15,23,42,0.14)]",
+    "dark:shadow-[-16px_0_48px_-8px_rgba(0,0,0,0.5)]",
+    "data-starting-style:translate-x-full data-ending-style:translate-x-full",
+    "motion-reduce:data-starting-style:translate-x-0 motion-reduce:data-ending-style:translate-x-0",
+  ].join(" "),
+  left: [
+    "inset-y-0 left-0 h-full w-full max-w-[min(560px,100vw)] border-r",
+    "shadow-[16px_0_48px_-8px_rgba(15,23,42,0.14)]",
+    "dark:shadow-[16px_0_48px_-8px_rgba(0,0,0,0.5)]",
+    "data-starting-style:-translate-x-full data-ending-style:-translate-x-full",
+    "motion-reduce:data-starting-style:translate-x-0 motion-reduce:data-ending-style:translate-x-0",
+  ].join(" "),
+  top: [
+    "inset-x-0 top-0 h-auto border-b",
+    "shadow-[0_16px_48px_-8px_rgba(15,23,42,0.14)]",
+    "dark:shadow-[0_16px_48px_-8px_rgba(0,0,0,0.5)]",
+    "data-starting-style:-translate-y-full data-ending-style:-translate-y-full",
+    "motion-reduce:data-starting-style:translate-y-0 motion-reduce:data-ending-style:translate-y-0",
+  ].join(" "),
+  bottom: [
+    "inset-x-0 bottom-0 h-auto border-t",
+    "shadow-[0_-16px_48px_-8px_rgba(15,23,42,0.14)]",
+    "dark:shadow-[0_-16px_48px_-8px_rgba(0,0,0,0.5)]",
+    "data-starting-style:translate-y-full data-ending-style:translate-y-full",
+    "motion-reduce:data-starting-style:translate-y-0 motion-reduce:data-ending-style:translate-y-0",
+  ].join(" "),
+} as const
 
 function SheetContent({
   className,
@@ -51,7 +86,11 @@ function SheetContent({
         data-slot="sheet-content"
         data-side={side}
         className={cn(
-          "fixed z-50 flex flex-col bg-popover bg-clip-padding text-sm text-popover-foreground shadow-lg transition duration-200 ease-in-out data-ending-style:opacity-0 data-starting-style:opacity-0 data-[side=bottom]:inset-x-0 data-[side=bottom]:bottom-0 data-[side=bottom]:h-auto data-[side=bottom]:border-t data-[side=bottom]:data-ending-style:translate-y-[2.5rem] data-[side=bottom]:data-starting-style:translate-y-[2.5rem] data-[side=left]:inset-y-0 data-[side=left]:left-0 data-[side=left]:h-full data-[side=left]:w-full data-[side=left]:max-w-[min(560px,100vw)] data-[side=left]:border-r data-[side=left]:data-ending-style:translate-x-[-2.5rem] data-[side=left]:data-starting-style:translate-x-[-2.5rem] data-[side=right]:inset-y-0 data-[side=right]:right-0 data-[side=right]:h-full data-[side=right]:w-full data-[side=right]:max-w-[min(560px,100vw)] data-[side=right]:border-l data-[side=right]:data-ending-style:translate-x-[2.5rem] data-[side=right]:data-starting-style:translate-x-[2.5rem] data-[side=top]:inset-x-0 data-[side=top]:top-0 data-[side=top]:h-auto data-[side=top]:border-b data-[side=top]:data-ending-style:translate-y-[-2.5rem] data-[side=top]:data-starting-style:translate-y-[-2.5rem]",
+          "fixed z-50 flex flex-col bg-popover bg-clip-padding text-sm text-popover-foreground outline-none",
+          "transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+          "data-ending-style:duration-200 data-ending-style:ease-in",
+          "motion-reduce:transition-none",
+          sheetSideClassName[side],
           className
         )}
         {...props}
@@ -63,14 +102,13 @@ function SheetContent({
             render={
               <Button
                 variant="ghost"
-                className="absolute top-3 right-3"
+                className="absolute top-3 right-3 transition-colors hover:bg-muted"
                 size="icon-sm"
               />
             }
           >
-            <XIcon
-            />
-            <span className="sr-only">Close</span>
+            <XIcon />
+            <span className="sr-only">关闭</span>
           </SheetPrimitive.Close>
         )}
       </SheetPrimitive.Popup>
@@ -82,7 +120,11 @@ function SheetHeader({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-header"
-      className={cn("flex flex-col gap-1 border-b bg-muted/20 px-6 py-4 pr-14", className)}
+      className={cn(
+        "flex flex-col gap-1 border-b bg-muted/40 px-6 py-4 pr-14",
+        "supports-backdrop-filter:bg-muted/30 supports-backdrop-filter:backdrop-blur-sm",
+        className
+      )}
       {...props}
     />
   )
@@ -92,7 +134,11 @@ function SheetFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
       data-slot="sheet-footer"
-      className={cn("mt-auto flex flex-col gap-2 border-t bg-muted/20 p-4", className)}
+      className={cn(
+        "mt-auto flex flex-col gap-2 border-t bg-muted/40 p-4",
+        "supports-backdrop-filter:bg-muted/30 supports-backdrop-filter:backdrop-blur-sm",
+        className
+      )}
       {...props}
     />
   )
