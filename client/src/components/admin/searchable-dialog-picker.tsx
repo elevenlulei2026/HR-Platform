@@ -81,6 +81,9 @@ function EntityOptionRow({
           <OptionCodeBadge code={code} />
           <span className="truncate text-sm font-medium text-foreground">{option.label}</span>
         </div>
+        {option.description ? (
+          <p className="mt-0.5 truncate text-[11px] text-muted-foreground">{option.description}</p>
+        ) : null}
       </div>
     </div>
   );
@@ -251,7 +254,8 @@ export function SearchableDialogPicker({
                 {options.map((opt) => {
                   const text = formatOption(opt);
                   const searchValue =
-                    opt.keywords ?? `${opt.value} ${opt.label} ${opt.code ?? ""} ${text}`;
+                    opt.keywords ??
+                    `${opt.value} ${opt.label} ${opt.code ?? ""} ${opt.description ?? ""} ${text}`;
                   return (
                     <CommandItem
                       key={opt.value}

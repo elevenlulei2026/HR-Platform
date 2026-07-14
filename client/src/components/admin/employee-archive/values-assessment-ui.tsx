@@ -102,7 +102,7 @@ export function ValuesAssessmentDenseRow({
       </div>
 
       {canEdit ? (
-        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+        <div className="flex shrink-0 items-center gap-0.5 opacity-90">
           <ArchiveEditRecordButton onClick={onEdit} />
           <ArchiveDeleteRecordButton onClick={onDelete} />
         </div>

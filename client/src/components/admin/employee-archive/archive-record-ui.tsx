@@ -93,16 +93,32 @@ export function ArchiveRecordCard({
   );
 }
 
-/** 记录字段网格（详情抽屉内一行四列） */
+/** 记录字段网格（详情抽屉内一行四列；fluid 按容器宽度自适应，避免超宽左偏） */
 export function ArchiveRecordFieldGrid({
   children,
   columns = 4,
+  layout = "fixed",
   className,
 }: {
   children: ReactNode;
   columns?: 2 | 3 | 4 | 5 | 6 | 7;
+  /** fluid：auto-fit 填满行宽；字段少时也会均分，不挤在左侧 */
+  layout?: "fixed" | "fluid";
   className?: string;
 }) {
+  if (layout === "fluid") {
+    return (
+      <div
+        className={cn(
+          "grid gap-x-3 gap-y-2.5",
+          "grid-cols-[repeat(auto-fit,minmax(12.5rem,1fr))]",
+          className,
+        )}
+      >
+        {children}
+      </div>
+    );
+  }
   const colClass =
     columns === 2
       ? "grid-cols-2"

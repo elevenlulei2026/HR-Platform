@@ -476,15 +476,16 @@ export function AdminEmployeesRosterPage() {
 
       <PanelCard
         title="查询条件"
-        description="主档与主任职按今日生效快照检索"
+        description="今日生效快照"
         className="border-t-primary/45"
+        dense
         toolbar={
           <div className="flex items-center gap-1.5">
             <RosterColumnPickerTrigger
               visibleCount={visibleColumnKeys.length}
               onClick={() => setColumnPickerOpen(true)}
             />
-            <Button variant="outline" size="sm" onClick={() => void load()}>
+            <Button variant="outline" size="sm" className="h-7 px-2.5 text-xs" onClick={() => void load()}>
               <RefreshCw />
               刷新
             </Button>

@@ -136,7 +136,7 @@ export function RosterColumnPickerTrigger({
   visibleCount: number;
 }) {
   return (
-    <Button type="button" variant="outline" size="sm" className="gap-1.5" onClick={onClick}>
+    <Button type="button" variant="outline" size="sm" className="h-7 gap-1.5 px-2.5 text-xs" onClick={onClick}>
       <Columns3 className="size-3.5" />
       列设置
       <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">

@@ -188,7 +188,7 @@ export function PerformanceRecordDenseRow({
       <div className="flex shrink-0 items-center gap-1.5">
         <PerformanceGradeBadge level={item.performanceLevel} label={gradeLabel} size="lg" />
         {canEdit ? (
-          <div className="flex items-center gap-0.5 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
+          <div className="flex items-center gap-0.5 opacity-90">
             <ArchiveEditRecordButton onClick={onEdit} />
             <ArchiveDeleteRecordButton onClick={onDelete} />
           </div>

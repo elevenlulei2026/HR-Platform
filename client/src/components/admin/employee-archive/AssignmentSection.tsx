@@ -701,12 +701,18 @@ export function AssignmentSection({ employee, orgs, canEdit, onChanged }: Assign
         setEmployeeOptions(
           res.data.items
             .filter((item) => item.id !== employee.id)
-            .map((item) => ({
-              value: item.id,
-              label: item.fullName,
-              code: item.employeeNo,
-              keywords: `${item.employeeNo} ${item.fullName}`,
-            })),
+            .map((item) => {
+              const org = item.primaryOrganizationName?.trim();
+              const position = item.primaryPositionName?.trim();
+              const description = [org, position].filter(Boolean).join(" · ") || undefined;
+              return {
+                value: item.id,
+                label: item.fullName,
+                code: item.employeeNo,
+                description,
+                keywords: `${item.employeeNo} ${item.fullName} ${org ?? ""} ${position ?? ""}`,
+              };
+            }),
         );
       })
       .catch(() => setEmployeeOptions([]))

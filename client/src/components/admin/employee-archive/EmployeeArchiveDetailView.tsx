@@ -54,7 +54,12 @@ import {
   getCategorySectionIds,
   type ArchiveViewMode,
 } from "@/components/admin/employee-archive/archive-section-nav";
-import { ArchiveMaskedBadge } from "@/components/admin/employee-archive/archive-record-ui";
+import {
+  ArchiveRecordCard,
+  ArchiveRecordField,
+  ArchiveRecordFieldGrid,
+  ArchiveRecordList,
+} from "@/components/admin/employee-archive/archive-record-ui";
 import { ArchiveAttachmentSection } from "@/components/admin/employee-archive/ArchiveAttachmentSection";
 import { AgreementSection } from "@/components/admin/employee-archive/AgreementSection";
 import { AttendanceCardSection } from "@/components/admin/employee-archive/AttendanceCardSection";
@@ -112,9 +117,6 @@ const EMPTY_ARCHIVE: EmployeeArchive = {
   agentAssignments: [],
 };
 
-const MASTER_HIGHLIGHT_LABELS = new Set(["手机号", "入职日期", "紧急联系人", "紧急联系人电话"]);
-const MASTER_WIDE_LABELS = new Set(["身份证地址", "居住地地址", "户口所在地", "兴趣爱好"]);
-
 function toApiError(e: unknown): ApiError {
   if (
     typeof e === "object" &&
@@ -125,39 +127,6 @@ function toApiError(e: unknown): ApiError {
     return e as ApiError;
   }
   return { message: "请求失败，请稍后重试" };
-}
-
-function InfoRow({
-  label,
-  value,
-  masked,
-  mono,
-}: {
-  label: string;
-  value?: string | null;
-  masked?: boolean;
-  mono?: boolean;
-}) {
-  const highlight = MASTER_HIGHLIGHT_LABELS.has(label);
-  const wide = MASTER_WIDE_LABELS.has(label);
-
-  return (
-    <div
-      className={cn(
-        "min-w-0",
-        wide && "col-span-2",
-        highlight && "rounded-md bg-primary/[0.04] px-2 py-1.5 ring-1 ring-primary/10",
-      )}
-    >
-      <div className="text-xs font-medium text-muted-foreground">
-        <span className="truncate">{label}</span>
-      </div>
-      <div className={cn("mt-0.5 text-sm leading-snug font-medium", mono && "font-mono text-[13px]")}>
-        {value || "—"}
-        {masked ? <ArchiveMaskedBadge /> : null}
-      </div>
-    </div>
-  );
 }
 
 function VisibleArchiveSection({
@@ -178,7 +147,7 @@ function ArchiveSectionSkeleton({ title }: { title: string }) {
     <PanelCard title={title}>
       <div className="space-y-3 p-4">
         <div className="h-4 w-1/3 animate-pulse rounded bg-muted/50" />
-        <div className="grid grid-cols-4 gap-3">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(12.5rem,1fr))] gap-3">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="space-y-2">
               <div className="h-3 w-16 animate-pulse rounded bg-muted/40" />
@@ -191,25 +160,53 @@ function ArchiveSectionSkeleton({ title }: { title: string }) {
   );
 }
 
+/** 个人主档分组：与档案记录卡片同构，fluid 网格铺满超宽抽屉 */
+const MASTER_ACCENT_ICON: Record<
+  "primary" | "sky" | "amber" | "emerald",
+  { wrap: string; icon: string }
+> = {
+  primary: { wrap: "bg-primary/10 text-primary ring-primary/15", icon: "text-primary" },
+  sky: { wrap: "bg-sky-500/10 text-sky-700 ring-sky-500/20 dark:text-sky-400", icon: "" },
+  amber: {
+    wrap: "bg-amber-500/10 text-amber-800 ring-amber-500/20 dark:text-amber-400",
+    icon: "",
+  },
+  emerald: {
+    wrap: "bg-emerald-500/10 text-emerald-800 ring-emerald-500/20 dark:text-emerald-400",
+    icon: "",
+  },
+};
+
 function MasterSubSection({
   icon: Icon,
   title,
+  accent = "primary",
   children,
 }: {
   icon: LucideIcon;
   title: string;
+  accent?: "primary" | "sky" | "amber" | "emerald";
   children: ReactNode;
 }) {
+  const tone = MASTER_ACCENT_ICON[accent];
   return (
-    <div>
-      <div className="mb-2 flex items-center gap-2 border-b border-border/40 pb-1.5">
-        <div className="flex size-6 items-center justify-center rounded-md bg-primary/10 text-primary ring-1 ring-primary/15">
-          <Icon className="size-3.5" />
+    <ArchiveRecordCard
+      accent={accent}
+      className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
+    >
+      <div className="mb-2.5 flex items-center gap-2 border-b border-border/35 pb-2">
+        <div
+          className={cn(
+            "flex size-6 items-center justify-center rounded-md ring-1",
+            tone.wrap,
+          )}
+        >
+          <Icon className={cn("size-3.5", tone.icon)} strokeWidth={2.25} />
         </div>
         <p className="text-xs font-semibold tracking-tight text-foreground">{title}</p>
       </div>
-      <div className="grid grid-cols-4 gap-x-4 gap-y-3">{children}</div>
-    </div>
+      <ArchiveRecordFieldGrid layout="fluid">{children}</ArchiveRecordFieldGrid>
+    </ArchiveRecordCard>
   );
 }
 
@@ -668,12 +665,6 @@ export function EmployeeArchiveDetailView({
               {employee.hireDate ? (
                 <span className="text-xs text-muted-foreground">入职 {employee.hireDate}</span>
               ) : null}
-              {employee.effectiveStartDate ? (
-                <span className="text-xs text-muted-foreground">
-                  · 主档生效 {employee.effectiveStartDate}
-                  {employee.effectiveEndDate ? ` 至 ${employee.effectiveEndDate}` : " · 至今"}
-                </span>
-              ) : null}
               {assignmentHeader.versionCount > 0 ? (
                 <span className="inline-flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                   <span className="text-muted-foreground/50">·</span>
@@ -744,98 +735,180 @@ export function EmployeeArchiveDetailView({
                   ) : null
                 }
               >
-                <div className="space-y-3 p-3">
-                  <VersionTimeline
-                    versions={versions}
-                    activeId={activeVersionId}
-                    loading={versionsLoading}
-                    error={versionsError}
-                    onRetry={reloadVersions}
-                    onSelect={(v) => void onAsOfDateChange(v.effectiveStartDate)}
-                  />
-                    <MasterSubSection icon={User} title="基础信息">
-                        <InfoRow label="姓名" value={employee.fullName} />
-                        <InfoRow label="工号" value={employee.employeeNo} mono />
-                        <InfoRow label="AD 账号" value={employee.adAccount} mono />
-                        <InfoRow label="性别" value={employee.genderLabel ?? employee.gender} />
-                        <InfoRow
-                          label="婚育状况"
-                          value={employee.maritalStatusLabel ?? employee.maritalStatus}
-                        />
-                        <InfoRow
-                          label="政治面貌"
-                          value={employee.politicalAffiliationLabel ?? employee.politicalAffiliation}
-                        />
-                        <InfoRow
-                          label="最高学历"
-                          value={employee.highestEducationLabel ?? employee.highestEducation}
-                        />
-                        <InfoRow
-                          label="学历毕业时间"
-                          value={employee.highestEducationGradDate}
-                        />
-                        <InfoRow
-                          label="生育状况"
-                          value={employee.fertilityStatusLabel ?? employee.fertilityStatus}
-                        />
-                        <InfoRow label="民族" value={employee.ethnicityLabel ?? employee.ethnicity} />
-                        <InfoRow label="国籍" value={employee.nationalityLabel ?? employee.nationality} />
-                        <InfoRow
-                          label="户口性质"
-                          value={employee.householdTypeLabel ?? employee.householdType}
-                        />
-                        <InfoRow label="户口所在地" value={employee.householdLocation} />
-                        <InfoRow label="兴趣爱好" value={employee.hobbies} />
-                        <InfoRow
-                          label="党组织关系转入"
-                          value={
-                            employee.partyOrgTransferred === undefined
-                              ? undefined
-                              : employee.partyOrgTransferred
-                                ? "是"
-                                : "否"
-                          }
-                        />
-                        <InfoRow label="参加工作日期" value={employee.workStartDate} />
-                        <InfoRow label="入职日期" value={employee.hireDate} />
-                        <InfoRow
-                          label="集团司龄起算日"
-                          value={employee.groupSeniorityStartDate}
-                        />
-                    </MasterSubSection>
-                    <MasterSubSection icon={Phone} title="联系方式">
-                        <InfoRow
-                          label="手机号"
-                          value={employee.mobile}
-                          masked={employee.mobileMasked}
-                        />
-                        <InfoRow label="公司邮箱" value={employee.companyEmail} />
-                        <InfoRow label="个人邮箱" value={employee.personalEmail} />
-                        <InfoRow label="微信" value={employee.wechat} />
-                        <InfoRow label="座机" value={employee.officePhone} />
-                        <InfoRow label="分机" value={employee.officeExtension} />
-                        <InfoRow label="家庭电话" value={employee.homePhone} />
-                    </MasterSubSection>
-                    <MasterSubSection icon={MapPin} title="地址与紧急联系人">
-                        <InfoRow label="身份证地址" value={employee.idCardAddress} />
-                        <InfoRow label="居住地地址" value={employee.residenceAddress} />
-                        <InfoRow label="紧急联系人" value={employee.emergencyContactName} />
-                        <InfoRow label="紧急联系人电话" value={employee.emergencyContactPhone} />
-                        <InfoRow
-                          label="与员工关系"
-                          value={
-                            employee.emergencyContactRelationLabel ?? employee.emergencyContactRelation
-                          }
-                        />
-                    </MasterSubSection>
-                    <MasterSubSection icon={Megaphone} title="招聘来源">
-                        <InfoRow
-                          label="招聘渠道"
-                          value={employee.recruitmentChannelLabel ?? employee.recruitmentChannel}
-                        />
-                        <InfoRow label="渠道明细" value={employee.recruitmentChannelDetail} />
-                    </MasterSubSection>
+                <div className="space-y-2">
+                  <div className="px-2.5 pt-2.5">
+                    <VersionTimeline
+                      versions={versions}
+                      activeId={activeVersionId}
+                      loading={versionsLoading}
+                      error={versionsError}
+                      onRetry={reloadVersions}
+                      onSelect={(v) => void onAsOfDateChange(v.effectiveStartDate)}
+                    />
                   </div>
+                  <ArchiveRecordList>
+                    <MasterSubSection icon={User} title="基础信息" accent="primary">
+                      <ArchiveRecordField label="姓名" value={employee.fullName} compact />
+                      <ArchiveRecordField label="工号" value={employee.employeeNo} mono compact />
+                      <ArchiveRecordField label="AD 账号" value={employee.adAccount} mono compact />
+                      <ArchiveRecordField
+                        label="性别"
+                        value={employee.genderLabel ?? employee.gender}
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="婚育状况"
+                        value={employee.maritalStatusLabel ?? employee.maritalStatus}
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="政治面貌"
+                        value={employee.politicalAffiliationLabel ?? employee.politicalAffiliation}
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="最高学历"
+                        value={employee.highestEducationLabel ?? employee.highestEducation}
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="学历毕业时间"
+                        value={employee.highestEducationGradDate}
+                        mono
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="生育状况"
+                        value={employee.fertilityStatusLabel ?? employee.fertilityStatus}
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="民族"
+                        value={employee.ethnicityLabel ?? employee.ethnicity}
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="国籍"
+                        value={employee.nationalityLabel ?? employee.nationality}
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="户口性质"
+                        value={employee.householdTypeLabel ?? employee.householdType}
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="户口所在地"
+                        value={employee.householdLocation}
+                        wide
+                        compact
+                      />
+                      <ArchiveRecordField label="兴趣爱好" value={employee.hobbies} wide compact />
+                      <ArchiveRecordField
+                        label="党组织关系转入"
+                        value={
+                          employee.partyOrgTransferred === undefined
+                            ? undefined
+                            : employee.partyOrgTransferred
+                              ? "是"
+                              : "否"
+                        }
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="参加工作日期"
+                        value={employee.workStartDate}
+                        mono
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="入职日期"
+                        value={employee.hireDate}
+                        mono
+                        highlight
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="集团司龄起算日"
+                        value={employee.groupSeniorityStartDate}
+                        mono
+                        compact
+                      />
+                    </MasterSubSection>
+                    <MasterSubSection icon={Phone} title="联系方式" accent="sky">
+                      <ArchiveRecordField
+                        label="手机号"
+                        value={employee.mobile}
+                        masked={employee.mobileMasked}
+                        highlight
+                        compact
+                      />
+                      <ArchiveRecordField label="公司邮箱" value={employee.companyEmail} compact />
+                      <ArchiveRecordField label="个人邮箱" value={employee.personalEmail} compact />
+                      <ArchiveRecordField label="微信" value={employee.wechat} compact />
+                      <ArchiveRecordField label="座机" value={employee.officePhone} mono compact />
+                      <ArchiveRecordField
+                        label="分机"
+                        value={employee.officeExtension}
+                        mono
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="家庭电话"
+                        value={employee.homePhone}
+                        mono
+                        compact
+                      />
+                    </MasterSubSection>
+                    <MasterSubSection icon={MapPin} title="地址与紧急联系人" accent="amber">
+                      <ArchiveRecordField
+                        label="身份证地址"
+                        value={employee.idCardAddress}
+                        wide
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="居住地地址"
+                        value={employee.residenceAddress}
+                        wide
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="紧急联系人"
+                        value={employee.emergencyContactName}
+                        highlight
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="紧急联系人电话"
+                        value={employee.emergencyContactPhone}
+                        mono
+                        highlight
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="与员工关系"
+                        value={
+                          employee.emergencyContactRelationLabel ?? employee.emergencyContactRelation
+                        }
+                        compact
+                      />
+                    </MasterSubSection>
+                    <MasterSubSection icon={Megaphone} title="招聘来源" accent="emerald">
+                      <ArchiveRecordField
+                        label="招聘渠道"
+                        value={employee.recruitmentChannelLabel ?? employee.recruitmentChannel}
+                        compact
+                      />
+                      <ArchiveRecordField
+                        label="渠道明细"
+                        value={employee.recruitmentChannelDetail}
+                        wide
+                        compact
+                      />
+                    </MasterSubSection>
+                  </ArchiveRecordList>
+                </div>
                 </PanelCard>
               </ArchiveSectionAnchor>
           ) : null}

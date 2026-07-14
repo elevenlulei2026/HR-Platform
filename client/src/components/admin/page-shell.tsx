@@ -44,12 +44,15 @@ export function PanelCard({
   toolbar,
   children,
   className,
+  dense,
 }: {
   title?: string;
   description?: string;
   toolbar?: ReactNode;
   children: ReactNode;
   className?: string;
+  /** 压缩标题栏与说明行高，适合筛选条等工具面板 */
+  dense?: boolean;
 }) {
   return (
     <div
@@ -59,10 +62,29 @@ export function PanelCard({
       )}
     >
       {title || toolbar ? (
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
+        <div
+          className={cn(
+            "flex flex-wrap items-center justify-between gap-2 border-b bg-muted/20 px-4",
+            dense ? "py-1.5" : "gap-3 py-3",
+          )}
+        >
           <div className="min-w-0">
-            {title ? <div className="text-sm font-medium text-foreground">{title}</div> : null}
-            {description ? (
+            {title ? (
+              <div
+                className={cn(
+                  "font-medium text-foreground",
+                  dense ? "text-[13px] leading-tight" : "text-sm",
+                )}
+              >
+                {title}
+                {dense && description ? (
+                  <span className="ml-2 text-[11px] font-normal text-muted-foreground">
+                    {description}
+                  </span>
+                ) : null}
+              </div>
+            ) : null}
+            {!dense && description ? (
               <div className="mt-0.5 text-xs text-muted-foreground">{description}</div>
             ) : null}
           </div>
