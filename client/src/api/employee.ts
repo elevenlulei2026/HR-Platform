@@ -15,6 +15,8 @@ import type {
   ReportingLine,
   ReportingLineCreateRequest,
   ReportingLineListQuery,
+  ReportingLineSyncFromOrgRequest,
+  ReportingLineSyncFromOrgResult,
   ReportingLineUpdateRequest,
 } from "@shared/api.interface";
 
@@ -167,6 +169,13 @@ export async function updateReportingLine(id: string, req: ReportingLineUpdateRe
 
 export async function deleteReportingLine(id: string) {
   return deleteJson<{ id: string }>(`/api/v1/reporting-lines/${id}`);
+}
+
+export async function syncReportingLinesFromOrg(req?: ReportingLineSyncFromOrgRequest) {
+  return postJson<ReportingLineSyncFromOrgResult, ReportingLineSyncFromOrgRequest>(
+    "/api/v1/reporting-lines/sync-from-org",
+    req ?? {},
+  );
 }
 
 export const EMPTY_EMPLOYEE_FORM_OPTIONS: EmployeeFormOptions = {

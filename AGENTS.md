@@ -19,6 +19,7 @@ docs/       # 执行层文档（AI 优先读这里）
 | P0 | `docs/领域模型与表设计-MVP.md` | 写 Entity / Migration / API 前 |
 | P0 | `shared/api.interface.ts` | 任何接口变更前后 |
 | P0 | `docs/生效日期功能规范.md` | **为任意实体/功能增加生效日期、版本时间轴、`asOfDate` 快照前**（参考组织、岗位已实现页面） |
+| P0 | `docs/汇报关系规则说明.md` | **推导默认完整汇报线**、按组织同步/校验汇报关系、档案展示汇报链前 |
 | P0 | `docs/前端UI与信息架构规范.md` | 做 Layout、菜单、任何 Admin 页面 / 交互前（愿景；**实现以 `client/` + `.cursor/rules/frontend.mdc` 为准**） |
 | P1 | `docs/产品与技术全面优化方案.md` | 架构决策、范围争议 |
 | P1 | `client/src/layouts/AdminLayout.tsx` 等已实现 Admin 页面 | 布局、菜单、页面模式对照 |

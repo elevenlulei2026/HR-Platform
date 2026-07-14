@@ -33,13 +33,27 @@ public class ReportingLineController {
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate asOfDate,
       @RequestParam(required = false) String lineType,
+      @RequestParam(required = false) Long organizationId,
+      @RequestParam(required = false) String status,
       @RequestParam @Min(1) long page,
       @RequestParam @Min(1) @Max(200) long pageSize
   ) {
     requireView();
-    var p = reportingLineService.page(keyword, asOfDate, lineType, page, pageSize);
+    LocalDate asOf = asOfDate == null ? LocalDate.now() : asOfDate;
+    var p = reportingLineService.page(keyword, asOf, lineType, organizationId, status, page, pageSize);
     Map<Long, EmployeeEntity> empMap = reportingLineService.employeeMap(p.records());
-    List<Map<String, Object>> items = p.records().stream().map(l -> toDto(l, empMap)).toList();
+    Map<Long, ReportingLineService.ChainDisplay> chainMap =
+        reportingLineService.chainDisplayMap(p.records(), asOf);
+    Map<Long, String> orgPathMap =
+        reportingLineService.organizationPathByEmployeeId(p.records(), asOf);
+    List<Map<String, Object>> items = p.records().stream()
+        .map(l -> toDto(
+            l,
+            empMap,
+            chainMap.get(l.getEmployeeId()),
+            orgPathMap.get(l.getEmployeeId())
+        ))
+        .toList();
     Map<String, Object> result = new HashMap<>();
     result.put("items", items);
     result.put("total", p.total());
@@ -48,18 +62,43 @@ public class ReportingLineController {
     return ApiResponse.ok(result);
   }
 
+  @PostMapping("/sync-from-org")
+  public ApiResponse<Map<String, Object>> syncFromOrg(
+      @RequestBody(required = false) SyncFromOrgRequest req
+  ) {
+    requireEdit();
+    LocalDate asOf = req == null || req.asOfDate() == null ? LocalDate.now() : req.asOfDate();
+    ReportingLineService.SyncResult sync = reportingLineService.syncFromOrg(asOf);
+    Map<String, Object> result = new HashMap<>();
+    result.put("scanned", sync.scanned());
+    result.put("created", sync.created());
+    result.put("updated", sync.updated());
+    result.put("unchanged", sync.unchanged());
+    result.put("skipped", sync.skipped());
+    return ApiResponse.ok(result);
+  }
+
   @PostMapping
   public ApiResponse<Map<String, Object>> createReportingLine(@Valid @RequestBody ReportingLineCreateRequest req) {
     requireCreate();
     ReportingLineEntity created = reportingLineService.create(new ReportingLineService.CreateCommand(
-        req.employeeId(),
-        req.managerEmployeeId(),
+        parseId(req.employeeId(), "下属员工"),
+        parseId(req.managerEmployeeId(), "上级员工"),
         req.lineType(),
         req.effectiveStartDate(),
         req.effectiveEndDate()
     ));
     Map<Long, EmployeeEntity> empMap = reportingLineService.employeeMap(List.of(created));
-    return ApiResponse.ok(toDto(created, empMap));
+    Map<Long, ReportingLineService.ChainDisplay> chainMap =
+        reportingLineService.chainDisplayMap(List.of(created), LocalDate.now());
+    Map<Long, String> orgPathMap =
+        reportingLineService.organizationPathByEmployeeId(List.of(created), LocalDate.now());
+    return ApiResponse.ok(toDto(
+        created,
+        empMap,
+        chainMap.get(created.getEmployeeId()),
+        orgPathMap.get(created.getEmployeeId())
+    ));
   }
 
   @PutMapping("/{id}")
@@ -69,13 +108,24 @@ public class ReportingLineController {
   ) {
     requireEdit();
     ReportingLineEntity updated = reportingLineService.update(id, new ReportingLineService.UpdateCommand(
-        req.managerEmployeeId(),
+        req.managerEmployeeId() == null || req.managerEmployeeId().isBlank()
+            ? null
+            : parseId(req.managerEmployeeId(), "上级员工"),
         req.lineType(),
         req.effectiveStartDate(),
         req.effectiveEndDate()
     ));
     Map<Long, EmployeeEntity> empMap = reportingLineService.employeeMap(List.of(updated));
-    return ApiResponse.ok(toDto(updated, empMap));
+    Map<Long, ReportingLineService.ChainDisplay> chainMap =
+        reportingLineService.chainDisplayMap(List.of(updated), LocalDate.now());
+    Map<Long, String> orgPathMap =
+        reportingLineService.organizationPathByEmployeeId(List.of(updated), LocalDate.now());
+    return ApiResponse.ok(toDto(
+        updated,
+        empMap,
+        chainMap.get(updated.getEmployeeId()),
+        orgPathMap.get(updated.getEmployeeId())
+    ));
   }
 
   @DeleteMapping("/{id}")
@@ -94,7 +144,23 @@ public class ReportingLineController {
     rbacService.requireAnyPermission("reporting-line:delete", "reporting-line:edit");
   }
 
-  private Map<String, Object> toDto(ReportingLineEntity l, Map<Long, EmployeeEntity> empMap) {
+  private static Long parseId(String raw, String label) {
+    if (raw == null || raw.isBlank()) {
+      throw new IllegalArgumentException(label + "不能为空");
+    }
+    try {
+      return Long.parseLong(raw.trim());
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(label + "无效");
+    }
+  }
+
+  private Map<String, Object> toDto(
+      ReportingLineEntity l,
+      Map<Long, EmployeeEntity> empMap,
+      ReportingLineService.ChainDisplay chain,
+      String organizationPath
+  ) {
     EmployeeEntity emp = empMap.get(l.getEmployeeId());
     EmployeeEntity mgr = empMap.get(l.getManagerEmployeeId());
     Map<String, Object> dto = new HashMap<>();
@@ -107,6 +173,9 @@ public class ReportingLineController {
     dto.put("managerEmployeeName", mgr == null ? null : mgr.getFullName());
     dto.put("lineType", l.getLineType());
     dto.put("lineTypeLabel", "DIRECT".equals(l.getLineType()) ? "实线" : "DOTTED".equals(l.getLineType()) ? "虚线" : l.getLineType());
+    dto.put("organizationPath", organizationPath);
+    dto.put("reportingChain", chain == null ? null : chain.reportingChain());
+    dto.put("reportingChainNos", chain == null ? List.of() : chain.reportingChainNos());
     dto.put("effectiveStartDate", l.getEffectiveStartDate().toString());
     dto.put("effectiveEndDate", l.getEffectiveEndDate() == null ? null : l.getEffectiveEndDate().toString());
     dto.put("createdAt", l.getCreatedAt() == null ? null : l.getCreatedAt().toString());
@@ -114,16 +183,18 @@ public class ReportingLineController {
     return dto;
   }
 
+  public record SyncFromOrgRequest(LocalDate asOfDate) {}
+
   public record ReportingLineCreateRequest(
-      @NotNull Long employeeId,
-      @NotNull Long managerEmployeeId,
+      @NotNull String employeeId,
+      @NotNull String managerEmployeeId,
       String lineType,
       @NotNull LocalDate effectiveStartDate,
       LocalDate effectiveEndDate
   ) {}
 
   public record ReportingLineUpdateRequest(
-      Long managerEmployeeId,
+      String managerEmployeeId,
       String lineType,
       LocalDate effectiveStartDate,
       LocalDate effectiveEndDate

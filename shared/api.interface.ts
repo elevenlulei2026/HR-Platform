@@ -1591,6 +1591,12 @@ export type ReportingLine = {
   managerEmployeeName?: string;
   lineType: ReportingLineType;
   lineTypeLabel?: string;
+  /** 下属主任职所属组织路径，如「集团 / 研发中心 / 平台部」 */
+  organizationPath?: string;
+  /** 完整汇报线展示，如「张三 > 李四 > 王五」（含本人） */
+  reportingChain?: string;
+  /** 完整汇报线工号序列 */
+  reportingChainNos?: string[];
   effectiveStartDate: string;
   effectiveEndDate?: string;
   createdAt?: string;
@@ -1774,11 +1780,29 @@ export type EmployeeAssignmentListQuery = {
 };
 
 export type ReportingLineListQuery = {
+  /** 姓名 / 工号模糊 */
   keyword?: string;
   asOfDate?: string;
   lineType?: ReportingLineType;
+  /** 下属员工主任职所属部门（含子树） */
+  organizationId?: string;
+  /** 下属员工在职状态 */
+  status?: EmployeeStatus;
   page: number;
   pageSize: number;
+};
+
+/** POST /api/v1/reporting-lines/sync-from-org */
+export type ReportingLineSyncFromOrgRequest = {
+  asOfDate?: string;
+};
+
+export type ReportingLineSyncFromOrgResult = {
+  scanned: number;
+  created: number;
+  updated: number;
+  unchanged: number;
+  skipped: number;
 };
 
 export type ReportingLineCreateRequest = {
@@ -2479,7 +2503,7 @@ export type EmployeeApi = {
     id: string,
   ) => Promise<ApiResponse<{ id: string; employeeId: string }>>;
 
-  /** GET /api/v1/reporting-lines?page=&pageSize=&keyword=&asOfDate=&lineType= */
+  /** GET /api/v1/reporting-lines?page=&pageSize=&keyword=&asOfDate=&lineType=&organizationId=&status= */
   listReportingLines: (query: ReportingLineListQuery) => Promise<ApiResponse<PageResult<ReportingLine>>>;
   /** POST /api/v1/reporting-lines */
   createReportingLine: (req: ReportingLineCreateRequest) => Promise<ApiResponse<ReportingLine>>;
@@ -2487,5 +2511,9 @@ export type EmployeeApi = {
   updateReportingLine: (id: string, req: ReportingLineUpdateRequest) => Promise<ApiResponse<ReportingLine>>;
   /** DELETE /api/v1/reporting-lines/{id} */
   deleteReportingLine: (id: string) => Promise<ApiResponse<{ id: string }>>;
+  /** POST /api/v1/reporting-lines/sync-from-org — 按组织负责人/分管领导同步 DIRECT 边 */
+  syncReportingLinesFromOrg: (
+    req?: ReportingLineSyncFromOrgRequest,
+  ) => Promise<ApiResponse<ReportingLineSyncFromOrgResult>>;
 };
 

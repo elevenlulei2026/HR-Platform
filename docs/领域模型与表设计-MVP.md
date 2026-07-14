@@ -289,6 +289,8 @@
 | effective_end_date | |
 | line_type | DIRECT / DOTTED |
 
+> **默认完整汇报线推导规则**（由组织负责人 `org_leader_no` + 分管领导 `supervising_leader_no` 自下而上拼接）见 `docs/汇报关系规则说明.md`。本表用于显式 DIRECT/DOTTED 维护；与衍生链的关系以该文档 §5 为准。
+
 ### 4.6 employee_movement（职务数据异动事件）
 
 每次职务数据变更产生一条异动事件；**操作码** 对齐 SAP PA 移动类型，**原因码** 与 **原因子项** 来自字典 `movement_reason`（Flyway 种子数据 + `dict` 维护）。

@@ -519,6 +519,8 @@ flowchart TD
 
 #### 7.6 汇报关系（有效期 + asOfDate）
 
+业务口径（默认完整汇报线如何由组织负责人/分管领导推导）见 `docs/汇报关系规则说明.md`。
+
 - **7.6.1**：shared 增加 `ReportingLine`
   - 验收：DIRECT/DOTTED 可表达
 - **7.6.2**：Flyway 创建 `reporting_line`
