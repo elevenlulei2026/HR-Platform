@@ -326,7 +326,7 @@ export function ParentChildCatalogPanel() {
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-t-2 border-t-primary/70 bg-card shadow-sm">
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <div className="grid gap-0 2xl:grid-cols-[minmax(280px,360px)_repeat(3,minmax(240px,1fr))]">
           <ColumnShell
             title="配置类型"

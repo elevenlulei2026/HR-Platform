@@ -16,7 +16,7 @@ createRoot(document.getElementById('root')!).render(
           <App />
         </BrowserRouter>
       </AuthProvider>
-      <Toaster richColors position="bottom-right" />
+      <Toaster richColors position="top-center" />
     </ThemeProvider>
   </StrictMode>,
 )

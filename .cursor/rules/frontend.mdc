@@ -64,7 +64,7 @@ client/src/
 | 组件 | 文件 | 用途 |
 | --- | --- | --- |
 | `PageHeader` | `page-shell.tsx` | `h1` 22px bold + 13px 描述；可选右侧 `actions` |
-| `PanelCard` | `page-shell.tsx` | 列表外框：`border-t-2 border-t-primary/70` + 面板头 `bg-muted/20` |
+| `PanelCard` | `page-shell.tsx` | 列表外框：`rounded-xl border` + 面板头 `bg-muted/20` |
 | `SearchInput` | `page-shell.tsx` | `InputGroup` + Search 图标，宽 `sm:w-[220px]` |
 | `PanelLoading` / `PanelError` / `PanelEmpty` | `page-shell.tsx` | 三态；error 须展示 `traceId` + 重试 |
 | `PaginationBar` | `page-shell.tsx` | `共 N 条 · 第 x/y 页` + 上一页/下一页 `outline sm` |
@@ -191,7 +191,7 @@ useEffect(() => { void load(); }, [load]);
 ## 样式与主题
 
 - 颜色/间距用 Tailwind 语义类：`bg-background`、`text-muted-foreground`、`border-border`、`bg-primary`
-- 列表卡片：`rounded-xl border border-t-2 border-t-primary/70 shadow-sm`
+- 列表卡片：`rounded-xl border shadow-sm`
 - 面板头：`border-b bg-muted/20 px-4 py-3`
 - 字体栈：`index.css` 中 `Noto Sans SC` + `Inter` 回退；等宽字段 `font-mono`
 - 暗色：`next-themes` + `.dark` CSS 变量；尊重 `prefers-reduced-motion`

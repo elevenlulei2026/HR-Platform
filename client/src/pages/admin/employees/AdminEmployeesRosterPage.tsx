@@ -477,7 +477,6 @@ export function AdminEmployeesRosterPage() {
       <PanelCard
         title="查询条件"
         description="今日生效快照"
-        className="border-t-primary/45"
         dense
         toolbar={
           <div className="flex items-center gap-1.5">

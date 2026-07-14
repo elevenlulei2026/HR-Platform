@@ -34,12 +34,12 @@ public final class ArchiveDataResourceRegistry {
     put("agreements", "协议信息", "service", true, "跨员工协议档案批管");
     // 员工服务
     put("attendance-cards", "考勤卡", "service", true, "跨员工考勤卡批管（版本化）");
-    put("bank-accounts", "银行卡", "service", false, "跨员工银行卡批管");
-    put("social-insurances", "社保公积金", "service", false, "跨员工社保公积金批管");
-    put("special-benefits", "特殊福利", "service", false, "跨员工特殊福利批管");
-    put("work-injuries", "工伤信息", "service", false, "跨员工工伤信息批管");
-    put("admin-infos", "行政信息", "service", false, "跨员工行政信息批管");
-    put("accommodations", "住宿信息", "service", false, "跨员工住宿信息批管");
+    put("bank-accounts", "银行卡", "service", true, "跨员工银行卡批管");
+    put("social-insurances", "社保公积金", "service", true, "跨员工社保公积金批管");
+    put("special-benefits", "特殊福利", "service", true, "跨员工特殊福利批管");
+    put("work-injuries", "工伤信息", "service", true, "跨员工工伤信息批管");
+    put("admin-infos", "行政信息", "service", true, "跨员工行政信息批管（版本化）");
+    put("accommodations", "住宿信息", "service", true, "跨员工住宿信息批管（版本化）");
     put("attachments", "附件", "service", false, "跨员工附件批管");
     // 背景信息
     put("educations", "教育经历", "background", false, "跨员工教育经历批管");

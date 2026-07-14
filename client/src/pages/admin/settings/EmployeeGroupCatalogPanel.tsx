@@ -255,7 +255,7 @@ export function EmployeeGroupCatalogPanel() {
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-t-2 border-t-primary/70 bg-card shadow-sm">
+      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
         <div className="grid gap-0 xl:grid-cols-[minmax(240px,300px)_1fr]">
           <ColumnShell
             title="员工组"

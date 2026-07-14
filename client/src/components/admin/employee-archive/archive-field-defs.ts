@@ -207,6 +207,56 @@ export const SERVICE_WORK_INJURY_FIELDS: ArchiveFieldDef[] = [
   { key: "remark", label: "备注", type: "textarea" },
 ];
 
+export const SERVICE_ADMIN_INFO_FIELDS: ArchiveFieldDef[] = [
+  { key: "effectiveStartDate", label: "生效日期", type: "date", required: true },
+  {
+    key: "status",
+    label: "状态",
+    type: "toggle",
+    required: true,
+    options: ATTENDANCE_CARD_STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
+  {
+    key: "workEnvironment",
+    label: "工作环境",
+    required: true,
+    dictKey: "workEnvironments",
+  },
+  {
+    key: "takeShuttle",
+    label: "是否乘坐班车",
+    type: "toggle",
+    required: true,
+    options: YES_NO_TOGGLE_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
+  {
+    key: "parkingPermit",
+    label: "是否有停车证",
+    type: "toggle",
+    required: true,
+    options: YES_NO_TOGGLE_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
+];
+
+export const SERVICE_ACCOMMODATION_FIELDS: ArchiveFieldDef[] = [
+  { key: "effectiveStartDate", label: "生效日期", type: "date", required: true },
+  {
+    key: "status",
+    label: "状态",
+    type: "toggle",
+    required: true,
+    options: ATTENDANCE_CARD_STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
+  {
+    key: "hasAccommodation",
+    label: "是否住宿",
+    type: "toggle",
+    required: true,
+    options: YES_NO_TOGGLE_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
+  },
+  { key: "accommodationFeeTotal", label: "住宿费汇总", type: "number" },
+];
+
 export const BACKGROUND_EDUCATION_FIELDS: ArchiveFieldDef[] = [
   { key: "educationLevel", label: "学历", dictKey: "educations", displayKey: "educationLevelLabel" },
   { key: "degree", label: "学位", dictKey: "degrees", displayKey: "degreeLabel" },

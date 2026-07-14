@@ -107,10 +107,21 @@ type SheetMode =
   | { type: "new" }
   | { type: "edit"; item: ArchiveDataItem; editMode?: EmployeeAttendanceCardEditMode };
 
-const ATTENDANCE_EDIT_MODE_OPTIONS = [
+/** 与档案一致：每人一套生效版本链的批管资源 */
+const VERSIONED_ARCHIVE_RESOURCES = new Set([
+  "attendance-cards",
+  "admin-infos",
+  "accommodations",
+]);
+
+const VERSION_EDIT_MODE_OPTIONS = [
   { id: "CURRENT" as const, label: "修改当前版本" },
   { id: "NEW_VERSION" as const, label: "新增生效版本" },
 ];
+
+function isVersionedArchiveResource(path: string | null | undefined): boolean {
+  return path != null && VERSIONED_ARCHIVE_RESOURCES.has(path);
+}
 
 function todayStr() {
   const d = new Date();
@@ -139,8 +150,14 @@ function emptyForm(fields: ArchiveFieldDef[]): FormValues {
     if (field.type === "boolean") {
       form[field.key] = "false";
     } else if (field.type === "toggle" && field.options?.length) {
+      const preferNo =
+        field.key === "takeShuttle" ||
+        field.key === "parkingPermit" ||
+        field.key === "hasAccommodation";
       const preferred = field.options.find((o) =>
-        o.value === "VALID" || o.value === "ACTIVE" || o.value === "YES",
+        preferNo
+          ? o.value === "NO"
+          : o.value === "VALID" || o.value === "ACTIVE" || o.value === "YES",
       );
       form[field.key] = preferred?.value ?? field.options[0].value;
     } else if (field.type === "date" && field.key === "effectiveStartDate") {
@@ -337,6 +354,14 @@ function cellText(
     return value === true || value === "true" ? "是" : "否";
   }
 
+  // true/false toggle（主账户、公司代缴等）
+  if (
+    field?.type === "toggle" &&
+    field.options?.every((opt) => opt.value === "true" || opt.value === "false")
+  ) {
+    return value === true || value === "true" ? "是" : "否";
+  }
+
   if (field?.sensitive) {
     return (
       <span className="font-mono text-xs">
@@ -354,6 +379,10 @@ function cellText(
   if (field?.options?.length && value != null && value !== "") {
     const hit = field.options.find((o) => o.value === String(value).trim());
     if (hit) return hit.label;
+  }
+
+  if (field?.dictKey && value != null && value !== "") {
+    return dictLabel(dictBag[field.dictKey], value);
   }
 
   if (value == null || value === "") return "—";
@@ -501,6 +530,13 @@ export function AdminArchiveDataPage() {
           countryRegions: data?.countryRegions ?? [],
           idTypes: data?.idTypes ?? [],
           employeeRelations: data?.employeeRelations ?? [],
+          bankAccountTypes: data?.bankAccountTypes ?? [],
+          bankIds: data?.bankIds ?? [],
+          branchIds: data?.branchIds ?? [],
+          currencies: data?.currencies ?? [],
+          payrollCompanies: data?.payrollCompanies ?? [],
+          insuranceRegions: data?.insuranceRegions ?? [],
+          workEnvironments: data?.workEnvironments ?? [],
         }));
       } catch {
         // 筛选项失败不阻断列表
@@ -705,12 +741,12 @@ export function AdminArchiveDataPage() {
     setSheet({
       type: "edit",
       item,
-      editMode: resource === "attendance-cards" ? "CURRENT" : undefined,
+      editMode: isVersionedArchiveResource(resource) ? "CURRENT" : undefined,
     });
   }
 
-  function handleAttendanceEditModeChange(mode: EmployeeAttendanceCardEditMode) {
-    if (sheet.type !== "edit" || resource !== "attendance-cards") return;
+  function handleVersionEditModeChange(mode: EmployeeAttendanceCardEditMode) {
+    if (sheet.type !== "edit" || !isVersionedArchiveResource(resource)) return;
     const base = itemToForm(def?.formFields ?? [], sheet.item);
     if (mode === "CURRENT") {
       base.effectiveStartDate = String(sheet.item.effectiveStartDate ?? todayStr());
@@ -793,6 +829,19 @@ export function AdminArchiveDataPage() {
         payload[field.key] = form[field.key] === "true";
         continue;
       }
+      if (field.type === "toggle") {
+        const raw = form[field.key]?.trim() ?? "";
+        const isBoolToggle =
+          field.key === "isPrimary" ||
+          field.key === "isCompanyPayroll" ||
+          field.options?.every((opt) => opt.value === "true" || opt.value === "false");
+        if (isBoolToggle) {
+          payload[field.key] = raw === "true";
+        } else if (raw) {
+          payload[field.key] = raw;
+        }
+        continue;
+      }
       if (field.type === "number") {
         const v = form[field.key]?.trim() ?? "";
         if (v) payload[field.key] = Number(v);
@@ -809,7 +858,7 @@ export function AdminArchiveDataPage() {
       const v = form[field.key]?.trim() ?? "";
       if (v) payload[field.key] = v;
     }
-    if (resource === "attendance-cards" && sheet.type === "edit" && sheet.editMode) {
+    if (isVersionedArchiveResource(resource) && sheet.type === "edit" && sheet.editMode) {
       payload.editMode = sheet.editMode;
     }
     return payload;
@@ -824,6 +873,8 @@ export function AdminArchiveDataPage() {
     for (const field of def.formFields) {
       if (!field.required || field.readOnly) continue;
       if (field.type === "boolean") continue;
+      // 编辑时脱敏敏感字段留空表示不改，跳过必填校验
+      if (field.sensitive && sheet.type === "edit") continue;
       if (!(form[field.key]?.trim())) {
         toast.error(`请填写${field.label}`);
         return;
@@ -1032,8 +1083,8 @@ export function AdminArchiveDataPage() {
       );
     }
 
-    const lockAttendanceStart =
-      resource === "attendance-cards" &&
+    const lockVersionStart =
+      isVersionedArchiveResource(resource) &&
       field.key === "effectiveStartDate" &&
       sheet.type === "edit" &&
       sheet.editMode === "CURRENT";
@@ -1042,7 +1093,7 @@ export function AdminArchiveDataPage() {
       <Input
         type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
         value={form[field.key] ?? ""}
-        disabled={lockAttendanceStart}
+        disabled={lockVersionStart}
         placeholder={
           field.sensitive && sheet.type === "edit" ? "请输入明文后保存" : field.placeholder
         }
@@ -1251,14 +1302,14 @@ export function AdminArchiveDataPage() {
           <SheetHeader className="border-b px-6 py-4">
             <SheetTitle>
               {sheet.type === "edit"
-                ? resource === "attendance-cards" && sheet.editMode === "NEW_VERSION"
-                  ? "新增考勤卡生效版本"
+                ? isVersionedArchiveResource(resource) && sheet.editMode === "NEW_VERSION"
+                  ? `新增${title}生效版本`
                   : `编辑${title}`
                 : `新建${title}`}
             </SheetTitle>
             <SheetDescription>
-              {resource === "attendance-cards"
-                ? "规则与员工档案「考勤卡」一致：每人一套版本链，新增生效版本会自动衔接失效日期"
+              {isVersionedArchiveResource(resource)
+                ? `规则与员工档案「${title}」一致：每人一套版本链，新增生效版本会自动衔接失效日期`
                 : `规则与员工档案「${title}」分区一致`}
             </SheetDescription>
           </SheetHeader>
@@ -1308,12 +1359,12 @@ export function AdminArchiveDataPage() {
               </FormField>
             )}
 
-            {resource === "attendance-cards" && sheet.type === "edit" ? (
+            {isVersionedArchiveResource(resource) && sheet.type === "edit" ? (
               <FormField label="修改方式" required>
                 <OptionToggle
-                  options={ATTENDANCE_EDIT_MODE_OPTIONS}
+                  options={VERSION_EDIT_MODE_OPTIONS}
                   value={sheet.editMode ?? "CURRENT"}
-                  onChange={(v) => handleAttendanceEditModeChange(v as EmployeeAttendanceCardEditMode)}
+                  onChange={(v) => handleVersionEditModeChange(v as EmployeeAttendanceCardEditMode)}
                 />
               </FormField>
             ) : null}
