@@ -60,7 +60,7 @@ export function AssignmentIndicatorSection({
 
   return (
     <div
-      className={cn("overflow-hidden rounded-lg border shadow-sm", styles.shell)}
+      className={cn("overflow-hidden rounded-lg border", styles.shell)}
       data-assignment-indicator={indicator}
     >
       <AssignmentVersionTimeline

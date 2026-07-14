@@ -10,6 +10,12 @@ import {
 } from "lucide-react";
 
 import { ARCHIVE_NAV } from "@/components/admin/employee-archive/archive-section-nav";
+import {
+  adminPillActive,
+  adminPillIdle,
+  adminSegmentActive,
+  adminSegmentIdle,
+} from "@/components/admin/selection-styles";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_ICONS: Record<string, LucideIcon> = {
@@ -56,11 +62,11 @@ export function ArchiveDetailNav({
   }, [activeSectionId, activeCategoryId]);
 
   return (
-    <div className="shrink-0 border-b bg-gradient-to-b from-muted/25 via-background to-background">
-      {/* 一级：分段式分类导航 */}
-      <div className="px-4 pt-2 pb-2">
+    <div className="shrink-0 border-b border-border/70 bg-background">
+      {/* 一级：分段控件 — 靠胶囊面区分选中，不画底线 */}
+      <div className="px-4 pt-2.5 pb-2">
         <div
-          className="grid gap-0.5 rounded-lg bg-muted/45 p-0.5 ring-1 ring-border/35"
+          className="grid gap-0.5 rounded-xl bg-muted/60 p-1"
           style={{ gridTemplateColumns: `repeat(${ARCHIVE_NAV.length}, minmax(0, 1fr))` }}
           role="tablist"
           aria-label="档案分类"
@@ -76,48 +82,43 @@ export function ArchiveDetailNav({
                 aria-selected={isActive}
                 onClick={() => onCategoryClick(cat.id)}
                 className={cn(
-                  "relative flex min-w-0 flex-col items-center gap-0.5 rounded-md px-1.5 py-1.5 transition-all duration-200",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                  isActive
-                    ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
-                    : "text-muted-foreground hover:bg-background/60 hover:text-foreground",
+                  "flex min-w-0 flex-col items-center gap-0.5 rounded-lg px-1.5 py-1.5",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+                  isActive ? adminSegmentActive : adminSegmentIdle,
                 )}
               >
                 {Icon ? (
                   <Icon
                     className={cn(
-                      "size-3.5 shrink-0 transition-colors",
-                      isActive ? "text-primary" : "opacity-70",
+                      "size-3.5 shrink-0 transition-colors duration-200",
+                      isActive ? "text-primary" : "text-muted-foreground/80",
                     )}
                     strokeWidth={isActive ? 2.25 : 2}
                   />
                 ) : null}
                 <span
                   className={cn(
-                    "w-full truncate text-center text-xs leading-tight",
-                    isActive ? "font-semibold" : "font-medium",
+                    "w-full truncate text-center text-xs leading-tight transition-colors duration-200",
+                    isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground",
                   )}
                 >
                   {cat.label}
                 </span>
-                {isActive ? (
-                  <span className="absolute inset-x-2 -bottom-0.5 h-0.5 rounded-full bg-primary" />
-                ) : null}
               </button>
             );
           })}
         </div>
       </div>
 
-      {/* 二级：当前分类下的模块锚点 */}
-      <div className="flex items-center gap-2 border-t border-border/30 bg-muted/10 px-4 py-1.5">
-        <span className="hidden shrink-0 text-xs font-semibold tracking-wide text-muted-foreground/80 sm:inline">
+      {/* 二级：模块锚点 — 柔和胶囊，无底线 */}
+      <div className="flex items-center gap-2 border-t border-border/40 px-4 py-1.5">
+        <span className="hidden shrink-0 text-[11px] font-medium tracking-wide text-muted-foreground sm:inline">
           {activeCategory?.label}
         </span>
         <span className="hidden h-3 w-px shrink-0 bg-border/50 sm:block" />
         <div
           ref={secondaryScrollRef}
-          className="flex min-w-0 flex-1 gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex min-w-0 flex-1 gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           role="tablist"
           aria-label="档案模块"
         >
@@ -133,28 +134,23 @@ export function ArchiveDetailNav({
                 aria-selected={isActive}
                 onClick={() => onSectionClick(sec.id)}
                 className={cn(
-                  "relative flex shrink-0 items-center gap-1 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40",
-                  isActive
-                    ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
+                  "flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
+                  isActive ? adminPillActive : adminPillIdle,
                 )}
               >
-                <span className={cn(isActive && "font-semibold")}>{sec.label}</span>
+                <span>{sec.label}</span>
                 {count !== undefined && count > 0 ? (
                   <span
                     className={cn(
-                      "min-w-[1.1rem] rounded-full px-1 py-px text-center text-[11px] tabular-nums leading-none",
+                      "min-w-[1.1rem] rounded-full px-1 py-px text-center text-[11px] tabular-nums leading-none transition-colors duration-200",
                       isActive
-                        ? "bg-primary/20 font-semibold text-primary"
+                        ? "bg-primary/15 font-semibold text-primary"
                         : "bg-muted text-muted-foreground",
                     )}
                   >
                     {count}
                   </span>
-                ) : null}
-                {isActive ? (
-                  <span className="absolute inset-x-1.5 -bottom-1.5 h-0.5 rounded-full bg-primary" />
                 ) : null}
               </button>
             );

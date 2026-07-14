@@ -43,44 +43,6 @@ type EmployeeMasterSheetFormProps = {
   dictOptions?: EmployeeFormOptions | null;
 };
 
-type SectionAccent = "primary" | "sky" | "violet" | "amber" | "emerald";
-
-const ACCENT_STYLES: Record<
-  SectionAccent,
-  { border: string; iconBg: string; iconText: string; wash: string }
-> = {
-  primary: {
-    border: "border-l-primary/80",
-    iconBg: "bg-primary/12 ring-primary/20",
-    iconText: "text-primary",
-    wash: "from-primary/[0.04]",
-  },
-  sky: {
-    border: "border-l-sky-500/70",
-    iconBg: "bg-sky-500/12 ring-sky-500/20",
-    iconText: "text-sky-600 dark:text-sky-400",
-    wash: "from-sky-500/[0.04]",
-  },
-  violet: {
-    border: "border-l-violet-500/70",
-    iconBg: "bg-violet-500/12 ring-violet-500/20",
-    iconText: "text-violet-600 dark:text-violet-400",
-    wash: "from-violet-500/[0.04]",
-  },
-  amber: {
-    border: "border-l-amber-500/70",
-    iconBg: "bg-amber-500/12 ring-amber-500/20",
-    iconText: "text-amber-600 dark:text-amber-400",
-    wash: "from-amber-500/[0.04]",
-  },
-  emerald: {
-    border: "border-l-emerald-500/70",
-    iconBg: "bg-emerald-500/12 ring-emerald-500/20",
-    iconText: "text-emerald-600 dark:text-emerald-400",
-    wash: "from-emerald-500/[0.04]",
-  },
-};
-
 function FormSection({
   icon: Icon,
   title,
@@ -91,26 +53,27 @@ function FormSection({
   icon: LucideIcon;
   title: string;
   description?: string;
-  accent?: SectionAccent;
+  accent?: "primary" | "sky" | "violet" | "amber" | "emerald";
   children: ReactNode;
 }) {
-  const tone = ACCENT_STYLES[accent];
+  const iconTone =
+    accent === "sky"
+      ? "bg-sky-500/12 text-sky-600 ring-sky-500/20 dark:text-sky-400"
+      : accent === "violet"
+        ? "bg-violet-500/12 text-violet-600 ring-violet-500/20 dark:text-violet-400"
+        : accent === "amber"
+          ? "bg-amber-500/12 text-amber-600 ring-amber-500/20 dark:text-amber-400"
+          : accent === "emerald"
+            ? "bg-emerald-500/12 text-emerald-600 ring-emerald-500/20 dark:text-emerald-400"
+            : "bg-primary/12 text-primary ring-primary/20";
+
   return (
-    <section
-      className={cn(
-        "overflow-hidden rounded-xl border border-border/55 bg-card shadow-sm",
-        "border-l-[3px]",
-        tone.border,
-        "bg-gradient-to-br to-background",
-        tone.wash,
-      )}
-    >
-      <div className="flex items-start gap-3 border-b border-border/35 px-4 py-3.5">
+    <section className="overflow-hidden rounded-lg border border-border/80 bg-card transition-[border-color,box-shadow] duration-200 hover:border-primary/20">
+      <div className="flex items-start gap-3 border-b border-border/50 bg-primary/[0.02] px-4 py-3.5">
         <div
           className={cn(
             "flex size-9 shrink-0 items-center justify-center rounded-lg ring-1",
-            tone.iconBg,
-            tone.iconText,
+            iconTone,
           )}
         >
           <Icon className="size-4" strokeWidth={2} />

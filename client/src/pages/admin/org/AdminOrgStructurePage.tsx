@@ -61,6 +61,7 @@ import {
 } from "@/components/ui/sheet";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { usePermission } from "@/hooks/usePermission";
+import { adminChipActive, adminChipIdle, adminRowSelected } from "@/components/admin/selection-styles";
 import { cn } from "@/lib/utils";
 import {
   Building2,
@@ -448,9 +449,8 @@ function VersionTimeline({
               type="button"
               onClick={() => onSelect(v)}
               className={cn(
-                "group/version flex min-w-[148px] shrink-0 flex-col gap-1 rounded-md border px-2.5 py-2 text-left transition-all",
-                "hover:border-primary/40 hover:bg-background",
-                isActive ? "border-primary/50 bg-primary/5 shadow-sm" : "border-border/50 bg-background/50",
+                "group/version flex min-w-[148px] shrink-0 flex-col gap-1 rounded-md border px-2.5 py-2 text-left",
+                isActive ? adminChipActive : adminChipIdle,
               )}
             >
               <div className="flex items-center justify-between gap-1">
@@ -649,7 +649,7 @@ function OrgTreeItem({
         className={cn(
           "group/node relative flex items-center rounded-lg border border-transparent transition-all",
           "hover:border-border/60 hover:bg-muted/40",
-          selected && "border-primary/30 bg-primary/8 shadow-sm",
+          selected && adminRowSelected,
           inactive && "opacity-55",
         )}
         style={{ marginLeft: `${depth * 14}px`, width: `calc(100% - ${depth * 14}px)` }}

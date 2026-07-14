@@ -63,6 +63,7 @@ export function temporalBadgeVariant(temporal: VersionTemporal) {
 }
 
 export const ARCHIVE_VERSION_ACCENT_STYLES = {
-  shell: "border-sky-500/20 bg-gradient-to-b from-sky-500/[0.05] to-card",
-  chipActive: "border-sky-500/45 bg-sky-500/8",
+  shell: "border-border/80 bg-card",
+  chipActive:
+    "border-primary/50 bg-primary/[0.08] text-foreground shadow-sm ring-1 ring-primary/20",
 };

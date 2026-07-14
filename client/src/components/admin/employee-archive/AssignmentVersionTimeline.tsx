@@ -8,6 +8,7 @@ import {
   type AssignmentIndicatorAccent,
 } from "@/components/admin/employee-archive/assignment-indicator";
 import { Badge } from "@/components/ui/badge";
+import { adminChipActive, adminChipIdle } from "@/components/admin/selection-styles";
 import { cn } from "@/lib/utils";
 
 type AssignmentVersionTimelineProps = {
@@ -84,9 +85,8 @@ export function AssignmentVersionTimeline({
                 type="button"
                 onClick={() => onSelect(assignment)}
                 className={cn(
-                  "flex min-w-[128px] shrink-0 flex-col gap-0.5 rounded-md border px-2 py-1.5 text-left transition-all",
-                  "border-border/45 bg-background/60 hover:border-border hover:bg-background",
-                  isActive && cn("shadow-sm", styles.chipActive),
+                  "flex min-w-[128px] shrink-0 flex-col gap-0.5 rounded-md border px-2 py-1.5 text-left",
+                  isActive ? adminChipActive : adminChipIdle,
                 )}
               >
                 <div className="flex items-center justify-between gap-1">

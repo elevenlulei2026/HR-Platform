@@ -59,8 +59,9 @@ export function temporalBadgeVariant(temporal: AttendanceCardVersionTemporal) {
 }
 
 export const ATTENDANCE_CARD_ACCENT_STYLES = {
-  shell: "border-violet-500/20 bg-gradient-to-b from-violet-500/[0.05] to-card",
-  badge: "bg-violet-500/12 text-violet-700 ring-violet-500/25 dark:text-violet-300",
-  chipActive: "border-violet-500/45 bg-violet-500/8",
-  header: "bg-violet-500/[0.04]",
+  shell: "border-border/80 bg-card",
+  badge: "bg-primary/10 text-primary",
+  chipActive:
+    "border-primary/50 bg-primary/[0.08] text-foreground shadow-sm ring-1 ring-primary/20",
+  header: "bg-primary/[0.03]",
 };

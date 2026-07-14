@@ -1401,7 +1401,7 @@ export function AdminArchiveDataPage() {
             </div>
 
             {employeeField && form.relativeEmployeeId && snapshotFields.length > 0 ? (
-              <section className="overflow-hidden rounded-xl border border-border/50 bg-gradient-to-br from-muted/25 via-background to-muted/10">
+              <section className="overflow-hidden rounded-lg border border-border/80 bg-primary/[0.02]">
                 <div className="border-b border-border/35 px-4 py-2.5">
                   <p className="text-xs font-medium text-muted-foreground">任职快照（自动带出）</p>
                 </div>

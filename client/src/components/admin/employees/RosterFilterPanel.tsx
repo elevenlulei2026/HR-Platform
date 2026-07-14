@@ -163,7 +163,7 @@ function FilterModeSwitch({
             className={cn(
               "inline-flex items-center gap-1 rounded-[5px] px-2.5 text-xs font-medium transition-all duration-150",
               active
-                ? "bg-background text-foreground shadow-sm ring-1 ring-border/50"
+                ? "bg-background text-primary shadow-sm ring-1 ring-primary/20"
                 : "text-muted-foreground hover:text-foreground",
             )}
           >

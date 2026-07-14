@@ -58,15 +58,17 @@ export const ASSIGNMENT_ACCENT_STYLES: Record<
   { shell: string; badge: string; chipActive: string; header: string }
 > = {
   sky: {
-    shell: "border-sky-500/20 bg-gradient-to-b from-sky-500/[0.05] to-card",
-    badge: "bg-sky-500/12 text-sky-700 ring-sky-500/25 dark:text-sky-300",
-    chipActive: "border-sky-500/45 bg-sky-500/8",
+    shell: "border-sky-500/25 bg-sky-500/[0.03]",
+    badge: "bg-sky-500/12 text-sky-700 dark:text-sky-300",
+    chipActive:
+      "border-primary/50 bg-primary/[0.08] text-foreground shadow-sm ring-1 ring-primary/20",
     header: "bg-sky-500/[0.04]",
   },
   amber: {
-    shell: "border-amber-500/20 bg-gradient-to-b from-amber-500/[0.05] to-card",
-    badge: "bg-amber-500/12 text-amber-800 ring-amber-500/25 dark:text-amber-300",
-    chipActive: "border-amber-500/45 bg-amber-500/8",
+    shell: "border-amber-500/25 bg-amber-500/[0.03]",
+    badge: "bg-amber-500/12 text-amber-800 dark:text-amber-300",
+    chipActive:
+      "border-primary/50 bg-primary/[0.08] text-foreground shadow-sm ring-1 ring-primary/20",
     header: "bg-amber-500/[0.04]",
   },
 };

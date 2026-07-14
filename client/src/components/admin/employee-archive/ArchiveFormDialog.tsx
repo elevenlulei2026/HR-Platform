@@ -55,9 +55,9 @@ export function ArchiveFormDialog({
           contentClassName,
         )}
       >
-        <DialogHeader className="shrink-0 border-b bg-gradient-to-r from-muted/30 via-background to-muted/20 px-6 py-4 pr-12 text-left">
+        <DialogHeader className="shrink-0 border-b bg-gradient-to-r from-primary/[0.06] via-background to-background px-6 py-4 pr-12 text-left">
           <div className="flex items-start gap-3">
-            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary ring-1 ring-primary/15">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-primary/12 text-primary ring-1 ring-primary/20">
               <FilePenLine className="size-4" strokeWidth={2} />
             </div>
             <div className="min-w-0 space-y-1">

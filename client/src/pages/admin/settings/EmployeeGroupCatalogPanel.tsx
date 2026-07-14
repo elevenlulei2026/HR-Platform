@@ -139,7 +139,7 @@ function CatalogListItem({
       className={cn(
         "flex items-stretch overflow-hidden rounded-lg border transition-colors",
         active
-          ? "border-primary/40 bg-primary/5 shadow-sm"
+          ? "border-primary/40 bg-primary/[0.06] shadow-sm"
           : "border-transparent hover:border-border hover:bg-accent/50",
       )}
     >
@@ -255,7 +255,7 @@ export function EmployeeGroupCatalogPanel() {
         </Button>
       </div>
 
-      <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+      <div className="overflow-hidden rounded-xl border bg-card">
         <div className="grid gap-0 xl:grid-cols-[minmax(240px,300px)_1fr]">
           <ColumnShell
             title="员工组"

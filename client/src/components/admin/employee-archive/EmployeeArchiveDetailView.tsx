@@ -77,6 +77,7 @@ import { ArchiveSectionAnchor } from "@/components/admin/employee-archive/Archiv
 import { AssignmentSection } from "@/components/admin/employee-archive/AssignmentSection";
 import { summarizePrimaryAssignmentHeader } from "@/components/admin/employee-archive/assignment-header-summary";
 import { PanelCard, PanelError } from "@/components/admin/page-shell";
+import { adminChipActive, adminChipIdle } from "@/components/admin/selection-styles";
 import { listEmployeeAssignments, listEmployeeMasterVersions } from "@/api/employee";
 import { employeeStatusLabel, statusBadgeClass } from "@/api/employee";
 import { getEmployeeFormOptions } from "@/api/employee";
@@ -160,23 +161,6 @@ function ArchiveSectionSkeleton({ title }: { title: string }) {
   );
 }
 
-/** 个人主档分组：与档案记录卡片同构，fluid 网格铺满超宽抽屉 */
-const MASTER_ACCENT_ICON: Record<
-  "primary" | "sky" | "amber" | "emerald",
-  { wrap: string; icon: string }
-> = {
-  primary: { wrap: "bg-primary/10 text-primary ring-primary/15", icon: "text-primary" },
-  sky: { wrap: "bg-sky-500/10 text-sky-700 ring-sky-500/20 dark:text-sky-400", icon: "" },
-  amber: {
-    wrap: "bg-amber-500/10 text-amber-800 ring-amber-500/20 dark:text-amber-400",
-    icon: "",
-  },
-  emerald: {
-    wrap: "bg-emerald-500/10 text-emerald-800 ring-emerald-500/20 dark:text-emerald-400",
-    icon: "",
-  },
-};
-
 function MasterSubSection({
   icon: Icon,
   title,
@@ -188,20 +172,25 @@ function MasterSubSection({
   accent?: "primary" | "sky" | "amber" | "emerald";
   children: ReactNode;
 }) {
-  const tone = MASTER_ACCENT_ICON[accent];
+  const iconTone =
+    accent === "sky"
+      ? "bg-sky-500/10 text-sky-700 dark:text-sky-300"
+      : accent === "amber"
+        ? "bg-amber-500/10 text-amber-800 dark:text-amber-300"
+        : accent === "emerald"
+          ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
+          : "bg-primary/10 text-primary";
+
   return (
-    <ArchiveRecordCard
-      accent={accent}
-      className="motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-300"
-    >
-      <div className="mb-2.5 flex items-center gap-2 border-b border-border/35 pb-2">
+    <ArchiveRecordCard>
+      <div className="mb-2.5 flex items-center gap-2 border-b border-border/40 pb-2">
         <div
           className={cn(
-            "flex size-6 items-center justify-center rounded-md ring-1",
-            tone.wrap,
+            "flex size-6 items-center justify-center rounded-md",
+            iconTone,
           )}
         >
-          <Icon className={cn("size-3.5", tone.icon)} strokeWidth={2.25} />
+          <Icon className="size-3.5" strokeWidth={2.25} />
         </div>
         <p className="text-xs font-semibold tracking-tight text-foreground">{title}</p>
       </div>
@@ -284,9 +273,8 @@ function VersionTimeline({
               type="button"
               onClick={() => onSelect(v)}
               className={cn(
-                "flex min-w-[148px] shrink-0 flex-col gap-1 rounded-md border px-2.5 py-2 text-left transition-all",
-                "hover:border-primary/40 hover:bg-background",
-                isActive ? "border-primary/50 bg-primary/5 shadow-sm" : "border-border/50 bg-background/50",
+                "flex min-w-[148px] shrink-0 flex-col gap-1 rounded-md border px-2.5 py-2 text-left",
+                isActive ? adminChipActive : adminChipIdle,
               )}
             >
               <div className="flex items-center justify-between gap-1">

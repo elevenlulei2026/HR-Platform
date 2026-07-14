@@ -4,6 +4,7 @@ import type { LucideIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { adminCardEnter } from "@/components/admin/selection-styles";
 import { cn } from "@/lib/utils";
 import { GitBranchPlus, PencilLine, Plus, Shield, Trash2 } from "lucide-react";
 
@@ -45,15 +46,9 @@ type ArchiveRecordCardProps = {
   index?: number;
   children: ReactNode;
   actions?: ReactNode;
+  /** 轻量语义色：标题区图标用，卡片本身不再画硬色条 */
   accent?: "primary" | "sky" | "amber" | "emerald";
   className?: string;
-};
-
-const ACCENT_BORDER: Record<NonNullable<ArchiveRecordCardProps["accent"]>, string> = {
-  primary: "border-l-primary/70",
-  sky: "border-l-sky-500/60",
-  amber: "border-l-amber-500/60",
-  emerald: "border-l-emerald-500/60",
 };
 
 /** 单条档案记录卡片 */
@@ -61,22 +56,21 @@ export function ArchiveRecordCard({
   index,
   children,
   actions,
-  accent = "primary",
   className,
 }: ArchiveRecordCardProps) {
   return (
     <article
       className={cn(
-        "group relative flex items-start gap-3 rounded-xl border border-border/50 bg-gradient-to-br from-card to-muted/15",
-        "border-l-[3px] shadow-sm transition-all duration-200",
-        "hover:border-border hover:shadow-md",
-        ACCENT_BORDER[accent],
+        "group relative flex items-start gap-3 rounded-lg border border-border/70 bg-card",
+        "transition-[border-color,box-shadow,background-color] duration-200 ease-out",
+        "hover:border-border hover:bg-muted/[0.35]",
+        adminCardEnter,
         className,
       )}
     >
       {index !== undefined ? (
         <div className="flex w-8 shrink-0 flex-col items-center pt-2.5 pl-2.5">
-          <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold tabular-nums text-primary ring-1 ring-primary/15">
+          <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold tabular-nums text-primary">
             {index}
           </span>
         </div>
@@ -85,7 +79,7 @@ export function ArchiveRecordCard({
         {children}
       </div>
       {actions ? (
-        <div className="flex shrink-0 items-center gap-0.5 py-2 pr-2 opacity-90 transition-opacity group-focus-within:opacity-100 sm:opacity-75">
+        <div className="flex shrink-0 items-center gap-0.5 py-2 pr-2 opacity-80 transition-opacity duration-200 group-hover:opacity-100">
           {actions}
         </div>
       ) : null}
@@ -160,7 +154,7 @@ export function ArchiveRecordField({
       className={cn(
         "min-w-0",
         wide && "col-span-2",
-        highlight && "rounded-md bg-primary/[0.04] px-2 py-1.5 ring-1 ring-primary/10",
+        highlight && "rounded-md bg-primary/[0.05] px-2 py-1.5 ring-1 ring-primary/10",
       )}
     >
       <div
@@ -290,8 +284,8 @@ export function ArchiveFormSection({
           ? "md:grid-cols-4"
           : "md:grid-cols-2";
   return (
-    <section className="overflow-hidden rounded-xl border border-border/50 bg-card/60 shadow-sm">
-      <div className="border-b border-border/40 bg-muted/20 px-4 py-3">
+    <section className="overflow-hidden rounded-lg border border-border/80 bg-card">
+      <div className="border-b border-border/60 bg-primary/[0.03] px-4 py-3">
         <h4 className="text-sm font-semibold tracking-tight text-foreground">{title}</h4>
         {description ? (
           <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>

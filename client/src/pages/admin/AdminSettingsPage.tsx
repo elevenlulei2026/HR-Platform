@@ -387,7 +387,7 @@ export function AdminSettingsPage() {
         </TabsList>
 
         <TabsContent value="dict" className="mt-0 w-full outline-none">
-          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+          <div className="overflow-hidden rounded-xl border bg-card">
             <div className="grid gap-0 lg:grid-cols-[minmax(280px,340px)_1fr]">
               {/* 字典类型 */}
               <div className="flex h-[min(72dvh,760px)] min-h-[520px] flex-col border-b lg:border-b-0 lg:border-r">
@@ -461,7 +461,7 @@ export function AdminSettingsPage() {
                               className={cn(
                                 "flex items-stretch overflow-hidden rounded-lg border transition-colors",
                                 active
-                                  ? "border-primary/40 bg-primary/5 shadow-sm"
+                                  ? "border-primary/40 bg-primary/[0.06] shadow-sm"
                                   : "border-transparent hover:border-border hover:bg-accent/50",
                               )}
                             >
@@ -652,7 +652,7 @@ export function AdminSettingsPage() {
         </TabsContent>
 
         <TabsContent value="code-rules" className="mt-0 w-full outline-none">
-          <div className="overflow-hidden rounded-xl border bg-card shadow-sm">
+          <div className="overflow-hidden rounded-xl border bg-card">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b bg-muted/20 px-4 py-3">
               <div>
                 <div className="text-sm font-semibold text-foreground">编码规则</div>

@@ -11,14 +11,14 @@ export function adminFormControlShellClassName(options?: {
   return cn(
     "w-full border text-sm transition-colors outline-none",
     compact ? "h-8 min-h-8 rounded-lg px-2.5 py-0" : "min-h-9 rounded-xl px-3 py-2",
-    "bg-gradient-to-br from-muted/20 via-background to-muted/5",
+    "bg-background",
     options?.readOnly
-      ? "border-border/45 bg-muted/15"
+      ? "border-border bg-muted/15"
       : cn(
-          "border-border/55",
-          "hover:border-border hover:bg-muted/10",
-          "focus-visible:border-primary/25 focus-visible:ring-2 focus-visible:ring-primary/10",
-          options?.empty && "border-dashed border-border/70",
+          "border-border",
+          "hover:border-primary/30 hover:bg-primary/[0.02]",
+          "focus-visible:border-primary/40 focus-visible:ring-2 focus-visible:ring-primary/15",
+          options?.empty && "border-dashed border-border",
         ),
   );
 }
@@ -42,8 +42,8 @@ export function adminFilterInputGroupClassName(options?: { empty?: boolean }) {
   return cn(
     adminFormControlShellClassName({ size: "compact", empty: options?.empty }),
     // 覆盖 InputGroup 默认 border-input / focus ring，对齐 admin 外壳
-    "border-border/55 has-[[data-slot=input-group-control]:focus-visible]:border-primary/25",
-    "has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-primary/10",
+    "border-border has-[[data-slot=input-group-control]:focus-visible]:border-primary/40",
+    "has-[[data-slot=input-group-control]:focus-visible]:ring-2 has-[[data-slot=input-group-control]:focus-visible]:ring-primary/15",
   );
 }
 

@@ -57,14 +57,14 @@ export function PanelCard({
   return (
     <div
       className={cn(
-        "overflow-hidden rounded-xl border bg-card shadow-sm",
+        "overflow-hidden rounded-xl border border-border/80 bg-card shadow-[0_1px_2px_hsl(var(--foreground)/0.03)]",
         className,
       )}
     >
       {title || toolbar ? (
         <div
           className={cn(
-            "flex flex-wrap items-center justify-between gap-2 border-b bg-muted/20 px-4",
+            "flex flex-wrap items-center justify-between gap-2 border-b border-border/70 bg-primary/[0.03] px-4",
             dense ? "py-1.5" : "gap-3 py-3",
           )}
         >
