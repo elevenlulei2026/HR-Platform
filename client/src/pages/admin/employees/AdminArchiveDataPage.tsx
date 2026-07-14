@@ -1,5 +1,6 @@
 import type {
   Employee,
+  EmployeeAttendanceCardEditMode,
   OrganizationTreeNode,
 } from "@shared/api.interface";
 
@@ -104,7 +105,20 @@ type LoadState =
 type SheetMode =
   | { type: "closed" }
   | { type: "new" }
-  | { type: "edit"; item: ArchiveDataItem };
+  | { type: "edit"; item: ArchiveDataItem; editMode?: EmployeeAttendanceCardEditMode };
+
+const ATTENDANCE_EDIT_MODE_OPTIONS = [
+  { id: "CURRENT" as const, label: "修改当前版本" },
+  { id: "NEW_VERSION" as const, label: "新增生效版本" },
+];
+
+function todayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 type FilterState = {
   keyword: string;
@@ -124,8 +138,13 @@ function emptyForm(fields: ArchiveFieldDef[]): FormValues {
   for (const field of fields) {
     if (field.type === "boolean") {
       form[field.key] = "false";
-    } else if (field.type === "toggle" && field.options?.some((o) => o.value === "VALID")) {
-      form[field.key] = "VALID";
+    } else if (field.type === "toggle" && field.options?.length) {
+      const preferred = field.options.find((o) =>
+        o.value === "VALID" || o.value === "ACTIVE" || o.value === "YES",
+      );
+      form[field.key] = preferred?.value ?? field.options[0].value;
+    } else if (field.type === "date" && field.key === "effectiveStartDate") {
+      form[field.key] = todayStr();
     } else if (field.options?.length === 1) {
       form[field.key] = field.options[0].value;
     } else {
@@ -683,7 +702,23 @@ export function AdminArchiveDataPage() {
     } else {
       setSelectedRelativeOption(null);
     }
-    setSheet({ type: "edit", item });
+    setSheet({
+      type: "edit",
+      item,
+      editMode: resource === "attendance-cards" ? "CURRENT" : undefined,
+    });
+  }
+
+  function handleAttendanceEditModeChange(mode: EmployeeAttendanceCardEditMode) {
+    if (sheet.type !== "edit" || resource !== "attendance-cards") return;
+    const base = itemToForm(def?.formFields ?? [], sheet.item);
+    if (mode === "CURRENT") {
+      base.effectiveStartDate = String(sheet.item.effectiveStartDate ?? todayStr());
+    } else {
+      base.effectiveStartDate = todayStr();
+    }
+    setForm(base);
+    setSheet({ type: "edit", item: sheet.item, editMode: mode });
   }
 
   function closeSheet() {
@@ -773,6 +808,9 @@ export function AdminArchiveDataPage() {
       }
       const v = form[field.key]?.trim() ?? "";
       if (v) payload[field.key] = v;
+    }
+    if (resource === "attendance-cards" && sheet.type === "edit" && sheet.editMode) {
+      payload.editMode = sheet.editMode;
     }
     return payload;
   }
@@ -994,10 +1032,17 @@ export function AdminArchiveDataPage() {
       );
     }
 
+    const lockAttendanceStart =
+      resource === "attendance-cards" &&
+      field.key === "effectiveStartDate" &&
+      sheet.type === "edit" &&
+      sheet.editMode === "CURRENT";
+
     return (
       <Input
         type={field.type === "date" ? "date" : field.type === "number" ? "number" : "text"}
         value={form[field.key] ?? ""}
+        disabled={lockAttendanceStart}
         placeholder={
           field.sensitive && sheet.type === "edit" ? "请输入明文后保存" : field.placeholder
         }
@@ -1205,9 +1250,17 @@ export function AdminArchiveDataPage() {
         <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
           <SheetHeader className="border-b px-6 py-4">
             <SheetTitle>
-              {sheet.type === "edit" ? `编辑${title}` : `新建${title}`}
+              {sheet.type === "edit"
+                ? resource === "attendance-cards" && sheet.editMode === "NEW_VERSION"
+                  ? "新增考勤卡生效版本"
+                  : `编辑${title}`
+                : `新建${title}`}
             </SheetTitle>
-            <SheetDescription>规则与员工档案「{title}」分区一致</SheetDescription>
+            <SheetDescription>
+              {resource === "attendance-cards"
+                ? "规则与员工档案「考勤卡」一致：每人一套版本链，新增生效版本会自动衔接失效日期"
+                : `规则与员工档案「${title}」分区一致`}
+            </SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
             {sheet.type === "new" ? (
@@ -1254,6 +1307,16 @@ export function AdminArchiveDataPage() {
                 />
               </FormField>
             )}
+
+            {resource === "attendance-cards" && sheet.type === "edit" ? (
+              <FormField label="修改方式" required>
+                <OptionToggle
+                  options={ATTENDANCE_EDIT_MODE_OPTIONS}
+                  value={sheet.editMode ?? "CURRENT"}
+                  onChange={(v) => handleAttendanceEditModeChange(v as EmployeeAttendanceCardEditMode)}
+                />
+              </FormField>
+            ) : null}
 
             {employeeField ? (
               <FormField label={employeeField.label} required={employeeField.required}>
