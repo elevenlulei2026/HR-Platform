@@ -1,4 +1,6 @@
 import type {
+  DictImportErrorReportRequest,
+  DictImportResult,
   DictItem,
   DictItemCreateRequest,
   DictItemUpdateRequest,
@@ -9,7 +11,11 @@ import type {
   PageResult,
 } from "@shared/api.interface";
 
-import { deleteJson, getJson, postJson, putJson } from "@/api/http";
+import { deleteJson, getAuthToken, getBlob, getJson, postJson, postMultipart, putJson } from "@/api/http";
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL?.toString().replace(/\/$/, "") ||
+  "http://localhost:8087";
 
 function toQueryString(query: DictTypeListQuery): string {
   const params = new URLSearchParams();
@@ -56,3 +62,38 @@ export async function deleteDictItem(id: string) {
   return deleteJson<{ id: string }>(`/api/v1/dict-items/${id}`);
 }
 
+export async function downloadDictImportTemplate() {
+  return getBlob("/api/v1/dict/import-template");
+}
+
+export async function importDict(file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+  return postMultipart<DictImportResult>("/api/v1/dict/import", fd);
+}
+
+export async function downloadDictImportErrorReport(
+  req: DictImportErrorReportRequest,
+): Promise<Blob> {
+  const token = getAuthToken();
+  const url = `${API_BASE}/api/v1/dict/import-error-report`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) {
+    let message = `请求失败（HTTP ${res.status}）`;
+    try {
+      const json = (await res.json()) as { message?: string };
+      if (typeof json.message === "string") message = json.message;
+    } catch {
+      // ignore
+    }
+    throw { message } satisfies { message: string };
+  }
+  return res.blob();
+}

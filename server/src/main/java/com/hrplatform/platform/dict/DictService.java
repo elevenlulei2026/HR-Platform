@@ -44,6 +44,28 @@ public class DictService {
     return e;
   }
 
+  public DictTypeEntity findTypeByCode(String code) {
+    String c = code == null ? "" : code.trim();
+    if (c.isBlank()) return null;
+    return dictTypeMapper.selectOne(
+        new LambdaQueryWrapper<DictTypeEntity>()
+            .eq(DictTypeEntity::getCode, c)
+            .last("LIMIT 1")
+    );
+  }
+
+  public DictItemEntity findItemByTypeCodeAndValue(String typeCode, String value) {
+    String tc = typeCode == null ? "" : typeCode.trim();
+    String v = value == null ? "" : value.trim();
+    if (tc.isBlank() || v.isBlank()) return null;
+    return dictItemMapper.selectOne(
+        new LambdaQueryWrapper<DictItemEntity>()
+            .eq(DictItemEntity::getTypeCode, tc)
+            .eq(DictItemEntity::getValue, v)
+            .last("LIMIT 1")
+    );
+  }
+
   @Transactional
   public DictTypeEntity createType(DictTypeEntity entity) {
     if (entity.getStatus() == null || entity.getStatus().isBlank()) entity.setStatus("ACTIVE");

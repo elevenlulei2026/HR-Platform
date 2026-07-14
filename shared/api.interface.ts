@@ -173,6 +173,23 @@ export type DictTypeListQuery = {
   pageSize: number;
 };
 
+export type DictImportRowError = {
+  rowNumber: number;
+  field?: string;
+  message: string;
+};
+
+export type DictImportResult = {
+  totalRows: number;
+  successCount: number;
+  failureCount: number;
+  errors: DictImportRowError[];
+};
+
+export type DictImportErrorReportRequest = {
+  errors: DictImportRowError[];
+};
+
 export type DictApi = {
   /** GET /api/v1/dict-types?page=&pageSize=&keyword= */
   listDictTypes: (query: DictTypeListQuery) => Promise<ApiResponse<PageResult<DictType>>>;
@@ -193,6 +210,13 @@ export type DictApi = {
   updateDictItem: (id: string, req: DictItemUpdateRequest) => Promise<ApiResponse<DictItem>>;
   /** DELETE /api/v1/dict-items/{id} */
   deleteDictItem: (id: string) => Promise<ApiResponse<{ id: string }>>;
+
+  /** GET /api/v1/dict/import-template */
+  downloadDictImportTemplate: () => Promise<Blob>;
+  /** POST /api/v1/dict/import (multipart) */
+  importDict: (file: File) => Promise<ApiResponse<DictImportResult>>;
+  /** POST /api/v1/dict/import-error-report */
+  downloadDictImportErrorReport: (req: DictImportErrorReportRequest) => Promise<Blob>;
 };
 
 // -----------------------------

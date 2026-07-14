@@ -1,5 +1,6 @@
 package com.hrplatform.platform.web.dict;
 
+import com.hrplatform.platform.dict.DictImportService;
 import com.hrplatform.platform.dict.DictItemEntity;
 import com.hrplatform.platform.dict.DictService;
 import com.hrplatform.platform.dict.DictTypeEntity;
@@ -10,7 +11,11 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -20,10 +25,12 @@ import java.util.Map;
 @RequestMapping("/api/v1")
 public class DictController {
   private final DictService dictService;
+  private final DictImportService dictImportService;
   private final RbacService rbacService;
 
-  public DictController(DictService dictService, RbacService rbacService) {
+  public DictController(DictService dictService, DictImportService dictImportService, RbacService rbacService) {
     this.dictService = dictService;
+    this.dictImportService = dictImportService;
     this.rbacService = rbacService;
   }
 
@@ -129,6 +136,47 @@ public class DictController {
     return ApiResponse.ok(Map.of("id", String.valueOf(id)));
   }
 
+  @GetMapping("/dict/import-template")
+  public ResponseEntity<byte[]> downloadImportTemplate() {
+    requireDictManage();
+    byte[] bytes = dictImportService.buildTemplate();
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=dict-import-template.xlsx")
+        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(bytes);
+  }
+
+  @PostMapping(value = "/dict/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ApiResponse<Map<String, Object>> importDict(@RequestParam("file") MultipartFile file) {
+    requireDictManage();
+    DictImportService.ImportResult r = dictImportService.importExcel(file);
+    Map<String, Object> dto = new HashMap<>();
+    dto.put("totalRows", r.totalRows());
+    dto.put("successCount", r.successCount());
+    dto.put("failureCount", r.failureCount());
+    dto.put("errors", r.errors().stream().map(e -> {
+      Map<String, Object> err = new HashMap<>();
+      err.put("rowNumber", e.rowNumber());
+      err.put("field", e.field() == null ? "" : e.field());
+      err.put("message", e.message());
+      return err;
+    }).toList());
+    return ApiResponse.ok(dto);
+  }
+
+  @PostMapping("/dict/import-error-report")
+  public ResponseEntity<byte[]> importErrorReport(@Valid @RequestBody ImportErrorReportRequest req) {
+    requireDictManage();
+    List<DictImportService.RowError> errors = req.errors().stream()
+        .map(e -> new DictImportService.RowError(e.rowNumber(), e.field(), e.message()))
+        .toList();
+    byte[] bytes = dictImportService.buildErrorReport(errors);
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=dict-import-errors.xlsx")
+        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(bytes);
+  }
+
   private void requireDictManage() {
     rbacService.requirePermission("dict:manage");
   }
@@ -199,5 +247,15 @@ public class DictController {
       return extJson == null ? null : com.hrplatform.platform.auth.Jsons.write(extJson);
     }
   }
+
+  public record ImportErrorReportRequest(
+      @NotNull(message = "errors 不能为空") List<ImportRowErrorRequest> errors
+  ) {}
+
+  public record ImportRowErrorRequest(
+      int rowNumber,
+      String field,
+      String message
+  ) {}
 }
 

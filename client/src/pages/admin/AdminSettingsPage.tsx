@@ -1,12 +1,13 @@
 import type {
   CodeRule,
   CodeRuleSeqReset,
+  DictImportResult,
   DictItem,
   DictType,
   DictTypeListQuery,
 } from "@shared/api.interface";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -16,6 +17,9 @@ import {
   createDictType,
   deleteDictItem,
   deleteDictType,
+  downloadDictImportErrorReport,
+  downloadDictImportTemplate,
+  importDict,
   listDictItemsByTypeCode,
   listDictTypes,
   updateDictItem,
@@ -30,6 +34,14 @@ import {
 } from "@/api/code-rules";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import {
   InputGroup,
@@ -45,6 +57,8 @@ import {
   BookText,
   ChevronLeft,
   ChevronRight,
+  Download,
+  FileSpreadsheet,
   Hash,
   Inbox,
   Pencil,
@@ -53,6 +67,7 @@ import {
   Search,
   Sparkles,
   Tag,
+  Upload,
 } from "lucide-react";
 import {
   Sheet,
@@ -242,6 +257,11 @@ export function AdminSettingsPage() {
   const [dictItemsState, setDictItemsState] = useState<LoadState<DictItem[]>>({ type: "ok", data: [] });
 
   const [dictSheet, setDictSheet] = useState<DictSheetMode>({ type: "closed" });
+  const [dictImportOpen, setDictImportOpen] = useState(false);
+  const [dictImportFile, setDictImportFile] = useState<File | null>(null);
+  const [dictImporting, setDictImporting] = useState(false);
+  const [dictImportResult, setDictImportResult] = useState<DictImportResult | null>(null);
+  const dictImportInputRef = useRef<HTMLInputElement>(null);
 
   // code rules
   const [ruleKeyword, setRuleKeyword] = useState("");
@@ -347,6 +367,80 @@ export function AdminSettingsPage() {
 
   const selectedType = dictTypes.find((t) => t.code === selectedTypeCode);
 
+  function downloadBlob(blob: Blob, filename: string) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function resetDictImportDialog() {
+    setDictImportFile(null);
+    setDictImportResult(null);
+    setDictImporting(false);
+    if (dictImportInputRef.current) dictImportInputRef.current.value = "";
+  }
+
+  async function handleDownloadDictTemplate() {
+    try {
+      const blob = await downloadDictImportTemplate();
+      downloadBlob(blob, "dict-import-template.xlsx");
+      toast.success("模板已下载");
+    } catch (e: unknown) {
+      const err: ApiError =
+        typeof (e as { message?: string })?.message === "string"
+          ? { message: (e as ApiError).message, traceId: (e as ApiError).traceId }
+          : { message: "下载模板失败" };
+      toast.error(err.message);
+    }
+  }
+
+  async function handleDictImport() {
+    if (!dictImportFile) {
+      toast.error("请先选择 Excel 文件");
+      return;
+    }
+    try {
+      setDictImporting(true);
+      const res = await importDict(dictImportFile);
+      setDictImportResult(res.data);
+      if (res.data.failureCount === 0) {
+        toast.success(`导入成功：${res.data.successCount} 条`);
+      } else {
+        toast.warning(
+          `导入完成：成功 ${res.data.successCount} 条，失败 ${res.data.failureCount} 条`,
+        );
+      }
+      await loadDictTypes();
+      if (selectedTypeCode) await loadDictItems(selectedTypeCode);
+    } catch (e: unknown) {
+      const err: ApiError =
+        typeof (e as { message?: string })?.message === "string"
+          ? { message: (e as ApiError).message, traceId: (e as ApiError).traceId }
+          : { message: "导入失败，请重试" };
+      toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
+    } finally {
+      setDictImporting(false);
+    }
+  }
+
+  async function handleDownloadDictErrorReport() {
+    if (!dictImportResult || dictImportResult.errors.length === 0) return;
+    try {
+      const blob = await downloadDictImportErrorReport({ errors: dictImportResult.errors });
+      downloadBlob(blob, "dict-import-errors.xlsx");
+      toast.success("错误报告已下载");
+    } catch (e: unknown) {
+      const err: ApiError =
+        typeof (e as { message?: string })?.message === "string"
+          ? { message: (e as ApiError).message }
+          : { message: "下载错误报告失败" };
+      toast.error(err.message);
+    }
+  }
+
   return (
     <div className="space-y-5">
       <div className="space-y-1">
@@ -392,10 +486,23 @@ export function AdminSettingsPage() {
                       {dictTypesState.type === "ok" ? `共 ${dictTypeTotal} 项 · 选择类型后编辑字典项` : "选择类型后编辑字典项"}
                     </div>
                   </div>
-                  <Button size="sm" onClick={() => setDictSheet({ type: "type-new" })}>
-                    <Plus />
-                    新建
-                  </Button>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        resetDictImportDialog();
+                        setDictImportOpen(true);
+                      }}
+                    >
+                      <Upload />
+                      批量导入
+                    </Button>
+                    <Button size="sm" onClick={() => setDictSheet({ type: "type-new" })}>
+                      <Plus />
+                      新建
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="min-h-0 flex-1 overflow-y-auto p-4">
@@ -803,6 +910,128 @@ export function AdminSettingsPage() {
           <ParentChildCatalogPanel />
         </TabsContent>
       </Tabs>
+
+      <Dialog
+        open={dictImportOpen}
+        onOpenChange={(open) => {
+          setDictImportOpen(open);
+          if (!open) resetDictImportDialog();
+        }}
+      >
+        <DialogContent className="sm:max-w-lg" elevated>
+          <DialogHeader>
+            <DialogTitle>批量导入字典</DialogTitle>
+            <DialogDescription>
+              下载模板填写后上传。支持新建类型与字典项；已存在的「类型编码 + 字典值」将更新显示名、排序与状态。
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => void handleDownloadDictTemplate()}>
+                <Download />
+                下载模板
+              </Button>
+              <span className="text-xs text-muted-foreground">xlsx · 含填写说明工作表</span>
+            </div>
+
+            <div className="rounded-lg border border-dashed bg-muted/20 p-4">
+              <input
+                ref={dictImportInputRef}
+                type="file"
+                accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                className="sr-only"
+                onChange={(e) => {
+                  const file = e.target.files?.[0] ?? null;
+                  setDictImportFile(file);
+                  setDictImportResult(null);
+                }}
+              />
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => dictImportInputRef.current?.click()}
+                >
+                  <FileSpreadsheet />
+                  选择文件
+                </Button>
+                <div className="min-w-0 flex-1 text-sm text-muted-foreground">
+                  {dictImportFile ? (
+                    <span className="truncate font-medium text-foreground">{dictImportFile.name}</span>
+                  ) : (
+                    "未选择文件"
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {dictImportResult ? (
+              <div className="space-y-2 rounded-lg border bg-muted/30 p-3 text-sm">
+                <div className="font-medium text-foreground">
+                  合计 {dictImportResult.totalRows} 行 · 成功 {dictImportResult.successCount} · 失败{" "}
+                  {dictImportResult.failureCount}
+                </div>
+                {dictImportResult.errors.length > 0 ? (
+                  <>
+                    <ul className="max-h-40 space-y-1 overflow-y-auto text-xs text-muted-foreground">
+                      {dictImportResult.errors.slice(0, 20).map((err, idx) => (
+                        <li key={`${err.rowNumber}-${idx}`}>
+                          第 {err.rowNumber} 行
+                          {err.field ? ` · ${err.field}` : ""}：{err.message}
+                        </li>
+                      ))}
+                      {dictImportResult.errors.length > 20 ? (
+                        <li>…另有 {dictImportResult.errors.length - 20} 条错误</li>
+                      ) : null}
+                    </ul>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void handleDownloadDictErrorReport()}
+                    >
+                      <Download />
+                      下载错误报告
+                    </Button>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
+
+          <DialogFooter className="flex-row justify-end gap-2 sm:justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setDictImportOpen(false);
+                resetDictImportDialog();
+              }}
+            >
+              关闭
+            </Button>
+            <Button
+              type="button"
+              disabled={!dictImportFile || dictImporting}
+              onClick={() => void handleDictImport()}
+            >
+              {dictImporting ? (
+                <>
+                  <RefreshCw className="animate-spin" />
+                  导入中…
+                </>
+              ) : (
+                <>
+                  <Upload />
+                  开始导入
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <DictSheet
         mode={dictSheet}
