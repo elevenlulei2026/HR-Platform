@@ -1,4 +1,5 @@
 import type {
+  Employee,
   Organization,
   OrganizationCreateRequest,
   OrganizationEditMode,
@@ -13,6 +14,7 @@ import type {
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
+import { listEmployees } from "@/api/employee";
 import type { ApiError } from "@/api/http";
 import {
   createOrganization,
@@ -24,6 +26,7 @@ import {
   updateOrganization,
 } from "@/api/organization";
 import { FormField, OptionToggle } from "@/components/admin/form-field";
+import { SearchableDialogPicker } from "@/components/admin/searchable-dialog-picker";
 import {
   formatCodeName,
   SearchableSelect,
@@ -107,6 +110,79 @@ type DeptForm = {
   hrbpNo: string;
   sscNo: string;
 };
+
+/** 组织负责人类字段：库中存工号，表单用弹窗选人 */
+const ORG_PERSON_NO_FIELDS = [
+  "orgLeaderNo",
+  "supervisingLeaderNo",
+  "hrCoordinatorNo",
+  "hrbpNo",
+  "sscNo",
+] as const;
+
+type OrgPersonNoField = (typeof ORG_PERSON_NO_FIELDS)[number];
+
+const ORG_PERSON_FIELD_META: Array<{ key: OrgPersonNoField; label: string }> = [
+  { key: "orgLeaderNo", label: "组织负责人" },
+  { key: "supervisingLeaderNo", label: "分管领导" },
+  { key: "hrCoordinatorNo", label: "人资协调员" },
+  { key: "hrbpNo", label: "HRBP" },
+  { key: "sscNo", label: "SSC" },
+];
+
+function toEmployeeOption(item: Employee): SearchableSelectOption {
+  const org = item.primaryOrganizationName?.trim();
+  const position = item.primaryPositionName?.trim();
+  const description = [org, position].filter(Boolean).join(" · ") || undefined;
+  return {
+    value: item.employeeNo,
+    label: item.fullName,
+    code: item.employeeNo,
+    description,
+    keywords: `${item.employeeNo} ${item.fullName} ${org ?? ""} ${position ?? ""}`,
+  };
+}
+
+function collectPersonNos(
+  source: Partial<Record<OrgPersonNoField, string | undefined>> | Organization | DeptForm,
+): string[] {
+  const nos = new Set<string>();
+  for (const key of ORG_PERSON_NO_FIELDS) {
+    const value = source[key]?.trim();
+    if (value) nos.add(value);
+  }
+  return [...nos];
+}
+
+async function resolveEmployeeOptionsByNos(
+  nos: string[],
+): Promise<Record<string, SearchableSelectOption>> {
+  const unique = [...new Set(nos.map((n) => n.trim()).filter(Boolean))];
+  if (unique.length === 0) return {};
+  const entries = await Promise.all(
+    unique.map(async (employeeNo) => {
+      try {
+        const res = await listEmployees({
+          page: 1,
+          pageSize: 1,
+          filterMode: "ADVANCED",
+          employeeNo,
+        });
+        const item = res.data.items[0];
+        if (item?.employeeNo) {
+          return [employeeNo, toEmployeeOption(item)] as const;
+        }
+      } catch {
+        // 解析失败时仍保留工号，便于展示与再次选择
+      }
+      return [
+        employeeNo,
+        { value: employeeNo, label: employeeNo, code: employeeNo, keywords: employeeNo },
+      ] as const;
+    }),
+  );
+  return Object.fromEntries(entries);
+}
 
 const STATUS_OPTIONS = [
   { id: "ACTIVE" as const, label: "有效" },
@@ -266,19 +342,28 @@ function dictOptions(options: Array<{ value: string; label: string }>): Searchab
   }));
 }
 
-function nodeMatchesKeyword(node: OrganizationTreeNode, keyword: string) {
+function nodeMatchesKeyword(
+  node: OrganizationTreeNode,
+  keyword: string,
+  employeeByNo?: Record<string, SearchableSelectOption>,
+) {
   const q = keyword.toLowerCase();
+  const leaderName = resolvedEmployeeName(node.orgLeaderNo, employeeByNo ?? {})?.toLowerCase();
   return (
     node.name.toLowerCase().includes(q) ||
     node.code.toLowerCase().includes(q) ||
-    (node.orgLeaderNo?.toLowerCase().includes(q) ?? false) ||
+    (leaderName?.includes(q) ?? false) ||
     (node.departmentTypeLabel?.toLowerCase().includes(q) ?? false) ||
     (node.departmentLevelLabel?.toLowerCase().includes(q) ?? false) ||
     (node.orgAttributeLabel?.toLowerCase().includes(q) ?? false)
   );
 }
 
-function filterOrgTree(nodes: OrganizationTreeNode[], keyword: string): OrganizationTreeNode[] {
+function filterOrgTree(
+  nodes: OrganizationTreeNode[],
+  keyword: string,
+  employeeByNo?: Record<string, SearchableSelectOption>,
+): OrganizationTreeNode[] {
   const q = keyword.trim();
   if (!q) return nodes;
 
@@ -286,7 +371,7 @@ function filterOrgTree(nodes: OrganizationTreeNode[], keyword: string): Organiza
     const filteredChildren = node.children
       .map(walk)
       .filter((n): n is OrganizationTreeNode => n !== null);
-    if (nodeMatchesKeyword(node, q) || filteredChildren.length > 0) {
+    if (nodeMatchesKeyword(node, q, employeeByNo) || filteredChildren.length > 0) {
       return { ...node, children: filteredChildren };
     }
     return null;
@@ -295,7 +380,11 @@ function filterOrgTree(nodes: OrganizationTreeNode[], keyword: string): Organiza
   return nodes.map(walk).filter((n): n is OrganizationTreeNode => n !== null);
 }
 
-function collectExpandCodesForSearch(nodes: OrganizationTreeNode[], keyword: string): Set<string> {
+function collectExpandCodesForSearch(
+  nodes: OrganizationTreeNode[],
+  keyword: string,
+  employeeByNo?: Record<string, SearchableSelectOption>,
+): Set<string> {
   const codes = new Set<string>();
   const q = keyword.trim();
   if (!q) return codes;
@@ -305,7 +394,7 @@ function collectExpandCodesForSearch(nodes: OrganizationTreeNode[], keyword: str
     for (const child of node.children) {
       if (walk(child, [...ancestors, node.code])) childMatch = true;
     }
-    const selfMatch = nodeMatchesKeyword(node, q);
+    const selfMatch = nodeMatchesKeyword(node, q, employeeByNo);
     if (selfMatch || childMatch) {
       for (const c of ancestors) codes.add(c);
       if (childMatch) codes.add(node.code);
@@ -388,16 +477,85 @@ function VersionTimeline({
   );
 }
 
+function displayEmployeeNo(
+  employeeNo: string | undefined,
+  employeeByNo: Record<string, SearchableSelectOption>,
+) {
+  const no = employeeNo?.trim();
+  if (!no) return "—";
+  const opt = employeeByNo[no];
+  if (opt?.label && opt.label !== no) {
+    return formatCodeName({ value: no, label: opt.label, code: no });
+  }
+  return no;
+}
+
+/** 仅返回已解析的姓名；未解析或解析失败时不回退工号 */
+function resolvedEmployeeName(
+  employeeNo: string | undefined,
+  employeeByNo: Record<string, SearchableSelectOption>,
+) {
+  const no = employeeNo?.trim();
+  if (!no) return undefined;
+  const label = employeeByNo[no]?.label?.trim();
+  if (!label || label === no) return undefined;
+  return label;
+}
+
+function OrgPersonPicker({
+  label,
+  value,
+  onChange,
+  options,
+  loading,
+  onSearchChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: SearchableSelectOption[];
+  loading: boolean;
+  onSearchChange: (query: string) => void;
+}) {
+  return (
+    <FormField label={label}>
+      <SearchableDialogPicker
+        value={value}
+        onChange={onChange}
+        options={options}
+        dialogTitle={`选择${label}`}
+        dialogDescription="输入员工姓名或工号搜索，点击条目完成选择"
+        placeholder={`点击搜索选择${label}`}
+        entityEmptyTitle={`点击搜索选择${label}`}
+        entityEmptyHint="在弹窗中搜索员工姓名或工号"
+        entitySelectedHint={`已选择${label}，点击可重新搜索`}
+        searchPlaceholder="搜索员工姓名 / 工号…"
+        entityIcon="briefcase"
+        formatOption={formatCodeName}
+        loading={loading}
+        shouldFilter={false}
+        onSearchChange={onSearchChange}
+        helperText="none"
+        allowEmpty
+        emptyLabel="不指定"
+        className="w-full"
+      />
+    </FormField>
+  );
+}
+
 function OrgDetailContent({
   org,
   versions,
   versionsLoading,
   onSelectVersion,
+  employeeByNo,
 }: {
   org: Organization;
   versions: OrganizationVersion[];
   versionsLoading: boolean;
   onSelectVersion: (version: OrganizationVersion) => void;
+  employeeByNo: Record<string, SearchableSelectOption>;
 }) {
   return (
     <div className="space-y-5">
@@ -444,11 +602,9 @@ function OrgDetailContent({
       </DetailSection>
 
       <DetailSection title="负责人与 HR">
-        <DetailCell label="组织负责人" value={org.orgLeaderNo} />
-        <DetailCell label="分管领导" value={org.supervisingLeaderNo} />
-        <DetailCell label="人资协调员" value={org.hrCoordinatorNo} />
-        <DetailCell label="HRBP" value={org.hrbpNo} />
-        <DetailCell label="SSC" value={org.sscNo} />
+        {ORG_PERSON_FIELD_META.map(({ key, label }) => (
+          <DetailCell key={key} label={label} value={displayEmployeeNo(org[key], employeeByNo)} />
+        ))}
       </DetailSection>
     </div>
   );
@@ -460,6 +616,7 @@ function OrgTreeItem({
   selectedId,
   expanded,
   canEdit,
+  employeeByNo,
   onToggle,
   onSelect,
   onAddChild,
@@ -472,6 +629,7 @@ function OrgTreeItem({
   selectedId?: string;
   expanded: Set<string>;
   canEdit: boolean;
+  employeeByNo: Record<string, SearchableSelectOption>;
   onToggle: (code: string) => void;
   onSelect: (org: Organization) => void;
   onAddChild: (org: Organization) => void;
@@ -483,6 +641,7 @@ function OrgTreeItem({
   const isExpanded = expanded.has(node.code);
   const selected = selectedId === node.id;
   const inactive = node.status === "INACTIVE";
+  const orgLeaderName = resolvedEmployeeName(node.orgLeaderNo, employeeByNo);
 
   return (
     <div>
@@ -537,10 +696,10 @@ function OrgTreeItem({
                   {node.orgAttributeLabel}
                 </Badge>
               ) : null}
-              {node.orgLeaderNo ? (
+              {orgLeaderName ? (
                 <Badge variant="outline" className="h-4 gap-0.5 px-1.5 text-[10px] font-normal">
                   <UserRound className="size-2.5" />
-                  {node.orgLeaderNo}
+                  {orgLeaderName}
                 </Badge>
               ) : null}
             </div>
@@ -615,6 +774,7 @@ function OrgTreeItem({
               selectedId={selectedId}
               expanded={expanded}
               canEdit={canEdit}
+              employeeByNo={employeeByNo}
               onToggle={onToggle}
               onSelect={onSelect}
               onAddChild={onAddChild}
@@ -646,6 +806,11 @@ export function AdminOrgStructurePage() {
   const [editMode, setEditMode] = useState<OrganizationEditMode>("CURRENT");
   const [versions, setVersions] = useState<OrganizationVersion[]>([]);
   const [versionsLoading, setVersionsLoading] = useState(false);
+  const [employeeSearch, setEmployeeSearch] = useState("");
+  const [employeeOptions, setEmployeeOptions] = useState<SearchableSelectOption[]>([]);
+  const [employeeLoading, setEmployeeLoading] = useState(false);
+  const [employeeByNo, setEmployeeByNo] = useState<Record<string, SearchableSelectOption>>({});
+  const debouncedEmployeeSearch = useDebouncedValue(employeeSearch, 280);
 
   const temporal = useMemo(() => temporalHint(asOfDate), [asOfDate]);
   const isViewingToday = asOfDate === todayStr();
@@ -716,17 +881,21 @@ export function AdminOrgStructurePage() {
     [state],
   );
 
+  const treeLeaderNosKey = useMemo(() => {
+    const nos = [
+      ...new Set(
+        flatOrgs
+          .map((org) => org.orgLeaderNo?.trim())
+          .filter((no): no is string => Boolean(no)),
+      ),
+    ].sort();
+    return nos.join("|");
+  }, [flatOrgs]);
+
   const filteredTree = useMemo(() => {
     if (state.type !== "ok") return [];
-    return filterOrgTree(state.tree, debouncedSearch);
-  }, [state, debouncedSearch]);
-
-  useEffect(() => {
-    if (state.type !== "ok" || !debouncedSearch.trim()) return;
-    const codes = collectExpandCodesForSearch(state.tree, debouncedSearch);
-    if (codes.size === 0) return;
-    setExpanded((prev) => new Set([...prev, ...codes]));
-  }, [debouncedSearch, state]);
+    return filterOrgTree(state.tree, debouncedSearch, employeeByNo);
+  }, [state, debouncedSearch, employeeByNo]);
 
   const parentOrgOptions = useMemo((): SearchableSelectOption[] => {
     const excludeCode = sheet.type === "edit" ? sheet.org.code : undefined;
@@ -740,12 +909,123 @@ export function AdminOrgStructurePage() {
       }));
   }, [flatOrgs, sheet]);
 
+  const mergeEmployeeByNo = useCallback((options: Record<string, SearchableSelectOption>) => {
+    setEmployeeByNo((prev) => ({ ...prev, ...options }));
+  }, []);
+
+  const rememberEmployeeOption = useCallback((option: SearchableSelectOption) => {
+    setEmployeeByNo((prev) => ({ ...prev, [option.value]: option }));
+  }, []);
+
+  useEffect(() => {
+    if (!treeLeaderNosKey) return;
+    const nos = treeLeaderNosKey.split("|").filter(Boolean);
+    const missing = nos.filter((no) => {
+      const label = employeeByNo[no]?.label?.trim();
+      return !label || label === no;
+    });
+    if (missing.length === 0) return;
+    let cancelled = false;
+    void resolveEmployeeOptionsByNos(missing).then((resolved) => {
+      if (!cancelled) mergeEmployeeByNo(resolved);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // employeeByNo 仅用于跳过已解析项，不放入 deps 以免循环请求
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mergeEmployeeByNo, treeLeaderNosKey]);
+
+  useEffect(() => {
+    if (state.type !== "ok" || !debouncedSearch.trim()) return;
+    const codes = collectExpandCodesForSearch(state.tree, debouncedSearch, employeeByNo);
+    if (codes.size === 0) return;
+    setExpanded((prev) => new Set([...prev, ...codes]));
+  }, [debouncedSearch, employeeByNo, state]);
+
+  useEffect(() => {
+    if (sheet.type !== "create" && sheet.type !== "edit") return;
+    setEmployeeLoading(true);
+    void listEmployees({
+      page: 1,
+      pageSize: 20,
+      keyword: debouncedEmployeeSearch || undefined,
+    })
+      .then((res) => {
+        const options = res.data.items.map(toEmployeeOption);
+        setEmployeeOptions(options);
+        mergeEmployeeByNo(Object.fromEntries(options.map((opt) => [opt.value, opt])));
+      })
+      .catch(() => setEmployeeOptions([]))
+      .finally(() => setEmployeeLoading(false));
+  }, [debouncedEmployeeSearch, mergeEmployeeByNo, sheet.type]);
+
+  useEffect(() => {
+    if (sheet.type !== "create" && sheet.type !== "edit") return;
+    const nos = collectPersonNos(form);
+    if (nos.length === 0) return;
+    let cancelled = false;
+    void resolveEmployeeOptionsByNos(nos).then((resolved) => {
+      if (!cancelled) mergeEmployeeByNo(resolved);
+    });
+    return () => {
+      cancelled = true;
+    };
+    // 仅在表单工号变更时回填姓名，避免与 employeeByNo 形成循环
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally scoped to person no fields
+  }, [
+    form.hrCoordinatorNo,
+    form.hrbpNo,
+    form.orgLeaderNo,
+    form.sscNo,
+    form.supervisingLeaderNo,
+    mergeEmployeeByNo,
+    sheet.type,
+  ]);
+
+  useEffect(() => {
+    const org = sheet.type === "view" ? sheet.org : selected;
+    if (!org) return;
+    const nos = collectPersonNos(org);
+    if (nos.length === 0) return;
+    let cancelled = false;
+    void resolveEmployeeOptionsByNos(nos).then((resolved) => {
+      if (!cancelled) mergeEmployeeByNo(resolved);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [mergeEmployeeByNo, selected, sheet]);
+
+  const employeePickerOptions = useMemo(() => {
+    const byValue = new Map<string, SearchableSelectOption>();
+    for (const key of ORG_PERSON_NO_FIELDS) {
+      const no = form[key]?.trim();
+      if (!no) continue;
+      byValue.set(
+        no,
+        employeeByNo[no] ?? {
+          value: no,
+          label: no,
+          code: no,
+          keywords: no,
+        },
+      );
+    }
+    for (const opt of employeeOptions) {
+      byValue.set(opt.value, opt);
+    }
+    return [...byValue.values()];
+  }, [employeeByNo, employeeOptions, form]);
+
   const openView = (org: Organization) => {
     setSelected(org);
     setSheet({ type: "view", org });
   };
 
   const openCreate = (parentCode?: string) => {
+    setEmployeeSearch("");
+    setEmployeeOptions([]);
     setForm(emptyForm(asOfDate || todayStr(), parentCode));
     setEditMode("CURRENT");
     setSheet({ type: "create", parentCode });
@@ -756,12 +1036,16 @@ export function AdminOrgStructurePage() {
   };
 
   const openEdit = (org: Organization) => {
+    setEmployeeSearch("");
+    setEmployeeOptions([]);
     setForm(formFromOrg(org));
     setEditMode("CURRENT");
     setSheet({ type: "edit", org });
   };
 
   const openNewVersion = (org: Organization) => {
+    setEmployeeSearch("");
+    setEmployeeOptions([]);
     const next = formFromOrg(org);
     next.effectiveStartDate = todayStr();
     setForm(next);
@@ -769,7 +1053,11 @@ export function AdminOrgStructurePage() {
     setSheet({ type: "edit", org });
   };
 
-  const closeSheet = () => setSheet({ type: "closed" });
+  const closeSheet = () => {
+    setSheet({ type: "closed" });
+    setEmployeeSearch("");
+    setEmployeeOptions([]);
+  };
 
   const viewVersion = async (version: OrganizationVersion) => {
     try {
@@ -784,6 +1072,14 @@ export function AdminOrgStructurePage() {
 
   const patchForm = <K extends keyof DeptForm>(key: K, value: DeptForm[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const patchPersonNo = (key: OrgPersonNoField, value: string) => {
+    patchForm(key, value);
+    if (!value) return;
+    const selectedOpt =
+      employeePickerOptions.find((opt) => opt.value === value) ?? employeeByNo[value];
+    if (selectedOpt) rememberEmployeeOption(selectedOpt);
   };
 
   const handleSave = async () => {
@@ -958,6 +1254,7 @@ export function AdminOrgStructurePage() {
                 selectedId={selected?.id}
                 expanded={expanded}
                 canEdit={canEdit}
+                employeeByNo={employeeByNo}
                 onToggle={(code) =>
                   setExpanded((prev) => {
                     const next = new Set(prev);
@@ -1001,6 +1298,7 @@ export function AdminOrgStructurePage() {
                   versions={versions}
                   versionsLoading={versionsLoading}
                   onSelectVersion={(v) => void viewVersion(v)}
+                  employeeByNo={employeeByNo}
                 />
               </div>
               <SheetFooter className="border-t px-6 py-4">
@@ -1182,27 +1480,17 @@ export function AdminOrgStructurePage() {
 
             <FormSection title="负责人与 HR">
               <FormGrid>
-                <FormField label="组织负责人" hint="暂填工号">
-                  <Input value={form.orgLeaderNo} onChange={(e) => patchForm("orgLeaderNo", e.target.value)} />
-                </FormField>
-                <FormField label="分管领导" hint="暂填工号">
-                  <Input
-                    value={form.supervisingLeaderNo}
-                    onChange={(e) => patchForm("supervisingLeaderNo", e.target.value)}
+                {ORG_PERSON_FIELD_META.map(({ key, label }) => (
+                  <OrgPersonPicker
+                    key={key}
+                    label={label}
+                    value={form[key]}
+                    onChange={(value) => patchPersonNo(key, value)}
+                    options={employeePickerOptions}
+                    loading={employeeLoading}
+                    onSearchChange={setEmployeeSearch}
                   />
-                </FormField>
-                <FormField label="人资协调员" hint="暂填工号">
-                  <Input
-                    value={form.hrCoordinatorNo}
-                    onChange={(e) => patchForm("hrCoordinatorNo", e.target.value)}
-                  />
-                </FormField>
-                <FormField label="HRBP" hint="暂填工号">
-                  <Input value={form.hrbpNo} onChange={(e) => patchForm("hrbpNo", e.target.value)} />
-                </FormField>
-                <FormField label="SSC" hint="暂填工号">
-                  <Input value={form.sscNo} onChange={(e) => patchForm("sscNo", e.target.value)} />
-                </FormField>
+                ))}
               </FormGrid>
             </FormSection>
           </div>
