@@ -1,5 +1,5 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 import { Moon, Sun } from "lucide-react";
 
@@ -15,6 +15,7 @@ import {
   getDynamicBreadcrumb,
   sysMenusToAdminTopNav,
 } from "@/config/dynamic-admin-nav";
+import { ADMIN_NAV_CHANGED_EVENT } from "@/lib/admin-nav-events";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -82,6 +83,17 @@ export function AdminLayout() {
     setThemeMounted(true);
   }, []);
 
+  const reloadTopNav = useCallback(() => {
+    void getNavMenuTree()
+      .then((res) => {
+        const converted = sysMenusToAdminTopNav(res.data);
+        if (converted.length > 0) setTopNav(converted);
+      })
+      .catch(() => {
+        // 保留静态 admin-nav 作为 fallback
+      });
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     void getNavMenuTree()
@@ -98,6 +110,12 @@ export function AdminLayout() {
     };
   }, []);
 
+  useEffect(() => {
+    const onNavChanged = () => reloadTopNav();
+    window.addEventListener(ADMIN_NAV_CHANGED_EVENT, onNavChanged);
+    return () => window.removeEventListener(ADMIN_NAV_CHANGED_EVENT, onNavChanged);
+  }, [reloadTopNav]);
+
   const isDark = resolvedTheme === "dark";
 
   function toggleTheme() {
@@ -113,11 +131,18 @@ export function AdminLayout() {
           return perm.has(item.permission) ? item : null;
         }
         const columns = item.columns
-          .map((col) => ({
-            ...col,
-            links: col.links.filter((link) => perm.has(link.permission)),
-          }))
-          .filter((col) => col.links.length > 0);
+          .map((col) => {
+            const links = col.links.filter((link) => perm.has(link.permission));
+            const sections = col.sections
+              ?.map((sec) => ({
+                ...sec,
+                links: sec.links.filter((link) => perm.has(link.permission)),
+              }))
+              .filter((sec) => sec.links.length > 0);
+            if (links.length === 0 && (!sections || sections.length === 0)) return null;
+            return { ...col, links, sections };
+          })
+          .filter((col): col is NonNullable<typeof col> => col != null);
         if (columns.length === 0) return null;
         return { ...item, columns };
       })
@@ -180,35 +205,73 @@ export function AdminLayout() {
                         {item.title}
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
-                        <div className="grid w-[720px] grid-cols-3 gap-4 p-4">
+                        <div
+                          className={cn(
+                            "grid gap-4 p-4",
+                            item.columns.length <= 3
+                              ? "w-[720px] grid-cols-3"
+                              : item.columns.length === 4
+                                ? "w-[880px] grid-cols-4"
+                                : "w-[960px] grid-cols-4",
+                          )}
+                        >
                           {item.columns.map((col) => (
                             <div key={col.title} className="space-y-2">
                               <div className="text-xs font-semibold text-foreground">
                                 {col.title}
                               </div>
-                              <div className="space-y-1">
-                                {col.links.map((link) => (
-                                  <a
-                                    key={link.to}
-                                    href={link.to}
-                                    className="block rounded-lg px-3 py-2 text-sm hover:bg-accent"
-                                    onClick={(e) => {
-                                      e.preventDefault();
-                                      navigate(link.to);
-                                    }}
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <link.icon className="h-4 w-4 text-muted-foreground" />
-                                      <span className="font-medium">{link.title}</span>
-                                    </div>
-                                    {link.description ? (
-                                      <div className="mt-1 text-xs text-muted-foreground">
-                                        {link.description}
+                              {col.sections && col.sections.length > 0 ? (
+                                <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
+                                  {col.sections.map((sec) => (
+                                    <div key={sec.title} className="space-y-1">
+                                      <div className="px-3 text-[11px] font-medium text-muted-foreground">
+                                        {sec.title}
                                       </div>
-                                    ) : null}
-                                  </a>
-                                ))}
-                              </div>
+                                      <div className="space-y-1">
+                                        {sec.links.map((link) => (
+                                          <a
+                                            key={link.to}
+                                            href={link.to}
+                                            className="block rounded-lg px-3 py-2 text-sm hover:bg-accent"
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              navigate(link.to);
+                                            }}
+                                          >
+                                            <div className="font-medium">{link.title}</div>
+                                            {link.description ? (
+                                              <div className="text-xs text-muted-foreground line-clamp-2">
+                                                {link.description}
+                                              </div>
+                                            ) : null}
+                                          </a>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  {col.links.map((link) => (
+                                    <a
+                                      key={link.to}
+                                      href={link.to}
+                                      className="block rounded-lg px-3 py-2 text-sm hover:bg-accent"
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        navigate(link.to);
+                                      }}
+                                    >
+                                      <div className="font-medium">{link.title}</div>
+                                      {link.description ? (
+                                        <div className="text-xs text-muted-foreground line-clamp-2">
+                                          {link.description}
+                                        </div>
+                                      ) : null}
+                                    </a>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

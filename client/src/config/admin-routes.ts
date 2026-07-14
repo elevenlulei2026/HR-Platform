@@ -1,4 +1,5 @@
 import { adminTopNav, flattenAdminNavLinks, type AdminNavLink } from "@/config/admin-nav";
+import { ARCHIVE_RESOURCE_SECTION } from "@/config/archive-permissions";
 
 /** Admin 路由 → 菜单权限点（与 admin-nav 保持一致） */
 export const adminRoutePermissions: Record<string, string | undefined> = {
@@ -19,7 +20,13 @@ for (const link of flattenAdminNavLinks()) {
 }
 
 export function getRoutePermission(pathname: string): string | undefined {
-  return adminRoutePermissions[pathname];
+  if (adminRoutePermissions[pathname]) return adminRoutePermissions[pathname];
+  const m = pathname.match(/^\/admin\/employees\/data\/([a-z0-9-]+)$/);
+  if (m) {
+    const section = ARCHIVE_RESOURCE_SECTION[m[1]];
+    if (section) return `employee:archive:${section}:view`;
+  }
+  return undefined;
 }
 
 export function collectAdminNavLinks(): AdminNavLink[] {

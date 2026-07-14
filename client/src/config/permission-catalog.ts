@@ -97,6 +97,8 @@ export const PERMISSION_CATALOG: CatalogModule[] = [
             { code: "create", label: "新建" },
             { code: "edit", label: "编辑" },
             { code: "delete", label: "删除" },
+            { code: "import", label: "导入" },
+            { code: "export", label: "导出" },
           ],
         }),
       ),

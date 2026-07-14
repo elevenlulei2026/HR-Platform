@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.toolkit.support.SFunction;
+import com.hrplatform.core.employee.archivedata.ArchiveDataSupport;
 import com.hrplatform.core.organization.LegalEntityService;
 import com.hrplatform.platform.crypto.FieldCryptoService;
 import org.springframework.stereotype.Service;
@@ -50,6 +51,7 @@ public class EmployeeArchiveService {
   private final EmployeeAttendanceCardHelper attendanceCardHelper;
   private final EmployeeAdminInfoHelper adminInfoHelper;
   private final EmployeeAccommodationHelper accommodationHelper;
+  private final ArchiveDataSupport archiveDataSupport;
 
   public EmployeeArchiveService(
       EmployeeService employeeService,
@@ -83,7 +85,8 @@ public class EmployeeArchiveService {
       LegalEntityService legalEntityService,
       EmployeeAttendanceCardHelper attendanceCardHelper,
       EmployeeAdminInfoHelper adminInfoHelper,
-      EmployeeAccommodationHelper accommodationHelper
+      EmployeeAccommodationHelper accommodationHelper,
+      ArchiveDataSupport archiveDataSupport
   ) {
     this.employeeService = employeeService;
     this.fieldCryptoService = fieldCryptoService;
@@ -117,6 +120,7 @@ public class EmployeeArchiveService {
     this.attendanceCardHelper = attendanceCardHelper;
     this.adminInfoHelper = adminInfoHelper;
     this.accommodationHelper = accommodationHelper;
+    this.archiveDataSupport = archiveDataSupport;
   }
 
   public Map<String, Object> getArchiveBundle(long employeeId) {
@@ -189,6 +193,7 @@ public class EmployeeArchiveService {
 
   @Transactional
   public EmployeeInternalRelativeEntity createInternalRelative(long employeeId, EmployeeInternalRelativeEntity entity) {
+    refreshInternalRelativeSnapshot(entity);
     return create(
         internalRelativeMapper,
         employeeId,
@@ -203,6 +208,14 @@ public class EmployeeArchiveService {
       long id,
       EmployeeInternalRelativeEntity entity
   ) {
+    // 编辑时若未改关联员工，沿用库中 relativeEmployeeId 再刷快照
+    if (entity.getRelativeEmployeeId() == null) {
+      EmployeeInternalRelativeEntity current = internalRelativeMapper.selectById(id);
+      if (current != null) {
+        entity.setRelativeEmployeeId(current.getRelativeEmployeeId());
+      }
+    }
+    refreshInternalRelativeSnapshot(entity);
     return update(
         internalRelativeMapper,
         employeeId,
@@ -212,6 +225,13 @@ public class EmployeeArchiveService {
         EmployeeInternalRelativeEntity::getId,
         this::mergeInternalRelative
     );
+  }
+
+  /** 按关联员工当前任职回填部门/岗位/职级/入职日/在职状态/最后工作日。 */
+  private void refreshInternalRelativeSnapshot(EmployeeInternalRelativeEntity entity) {
+    if (entity.getRelativeEmployeeId() == null) return;
+    EmployeeEntity relative = employeeService.require(entity.getRelativeEmployeeId());
+    archiveDataSupport.fillInternalRelativeSnapshot(entity, relative);
   }
 
   @Transactional

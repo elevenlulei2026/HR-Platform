@@ -2406,6 +2406,95 @@ export type EmployeeImportErrorReportRequest = {
   errors: EmployeeImportRowError[];
 };
 
+// -----------------------------
+// Slice 7.9：档案数据批管（跨员工）
+// -----------------------------
+
+/** 档案批管列表查询 */
+export type ArchiveDataListQuery = {
+  page: number;
+  pageSize: number;
+  /** 工号/姓名模糊 */
+  keyword?: string;
+  employeeNo?: string;
+  organizationId?: string;
+  /** 是否明文展示敏感字段（需 sensitive 权限） */
+  revealSensitive?: boolean;
+};
+
+/** 批管列表行：档案记录 + 员工展示字段 */
+export type ArchiveDataRowBase = {
+  employeeNo: string;
+  employeeName: string;
+  organizationName?: string;
+};
+
+export type ArchiveDataRow<T> = T & ArchiveDataRowBase;
+
+/** 批管新建：须指定 employeeId 或 employeeNo 之一 */
+export type ArchiveDataCreateRequest<T> = EmployeeArchiveCreateRequest<T> & {
+  employeeId?: string;
+  employeeNo?: string;
+};
+
+export type ArchiveDataUpdateRequest<T> = EmployeeArchiveUpdateRequest<T>;
+
+export type ArchiveDataImportResult = EmployeeImportResult;
+export type ArchiveDataImportErrorReportRequest = EmployeeImportErrorReportRequest;
+
+/** 批管资源元数据（前后端注册表对齐） */
+export type ArchiveDataResourceMeta = {
+  path: EmployeeArchiveResourcePath;
+  title: string;
+  section: ArchivePermissionSection;
+  /** 阶段 1 起仅 id-documents 为 true，其余菜单可进但能力建设中 */
+  supported: boolean;
+  description?: string;
+};
+
+export type ArchiveDataApi = {
+  /** GET /api/v1/archive-data/resources */
+  listArchiveDataResources: () => Promise<ApiResponse<ArchiveDataResourceMeta[]>>;
+  /** GET /api/v1/archive-data/{resource}?page=&pageSize=&keyword=&employeeNo=&organizationId=&revealSensitive= */
+  listArchiveData: <TPath extends EmployeeArchiveResourcePath>(
+    resource: TPath,
+    query: ArchiveDataListQuery,
+  ) => Promise<ApiResponse<PageResult<ArchiveDataRow<EmployeeArchiveResourceByPath[TPath]>>>>;
+  /** POST /api/v1/archive-data/{resource} */
+  createArchiveData: <TPath extends EmployeeArchiveResourcePath>(
+    resource: TPath,
+    req: ArchiveDataCreateRequest<EmployeeArchiveResourceByPath[TPath]>,
+  ) => Promise<ApiResponse<ArchiveDataRow<EmployeeArchiveResourceByPath[TPath]>>>;
+  /** PUT /api/v1/archive-data/{resource}/{id} */
+  updateArchiveData: <TPath extends EmployeeArchiveResourcePath>(
+    resource: TPath,
+    id: string,
+    req: ArchiveDataUpdateRequest<EmployeeArchiveResourceByPath[TPath]>,
+  ) => Promise<ApiResponse<ArchiveDataRow<EmployeeArchiveResourceByPath[TPath]>>>;
+  /** DELETE /api/v1/archive-data/{resource}/{id} */
+  deleteArchiveData: (
+    resource: EmployeeArchiveResourcePath,
+    id: string,
+  ) => Promise<ApiResponse<{ id: string; employeeId: string }>>;
+  /** GET /api/v1/archive-data/{resource}/import-template */
+  downloadArchiveDataImportTemplate: (resource: EmployeeArchiveResourcePath) => Promise<Blob>;
+  /** POST /api/v1/archive-data/{resource}/import (multipart) */
+  importArchiveData: (
+    resource: EmployeeArchiveResourcePath,
+    file: File,
+  ) => Promise<ApiResponse<ArchiveDataImportResult>>;
+  /** POST /api/v1/archive-data/{resource}/import-error-report */
+  downloadArchiveDataImportErrorReport: (
+    resource: EmployeeArchiveResourcePath,
+    req: ArchiveDataImportErrorReportRequest,
+  ) => Promise<Blob>;
+  /** GET /api/v1/archive-data/{resource}/export?... */
+  exportArchiveData: (
+    resource: EmployeeArchiveResourcePath,
+    query?: Omit<ArchiveDataListQuery, "page" | "pageSize">,
+  ) => Promise<Blob>;
+};
+
 export type EmployeeApi = {
   /** GET /api/v1/employees?page=&pageSize=&keyword=&status=&organizationId=&asOfDate= */
   listEmployees: (query: EmployeeListQuery) => Promise<ApiResponse<PageResult<Employee>>>;

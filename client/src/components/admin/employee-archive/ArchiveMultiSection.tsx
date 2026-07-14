@@ -308,7 +308,7 @@ function toPayload(
 ): Record<string, string | number | boolean | undefined> {
   const payload: Record<string, string | number | boolean | undefined> = {};
   for (const field of fieldDefs) {
-    if (field.displayKey) continue;
+    // displayKey 仅用于展示标签，不得跳过 field.key 本身（否则如 employmentStatus 不会入库）
     const raw = form[field.key]?.trim() ?? "";
     if (!raw) {
       payload[field.key] = undefined;
@@ -783,9 +783,10 @@ export function ArchiveMultiSection<TPath extends EmployeeArchiveResourcePath>({
 
   const renderFieldControl = (field: ArchiveFieldDef) => {
     if (field.readOnly) {
-      const displayValue = field.displayKey
-        ? form[field.displayKey] ?? ""
-        : form[field.key] ?? "";
+      const displayValue =
+        (field.displayKey ? form[field.displayKey] : undefined) ||
+        form[field.key] ||
+        "";
       return (
         <ReadOnlyFieldValue
           value={displayValue}

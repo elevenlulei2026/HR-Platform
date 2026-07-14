@@ -21,6 +21,12 @@ export type AdminNavLink = {
   icon: React.ComponentType<{ className?: string }>;
 };
 
+export type AdminNavColumn = {
+  title: string;
+  links: AdminNavLink[];
+  sections?: Array<{ title: string; links: AdminNavLink[] }>;
+};
+
 export type AdminNavTopItem =
   | {
       type: "link";
@@ -33,7 +39,7 @@ export type AdminNavTopItem =
       type: "mega";
       title: string;
       icon: React.ComponentType<{ className?: string }>;
-      columns: Array<{ title: string; links: AdminNavLink[] }>;
+      columns: AdminNavColumn[];
     };
 
 export const adminTopNav: AdminNavTopItem[] = [
@@ -96,6 +102,25 @@ export const adminTopNav: AdminNavTopItem[] = [
             group: "员工主数据",
             permission: "reporting-line:view",
             icon: ShieldCheck,
+          },
+        ],
+      },
+      {
+        title: "管理数据",
+        links: [],
+        sections: [
+          {
+            title: "个人信息",
+            links: [
+              {
+                title: "证件信息",
+                description: "跨员工证件信息批管（试点）",
+                to: "/admin/employees/data/id-documents",
+                group: "管理数据 / 个人信息",
+                permission: "employee:archive:personal:view",
+                icon: ClipboardList,
+              },
+            ],
           },
         ],
       },
@@ -202,6 +227,11 @@ export function flattenAdminNavLinks(): AdminNavLink[] {
     if (item.type === "mega") {
       for (const col of item.columns) {
         out.push(...col.links);
+        if (col.sections) {
+          for (const sec of col.sections) {
+            out.push(...sec.links);
+          }
+        }
       }
     }
   }
@@ -219,6 +249,13 @@ export function getAdminBreadcrumb(pathname: string): string[] {
     for (const col of item.columns) {
       for (const link of col.links) {
         if (link.to === pathname) return [item.title, col.title, link.title];
+      }
+      if (col.sections) {
+        for (const sec of col.sections) {
+          for (const link of sec.links) {
+            if (link.to === pathname) return [item.title, col.title, sec.title, link.title];
+          }
+        }
       }
     }
   }

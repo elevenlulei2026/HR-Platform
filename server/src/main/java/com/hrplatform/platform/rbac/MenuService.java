@@ -82,7 +82,8 @@ public class MenuService {
     }
     if (patch.getSortOrder() != null) cur.setSortOrder(patch.getSortOrder());
     if (patch.getStatus() != null) cur.setStatus(patch.getStatus());
-    if (patch.getDescription() != null) cur.setDescription(patch.getDescription());
+    // 说明允许清空：空串也要写入（MyBatis-Plus 默认忽略 null，不能用 null 表示清空）
+    if (patch.getDescription() != null) cur.setDescription(patch.getDescription().trim());
     if (patch.getParentId() != null) cur.setParentId(patch.getParentId());
     menuMapper.updateById(cur);
     return require(id);

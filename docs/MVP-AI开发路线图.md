@@ -83,6 +83,7 @@
 | **7.6 汇报关系** | `reporting_line`，支持 `asOfDate` |
 | **7.7 异动事件** | `employee_movement` + 字典种子；档案 Tab 只读 |
 | **7.8 导入导出** | Excel 模板、校验报告、花名册导出 + 审计 |
+| **7.9 档案数据批管** | 「管理数据」菜单：跨员工维护档案子表；阶段 1 证件信息试点 |
 | 花名册 + 档案 Sheet | 5 个一级 Tab + 异动；见前端 UI 规范 §5.2 |
 
 ## 阶段 3：入转调离（Slice 8–12）
@@ -158,6 +159,7 @@
 /admin/dashboard                工作台（人力驾驶舱 + 待办摘要）
 /admin/employees/roster         员工花名册（列表 + Sheet 抽屉档案）
 /admin/employees/reporting-lines 汇报关系（支持 asOfDate）
+/admin/employees/data/:resource 档案数据批管（管理数据；阶段 1：id-documents）
 /admin/org/structure            组织架构
 /admin/org/positions            岗位体系
 /admin/org/headcount            编制管理
@@ -550,7 +552,22 @@ flowchart TD
 - **7.8.3**：前端花名册导入/导出按钮组
   - 验收：真实 API；导出前 ConfirmDialog；loading/error/empty 完整
 
-**Slice 7 完成定义（DoD）**：§4.1 表格 27 行均可通过花名册档案 Sheet 或关联 API 维护；7.6–7.8 验收通过。
+#### 7.9 档案数据批管（管理数据）
+
+> **定位**：与花名册档案同表同规则，入口为对象维度跨员工批管（导入/导出）。菜单「管理数据」下 5 子 GROUP 对齐档案五一级模块。
+> **原则**：零新业务表；写操作委托 `EmployeeArchiveService`；泛型页 + Handler 注册，禁止 26 套复制。
+> **开发模板**（必读）：`docs/档案数据批管开发模板.md`；参考实现 `IdDocumentArchiveDataHandler`。
+
+- **7.9.1（阶段 1）**：契约 `ArchiveDataApi` + Flyway 菜单（5 子 GROUP + 26 ITEM）+ 分区 import/export 权限
+  - 验收：Mega 可见「管理数据」分区；admin/hr 含 import/export 点
+- **7.9.2（阶段 1）**：后端 `/api/v1/archive-data/{resource}` + **Handler 框架** + **证件信息**列表/CRUD/导入/导出
+  - 验收：同工号+证件类型 upsert；校验委托档案 Service；导出写审计
+- **7.9.3（阶段 1）**：前端泛型页 + `ArchiveDataImportDialog` + 证件试点配置
+  - 验收：未支持资源显示建设中；证件页 loading/error/empty + Sheet + 四步导入
+- **7.9.4+**：按模板逐个接入其余 resource（个人信息 → 工作 → 服务 → 背景 → 人才发展）
+  - 验收：每接入一个，前后端 `supported=true`；导入模板字段对齐档案表单
+
+**Slice 7 完成定义（DoD）**：§4.1 表格 27 行均可通过花名册档案 Sheet 或关联 API 维护；7.6–7.9 阶段 1 验收通过。
 
 ### Slice 8：入职
 

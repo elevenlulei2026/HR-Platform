@@ -72,6 +72,22 @@ public class ArchivePermissionSupport {
     );
   }
 
+  public void requireImport(String resource) {
+    rbacService.requireAnyPermission(
+        archiveCode(resource, "import"),
+        archiveCode(resource, "edit"),
+        "employee:edit",
+        "employee:roster:import"
+    );
+  }
+
+  public void requireExport(String resource) {
+    rbacService.requireAnyPermission(
+        archiveCode(resource, "export"),
+        "employee:export"
+    );
+  }
+
   public String sectionFor(String resource) {
     String section = RESOURCE_SECTION.get(resource);
     if (section == null) {

@@ -22,6 +22,7 @@ import { OptionSelect } from "@/components/admin/option-select";
 import { flattenMenus } from "@/components/admin/rbac/menu-utils";
 import { StatusBadge, toApiError, type LoadState } from "@/components/admin/rbac/rbac-shared";
 import { PanelCard, PanelEmpty, PanelError, PanelLoading } from "@/components/admin/page-shell";
+import { notifyAdminNavChanged } from "@/lib/admin-nav-events";
 import { cn } from "@/lib/utils";
 
 type MenuForm = {
@@ -42,6 +43,10 @@ const MENU_TYPE_OPTIONS: Array<{ id: SysMenuType; label: string }> = [
   { id: "GROUP", label: "分组" },
   { id: "ITEM", label: "菜单项" },
 ];
+
+function menuTypeLabel(type: SysMenuType): string {
+  return MENU_TYPE_OPTIONS.find((o) => o.id === type)?.label ?? type;
+}
 
 function emptyMenuForm(parentId = ""): MenuForm {
   return {
@@ -146,7 +151,8 @@ export function MenuManagementTab() {
         permissionCode: form.permissionCode.trim() || undefined,
         sortOrder: form.sortOrder,
         status: form.status,
-        description: form.description.trim() || undefined,
+        // 始终提交说明（含空串），避免清空后被 omit 导致后端不写库
+        description: form.description.trim(),
       };
 
       if (sheetMode === "create") {
@@ -158,6 +164,7 @@ export function MenuManagementTab() {
       }
       setSheetOpen(false);
       await load();
+      notifyAdminNavChanged();
     } catch (e: unknown) {
       const err = toApiError(e);
       toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
@@ -173,6 +180,7 @@ export function MenuManagementTab() {
       if (selectedId === deleteTarget.id) setSelectedId(null);
       setDeleteTarget(null);
       await load();
+      notifyAdminNavChanged();
     } catch (e: unknown) {
       const err = toApiError(e);
       toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
@@ -221,8 +229,8 @@ export function MenuManagementTab() {
               onClick={() => setSelectedId(m.id)}
             >
               <span className="truncate text-sm font-medium">{m.title}</span>
-              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
-                {m.menuType}
+              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                {menuTypeLabel(m.menuType)}
               </span>
               <StatusBadge status={m.status} />
             </button>
@@ -299,7 +307,7 @@ export function MenuManagementTab() {
               </div>
               <div>
                 <dt className="text-xs text-muted-foreground">类型</dt>
-                <dd>{selected.menuType}</dd>
+                <dd>{menuTypeLabel(selected.menuType)}</dd>
               </div>
               {selected.path ? (
                 <div>
@@ -313,12 +321,12 @@ export function MenuManagementTab() {
                   <dd className="font-mono text-xs">{selected.permissionCode}</dd>
                 </div>
               ) : null}
-              {selected.description ? (
-                <div>
-                  <dt className="text-xs text-muted-foreground">说明</dt>
-                  <dd className="text-muted-foreground">{selected.description}</dd>
-                </div>
-              ) : null}
+              <div>
+                <dt className="text-xs text-muted-foreground">说明</dt>
+                <dd className="text-muted-foreground">
+                  {selected.description?.trim() ? selected.description : "—"}
+                </dd>
+              </div>
               <div className="flex gap-2 pt-2">
                 <Button size="sm" variant="outline" onClick={() => openEdit(selected)}>
                   编辑

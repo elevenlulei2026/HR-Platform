@@ -126,6 +126,7 @@
 | | 编制管理 | `headcount` | `headcount:view` | `/admin/org/headcount` | 6 |
 | 员工主数据 | 员工花名册 | `roster` | `employee:roster:view` | `/admin/employees/roster` | 7（含 27 项档案 Sheet） |
 | | 档案详情 | `employee-archive` | `employee:detail:view` | 花名册内抽屉（6 Tab），无独立列表页 | 7 |
+| 管理数据 | 证件信息等 26 项 | `archive-data` | `employee:archive:{section}:view` | `/admin/employees/data/{resource}` | 7.9（阶段 1：证件试点） |
 | | 汇报关系 | `reporting-line` | `reporting-line:view` | `/admin/employees/reporting-lines` | 7.6 |
 | 入转调离 | 入职办理 | `onboarding` | `onboarding:view` | `/admin/onboarding` | 8 |
 | | 人事异动 | `movement` | `employee:movement:view` | `/admin/movements` | 9–10 |
