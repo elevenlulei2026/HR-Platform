@@ -338,7 +338,7 @@ export function AgreementSection({
         ) : (
           <ArchiveRecordList>
             {items.map((item, index) => {
-              const statusLabel = archiveValidityStatusLabel(item.status);
+              const statusLabel = item.statusLabel || archiveValidityStatusLabel(item.status);
               const legalEntityName =
                 (item.legalEntityId ? legalNameById[String(item.legalEntityId)] : undefined) ||
                 (item.legalEntityId ? String(item.legalEntityId) : "—");

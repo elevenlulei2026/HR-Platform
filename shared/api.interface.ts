@@ -1893,11 +1893,14 @@ export type EmployeeContract = EmployeeArchiveRecordBase & {
   contractCategoryDescLabel?: string;
   legalEntityId?: string;
   operationType?: string;
+  /** 操作类型名称（后端拼装：新签/续签/变更/解除） */
+  operationTypeLabel?: string;
   startDate?: string; // YYYY-MM-DD
   endDate?: string; // YYYY-MM-DD
   /** @deprecated 旧字段：生效日期（已迁移为 effectiveStartDate/effectiveEndDate） */
   effectiveDate?: string; // YYYY-MM-DD
   status?: string;
+  statusLabel?: string;
   fileAttachmentId?: string;
   /** 合同签订次数（同员工合同按时间排序自动计算，只读） */
   signingTimes?: number;
@@ -1912,8 +1915,10 @@ export type EmployeeAgreement = EmployeeArchiveRecordBase & {
   agreementCode?: string;
   /** 操作类型（数据字典：AGREEMENT_OPERATION_TYPE） */
   operationType?: string;
+  operationTypeLabel?: string;
   /** 协议状态：VALID / INVALID */
   status?: string;
+  statusLabel?: string;
   /** 协议类别（数据字典：AGREEMENT_CATEGORY） */
   agreementCategory?: string;
   agreementCategoryLabel?: string;

@@ -118,6 +118,10 @@ export type ArchiveFieldDef = {
   sensitive?: boolean;
   /** 关联主数据下拉 */
   reference?: "legalEntity" | "employee";
+  /** 父子值类型编码（如 CONTRACT_CATEGORY）；有 parentFieldKey 则为二级 */
+  parentChildType?: string;
+  /** 二级父子值依赖的一级字段 key */
+  parentFieldKey?: string;
   /** 数据字典选项键（对应 EmployeeFormOptions） */
   dictKey?: ArchiveDictKey;
   /** 数据字典 typeCode；有值时组件会自行拉取，避免花名册缓存的 formOptions 缺项 */

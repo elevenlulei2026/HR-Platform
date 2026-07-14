@@ -29,9 +29,9 @@ public final class ArchiveDataResourceRegistry {
     put("family-members", "家庭成员", "personal", true, "跨员工家庭成员批管");
     put("internal-relatives", "内部亲属", "personal", true, "跨员工内部亲属批管");
     // 工作信息（合同/协议权限分区与现有档案 API 一致为 service）
-    put("cost-center-allocations", "成本中心", "work", false, "跨员工成本中心分摊批管");
-    put("contracts", "合同信息", "service", false, "跨员工合同档案批管");
-    put("agreements", "协议信息", "service", false, "跨员工协议档案批管");
+    put("cost-center-allocations", "成本中心", "work", true, "跨员工成本中心分摊批管");
+    put("contracts", "合同信息", "service", true, "跨员工合同档案批管");
+    put("agreements", "协议信息", "service", true, "跨员工协议档案批管");
     // 员工服务
     put("attendance-cards", "考勤卡", "service", false, "跨员工考勤卡批管");
     put("bank-accounts", "银行卡", "service", false, "跨员工银行卡批管");

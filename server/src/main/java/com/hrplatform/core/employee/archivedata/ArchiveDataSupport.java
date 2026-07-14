@@ -10,9 +10,13 @@ import com.hrplatform.core.employee.EmployeeMovementEntity;
 import com.hrplatform.core.employee.EmployeeMovementMapper;
 import com.hrplatform.core.employee.EmployeeService;
 import com.hrplatform.core.employee.archivedata.ArchiveDataModels.RowImportException;
+import com.hrplatform.core.organization.LegalEntityEntity;
+import com.hrplatform.core.organization.LegalEntityMapper;
 import com.hrplatform.core.organization.OrganizationMapper;
 import com.hrplatform.core.organization.PositionEntity;
 import com.hrplatform.core.organization.PositionMapper;
+import com.hrplatform.platform.parentchild.ParentChildCatalogService;
+import com.hrplatform.platform.parentchild.ParentChildItemEntity;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.ss.usermodel.Row;
@@ -22,6 +26,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayOutputStream;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.HashMap;
@@ -44,6 +49,8 @@ public class ArchiveDataSupport {
   private final EmployeeMovementMapper movementMapper;
   private final OrganizationMapper organizationMapper;
   private final PositionMapper positionMapper;
+  private final LegalEntityMapper legalEntityMapper;
+  private final ParentChildCatalogService parentChildCatalogService;
   private final DataFormatter dataFormatter = new DataFormatter();
 
   public ArchiveDataSupport(
@@ -52,7 +59,9 @@ public class ArchiveDataSupport {
       EmployeeAssignmentMapper assignmentMapper,
       EmployeeMovementMapper movementMapper,
       OrganizationMapper organizationMapper,
-      PositionMapper positionMapper
+      PositionMapper positionMapper,
+      LegalEntityMapper legalEntityMapper,
+      ParentChildCatalogService parentChildCatalogService
   ) {
     this.employeeService = employeeService;
     this.employeeMapper = employeeMapper;
@@ -60,6 +69,8 @@ public class ArchiveDataSupport {
     this.movementMapper = movementMapper;
     this.organizationMapper = organizationMapper;
     this.positionMapper = positionMapper;
+    this.legalEntityMapper = legalEntityMapper;
+    this.parentChildCatalogService = parentChildCatalogService;
   }
 
   public EmployeeService employeeService() {
@@ -251,6 +262,141 @@ public class ArchiveDataSupport {
 
   public void putDictLabel(Map<String, Object> dto, String field, String dictType, String value) {
     dto.put(field + "Label", employeeService.dictLabel(dictType, value));
+  }
+
+  public Long resolveLegalEntityId(String raw, String fieldLabel, boolean required) {
+    if (raw == null || raw.isBlank()) {
+      if (required) throw new RowImportException(fieldLabel, fieldLabel + "不能为空");
+      return null;
+    }
+    String input = raw.trim();
+    try {
+      Long id = Long.parseLong(input);
+      LegalEntityEntity byId = legalEntityMapper.selectById(id);
+      if (byId != null) return byId.getId();
+    } catch (NumberFormatException ignored) {
+      // 继续按编码/名称匹配
+    }
+    LegalEntityEntity byCode = legalEntityMapper.selectOne(
+        new LambdaQueryWrapper<LegalEntityEntity>().eq(LegalEntityEntity::getCode, input)
+    );
+    if (byCode != null) return byCode.getId();
+    List<LegalEntityEntity> byName = legalEntityMapper.selectList(
+        new LambdaQueryWrapper<LegalEntityEntity>().eq(LegalEntityEntity::getName, input)
+    );
+    if (byName.size() == 1) return byName.get(0).getId();
+    if (byName.size() > 1) {
+      throw new RowImportException(fieldLabel, "法人名称重复，请改填法人编码: " + input);
+    }
+    throw new RowImportException(fieldLabel, "无法识别的法人: " + input);
+  }
+
+  public Long resolveLegalEntityIdFromBody(Object raw) {
+    String s = str(raw);
+    if (s.isBlank()) return null;
+    try {
+      return resolveLegalEntityId(s, "法人主体", false);
+    } catch (RowImportException e) {
+      throw new IllegalArgumentException(e.getMessage());
+    }
+  }
+
+  public void attachLegalEntityDisplay(Map<String, Object> dto, Long legalEntityId) {
+    if (legalEntityId == null) return;
+    LegalEntityEntity entity = legalEntityMapper.selectById(legalEntityId);
+    if (entity == null) return;
+    dto.put("legalEntityId", String.valueOf(entity.getId()));
+    dto.put("legalEntityCode", entity.getCode());
+    dto.put("legalEntityName", entity.getName());
+  }
+
+  public String legalEntityDisplayName(Long legalEntityId) {
+    if (legalEntityId == null) return "";
+    LegalEntityEntity entity = legalEntityMapper.selectById(legalEntityId);
+    if (entity == null) return String.valueOf(legalEntityId);
+    if (entity.getName() != null && !entity.getName().isBlank()) return entity.getName();
+    return entity.getCode() == null ? String.valueOf(legalEntityId) : entity.getCode();
+  }
+
+  /**
+   * 解析父子值编码；parentCode 为空表示解析一级；非空表示在该父项下解析二级。
+   */
+  public String resolveParentChildCode(
+      String typeCode,
+      String raw,
+      String parentCode,
+      String fieldLabel
+  ) {
+    if (raw == null || raw.isBlank()) return null;
+    String input = raw.trim();
+    List<ParentChildItemEntity> candidates;
+    if (parentCode == null) {
+      candidates = parentChildCatalogService.listParents(typeCode);
+    } else {
+      candidates = parentChildCatalogService.listChildren(typeCode, parentCode);
+    }
+    for (ParentChildItemEntity item : candidates) {
+      if (input.equals(item.getCode())) return item.getCode();
+    }
+    for (ParentChildItemEntity item : candidates) {
+      if (input.equals(item.getName())) return item.getCode();
+    }
+    throw new RowImportException(fieldLabel, "无法识别的父子值: " + input);
+  }
+
+  public String parentChildDisplayName(String typeCode, String code) {
+    if (code == null || code.isBlank()) return "";
+    try {
+      ParentChildItemEntity item = parentChildCatalogService.requireItemByCode(typeCode, code);
+      return item.getName() == null || item.getName().isBlank() ? code : item.getName();
+    } catch (Exception e) {
+      return code;
+    }
+  }
+
+  public static String resolveValidityStatus(String raw, String fieldLabel) {
+    if (raw == null || raw.isBlank()) return null;
+    String v = raw.trim();
+    if (Set.of("VALID", "有效", "Y", "1").contains(v) || "valid".equalsIgnoreCase(v)) return "VALID";
+    if (Set.of("INVALID", "无效", "N", "0").contains(v) || "invalid".equalsIgnoreCase(v)) return "INVALID";
+    throw new RowImportException(fieldLabel, "须为 有效/无效 或 VALID/INVALID");
+  }
+
+  public static String validityStatusLabel(String status) {
+    if (status == null || status.isBlank()) return "";
+    String s = status.trim();
+    if ("VALID".equalsIgnoreCase(s) || "有效".equals(s)) return "有效";
+    if ("INVALID".equalsIgnoreCase(s) || "无效".equals(s)) return "无效";
+    return s;
+  }
+
+  public static BigDecimal parseOptionalDecimal(Object raw, String field) {
+    String s = str(raw);
+    if (s.isBlank()) return null;
+    try {
+      return new BigDecimal(s);
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(field + "须为数字");
+    }
+  }
+
+  public static BigDecimal parseDecimal(String raw, String field) {
+    if (raw == null || raw.isBlank()) return null;
+    try {
+      return new BigDecimal(raw.trim());
+    } catch (NumberFormatException e) {
+      throw new RowImportException(field, "须为数字");
+    }
+  }
+
+  public static Long parseOptionalLong(Object raw, String field) {
+    String s = str(raw);
+    if (s.isBlank()) return null;
+    try {
+      return Long.parseLong(s);
+    } catch (NumberFormatException e) {
+      throw new IllegalArgumentException(field + "须为整数");
+    }
   }
 
   public String cell(Row row, int idx) {

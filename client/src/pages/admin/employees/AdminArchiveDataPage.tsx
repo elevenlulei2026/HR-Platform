@@ -1,6 +1,5 @@
 import type {
   Employee,
-  EmployeeFormOptions,
   OrganizationTreeNode,
 } from "@shared/api.interface";
 
@@ -28,15 +27,17 @@ import {
   listArchiveData,
   updateArchiveData,
 } from "@/api/archive-data";
+import { listDictItemsByTypeCode } from "@/api/dict";
 import { getEmployeeFormOptions, listEmployees } from "@/api/employee";
-import { flattenOrgTree, getOrganizationTree } from "@/api/organization";
+import { flattenOrgTree, getOrganizationTree, listLegalEntities } from "@/api/organization";
+import { listChildrenByParent, listParentsByType } from "@/api/parent-child-catalog";
 import { ArchiveDataImportDialog } from "@/components/admin/archive-data/ArchiveDataImportDialog";
 import type { ArchiveFieldDef } from "@/components/admin/employee-archive/ArchiveMultiSection";
+import { archiveValidityStatusLabel } from "@/components/admin/employee-archive/archive-status-ui";
 import { fetchInternalRelativeSnapshot } from "@/components/admin/employee-archive/internal-relative-snapshot";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { FormField, OptionToggle } from "@/components/admin/form-field";
 import {
-  adminFilterInputClassName,
   adminFilterInputGroupClassName,
   adminFilterSearchableTriggerClassName,
   adminFormControlPlaceholderClassName,
@@ -116,13 +117,17 @@ type FormValues = Record<string, string>;
 
 type DictOption = { value: string; label: string };
 
-type DictBag = Partial<Record<keyof EmployeeFormOptions, DictOption[]>>;
+type DictBag = Record<string, DictOption[]>;
 
 function emptyForm(fields: ArchiveFieldDef[]): FormValues {
   const form: FormValues = { employeeId: "", employeeNo: "" };
   for (const field of fields) {
     if (field.type === "boolean") {
       form[field.key] = "false";
+    } else if (field.type === "toggle" && field.options?.some((o) => o.value === "VALID")) {
+      form[field.key] = "VALID";
+    } else if (field.options?.length === 1) {
+      form[field.key] = field.options[0].value;
     } else {
       form[field.key] = "";
     }
@@ -211,11 +216,52 @@ function dictLabel(options: DictOption[] | undefined, value?: unknown): string {
   return options?.find((o) => o.value === code)?.label ?? code;
 }
 
+/** 优先 *Label / field.options / 专用映射，避免误用空字典把 code 当作最终展示 */
+function resolveCodedFieldLabel(
+  item: ArchiveDataItem,
+  key: string,
+  value: unknown,
+  field: ArchiveFieldDef | undefined,
+  dictBag: DictBag,
+): string {
+  const code = value == null ? "" : String(value).trim();
+  const fromApi = item[`${key}Label`];
+  if (typeof fromApi === "string" && fromApi.trim()) return fromApi.trim();
+
+  if (field?.options?.length) {
+    const hit = field.options.find((o) => o.value === code);
+    if (hit) return hit.label;
+  }
+
+  if (key === "status") {
+    return archiveValidityStatusLabel(code);
+  }
+
+  if (field?.dictTypeCode) {
+    const opts = dictBag[field.dictTypeCode];
+    if (opts?.length) {
+      const hit = opts.find((o) => o.value === code);
+      if (hit) return hit.label;
+    }
+  }
+
+  if (field?.dictKey) {
+    const opts = dictBag[field.dictKey];
+    if (opts?.length) {
+      const hit = opts.find((o) => o.value === code);
+      if (hit) return hit.label;
+    }
+  }
+
+  return code || "—";
+}
+
 function cellText(
   item: ArchiveDataItem,
   key: string,
   dictBag: DictBag,
   fieldDefs: ArchiveFieldDef[],
+  legalOptions: SearchableSelectOption[],
 ): React.ReactNode {
   const field = fieldDefs.find((f) => f.key === key);
   const value = item[key];
@@ -232,8 +278,16 @@ function cellText(
     );
   }
 
+  if (key === "legalEntityId") {
+    const name = item.legalEntityName ? String(item.legalEntityName) : "";
+    const code = item.legalEntityCode ? String(item.legalEntityCode) : "";
+    if (name || code) return name || code;
+    if (value == null || value === "") return "—";
+    return legalOptions.find((o) => o.value === String(value))?.label ?? String(value);
+  }
+
   if (key === "relation") {
-    return String(item.relationLabel ?? dictLabel(dictBag.employeeRelations, value));
+    return resolveCodedFieldLabel(item, key, value, field, dictBag);
   }
   if (key === "countryRegion") {
     return dictLabel(dictBag.countryRegions, value);
@@ -243,6 +297,21 @@ function cellText(
   }
   if (key === "employmentStatus") {
     return String(item.employmentStatusLabel ?? value ?? "—");
+  }
+  if (
+    key === "status" ||
+    key === "operationType" ||
+    key === "contractCategory" ||
+    key === "contractCategoryDesc" ||
+    key === "agreementCategory"
+  ) {
+    if (key === "contractCategory" && item.contractCategoryLabel) {
+      return String(item.contractCategoryLabel);
+    }
+    if (key === "contractCategoryDesc" && item.contractCategoryDescLabel) {
+      return String(item.contractCategoryDescLabel);
+    }
+    return resolveCodedFieldLabel(item, key, value, field, dictBag);
   }
 
   if (typeof value === "boolean" || field?.type === "boolean") {
@@ -260,6 +329,12 @@ function cellText(
         ) : null}
       </span>
     );
+  }
+
+  // 其它带 options 的编码字段（兜底）
+  if (field?.options?.length && value != null && value !== "") {
+    const hit = field.options.find((o) => o.value === String(value).trim());
+    if (hit) return hit.label;
   }
 
   if (value == null || value === "") return "—";
@@ -312,7 +387,10 @@ export function AdminArchiveDataPage() {
   const [relativeLoading, setRelativeLoading] = useState(false);
 
   const [orgOptions, setOrgOptions] = useState<SearchableSelectOption[]>([]);
+  const [legalOptions, setLegalOptions] = useState<SearchableSelectOption[]>([]);
   const [dictBag, setDictBag] = useState<DictBag>({});
+  const [parentChildParents, setParentChildParents] = useState<Record<string, DictOption[]>>({});
+  const [parentChildChildren, setParentChildChildren] = useState<DictOption[]>([]);
   const [employeeOptions, setEmployeeOptions] = useState<SearchableSelectOption[]>([]);
   const [selectedEmployeeOption, setSelectedEmployeeOption] = useState<SearchableSelectOption | null>(
     null,
@@ -330,6 +408,10 @@ export function AdminArchiveDataPage() {
 
   const needsRelativePicker = useMemo(
     () => (def?.formFields ?? []).some((f) => f.reference === "employee"),
+    [def?.formFields],
+  );
+  const needsLegalEntity = useMemo(
+    () => (def?.formFields ?? []).some((f) => f.reference === "legalEntity"),
     [def?.formFields],
   );
 
@@ -395,11 +477,12 @@ export function AdminArchiveDataPage() {
           })),
         );
         const data = formRes.data;
-        setDictBag({
+        setDictBag((prev) => ({
+          ...prev,
           countryRegions: data?.countryRegions ?? [],
           idTypes: data?.idTypes ?? [],
           employeeRelations: data?.employeeRelations ?? [],
-        });
+        }));
       } catch {
         // 筛选项失败不阻断列表
       }
@@ -408,6 +491,136 @@ export function AdminArchiveDataPage() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!needsLegalEntity) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await listLegalEntities({ page: 1, pageSize: 200 });
+        if (cancelled) return;
+        setLegalOptions(
+          res.data.items.map((e) => ({
+            value: e.id,
+            label: e.name,
+            code: e.code,
+            keywords: [e.code, e.name].filter(Boolean).join(" "),
+          })),
+        );
+      } catch {
+        if (!cancelled) setLegalOptions([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [needsLegalEntity]);
+
+  useEffect(() => {
+    if (!def?.formFields) return;
+    const typeCodes = [
+      ...new Set(
+        def.formFields
+          .map((f) => f.dictTypeCode)
+          .filter((code): code is string => Boolean(code)),
+      ),
+    ];
+    if (typeCodes.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const pairs = await Promise.all(
+          typeCodes.map(async (code) => {
+            const res = await listDictItemsByTypeCode(code);
+            return [
+              code,
+              res.data
+                .filter((i) => i.status === "ACTIVE")
+                .sort((a, b) => a.sort - b.sort)
+                .map((i) => ({ value: i.value, label: i.label })),
+            ] as const;
+          }),
+        );
+        if (cancelled) return;
+        setDictBag((prev) => {
+          const next = { ...prev };
+          for (const [code, options] of pairs) next[code] = options;
+          return next;
+        });
+      } catch {
+        // 字典失败不阻断
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [def?.formFields, resource]);
+
+  useEffect(() => {
+    if (!def?.formFields) return;
+    const parentTypes = [
+      ...new Set(
+        def.formFields
+          .filter((f) => f.parentChildType && !f.parentFieldKey)
+          .map((f) => f.parentChildType!)
+      ),
+    ];
+    if (parentTypes.length === 0) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const pairs = await Promise.all(
+          parentTypes.map(async (typeCode) => {
+            const res = await listParentsByType(typeCode);
+            return [
+              typeCode,
+              res.data.map((p) => ({ value: p.code, label: p.name })),
+            ] as const;
+          }),
+        );
+        if (cancelled) return;
+        const map: Record<string, DictOption[]> = {};
+        for (const [code, options] of pairs) map[code] = options;
+        setParentChildParents(map);
+      } catch {
+        if (!cancelled) setParentChildParents({});
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [def?.formFields, resource]);
+
+  const contractParentCode = form.contractCategory?.trim() ?? "";
+
+  useEffect(() => {
+    if (!def?.formFields || sheet.type === "closed") return;
+    const childField = def.formFields.find((f) => f.parentChildType && f.parentFieldKey);
+    if (!childField?.parentChildType || !childField.parentFieldKey) {
+      setParentChildChildren([]);
+      return;
+    }
+    const parentCode = (form[childField.parentFieldKey] ?? "").trim();
+    if (!parentCode) {
+      setParentChildChildren([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await listChildrenByParent(childField.parentChildType!, parentCode);
+        if (cancelled) return;
+        setParentChildChildren(res.data.map((c) => ({ value: c.code, label: c.name })));
+      } catch {
+        if (!cancelled) setParentChildChildren([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // 仅在父级类别变化时重载二级选项
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [def?.formFields, sheet.type, contractParentCode]);
 
   useEffect(() => {
     if (sheet.type !== "new") return;
@@ -537,13 +750,17 @@ export function AdminArchiveDataPage() {
     };
     for (const field of def.formFields) {
       if (field.readOnly && field.reference !== "employee") {
-        // 只读快照也提交，后端会按关联员工刷新
         const v = form[field.key]?.trim() ?? "";
         if (v) payload[field.key] = v;
         continue;
       }
       if (field.type === "boolean") {
         payload[field.key] = form[field.key] === "true";
+        continue;
+      }
+      if (field.type === "number") {
+        const v = form[field.key]?.trim() ?? "";
+        if (v) payload[field.key] = Number(v);
         continue;
       }
       if (field.sensitive) {
@@ -659,6 +876,64 @@ export function AdminArchiveDataPage() {
       );
     }
 
+    if (field.reference === "legalEntity") {
+      return (
+        <SearchableSelect
+          value={form[field.key] ?? ""}
+          onChange={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
+          options={legalOptions}
+          placeholder="请选择法人"
+          searchPlaceholder="搜索法人编码 / 名称…"
+          allowEmpty={!field.required}
+          emptyLabel="不指定"
+          formatOption={formatCodeName}
+          className="w-full"
+        />
+      );
+    }
+
+    if (field.parentChildType) {
+      const options = field.parentFieldKey
+        ? parentChildChildren
+        : (parentChildParents[field.parentChildType] ?? []);
+      const parentMissing = Boolean(field.parentFieldKey && !(form[field.parentFieldKey]?.trim()));
+      return (
+        <OptionSelect
+          value={form[field.key] ?? ""}
+          onValueChange={(v) => {
+            setForm((f) => {
+              const next = { ...f, [field.key]: v };
+              if (!field.parentFieldKey) {
+                for (const child of def?.formFields ?? []) {
+                  if (child.parentFieldKey === field.key) next[child.key] = "";
+                }
+              }
+              return next;
+            });
+          }}
+          options={options}
+          placeholder={parentMissing ? "请先选择上级类别" : "请选择"}
+          allowEmpty={!field.required}
+          emptyLabel="不指定"
+          disabled={parentMissing || options.length === 0}
+        />
+      );
+    }
+
+    if (field.dictTypeCode) {
+      const options = dictBag[field.dictTypeCode] ?? [];
+      return (
+        <OptionSelect
+          value={form[field.key] ?? ""}
+          onValueChange={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
+          options={options}
+          placeholder="请选择"
+          allowEmpty={!field.required}
+          emptyLabel="不指定"
+        />
+      );
+    }
+
     if (field.dictKey) {
       const options = dictBag[field.dictKey] ?? [];
       return (
@@ -677,12 +952,29 @@ export function AdminArchiveDataPage() {
       const options = (field.options ?? []).map((o) => ({ id: o.value, label: o.label }));
       return (
         <OptionToggle
-          options={options.length ? options : [
-            { id: "true", label: "是" },
-            { id: "false", label: "否" },
-          ]}
-          value={form[field.key] || "false"}
+          options={
+            options.length
+              ? options
+              : [
+                  { id: "true", label: "是" },
+                  { id: "false", label: "否" },
+                ]
+          }
+          value={form[field.key] || options[0]?.id || "false"}
           onChange={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
+        />
+      );
+    }
+
+    if (field.options) {
+      return (
+        <OptionSelect
+          value={form[field.key] ?? ""}
+          onValueChange={(v) => setForm((f) => ({ ...f, [field.key]: v }))}
+          options={field.options}
+          placeholder="请选择"
+          allowEmpty={!field.required}
+          emptyLabel="不指定"
         />
       );
     }
@@ -794,14 +1086,19 @@ export function AdminArchiveDataPage() {
         <div className="flex flex-wrap items-end gap-3">
           <CompactField label="关键词" className="min-w-[220px] flex-1">
             <InputGroup className={adminFilterInputGroupClassName({ empty: !filter.keyword.trim() })}>
-              <InputGroupAddon>
-                <Search className="size-4 text-muted-foreground" />
+              <InputGroupAddon className="pl-2.5">
+                <Search className="size-3.5 opacity-50" />
               </InputGroupAddon>
               <InputGroupInput
-                className={adminFilterInputClassName({ empty: !filter.keyword.trim() })}
                 placeholder="工号 / 姓名"
                 value={filter.keyword}
                 onChange={(e) => setFilter((f) => ({ ...f, keyword: e.target.value }))}
+                className={cn(
+                  "h-8 !text-sm",
+                  filter.keyword.trim()
+                    ? "font-medium text-foreground"
+                    : "font-normal text-muted-foreground",
+                )}
               />
             </InputGroup>
           </CompactField>
@@ -868,7 +1165,7 @@ export function AdminArchiveDataPage() {
                             {String(item.organizationName || "—")}
                           </span>
                         ) : (
-                          cellText(item, col.key, dictBag, def.formFields)
+                          cellText(item, col.key, dictBag, def.formFields, legalOptions)
                         )}
                       </td>
                     ))}

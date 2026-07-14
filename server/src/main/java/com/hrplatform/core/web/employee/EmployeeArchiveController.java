@@ -708,6 +708,12 @@ public class EmployeeArchiveController {
     if (bean instanceof EmployeeAgreementEntity agreement) {
       putDictLabel(dto, "agreementCategory", "AGREEMENT_CATEGORY", agreement.getAgreementCategory());
       putDictLabel(dto, "operationType", "AGREEMENT_OPERATION_TYPE", agreement.getOperationType());
+      dto.put("statusLabel", archiveValidityStatusLabel(agreement.getStatus()));
+      return;
+    }
+    if (bean instanceof EmployeeContractEntity contract) {
+      dto.put("operationTypeLabel", contractOperationTypeLabel(contract.getOperationType()));
+      dto.put("statusLabel", archiveValidityStatusLabel(contract.getStatus()));
       return;
     }
     if (bean instanceof EmployeeAdminInfoEntity adminInfo) {
@@ -740,6 +746,25 @@ public class EmployeeArchiveController {
 
   private void putDictLabel(Map<String, Object> dto, String field, String dictType, String value) {
     dto.put(field + "Label", employeeService.dictLabel(dictType, value));
+  }
+
+  private static String archiveValidityStatusLabel(String status) {
+    if (status == null || status.isBlank()) return "";
+    String s = status.trim();
+    if ("VALID".equalsIgnoreCase(s) || "有效".equals(s)) return "有效";
+    if ("INVALID".equalsIgnoreCase(s) || "无效".equals(s)) return "无效";
+    return s;
+  }
+
+  private static String contractOperationTypeLabel(String code) {
+    if (code == null || code.isBlank()) return "";
+    return switch (code.trim()) {
+      case "10" -> "新签";
+      case "20" -> "续签";
+      case "30" -> "变更";
+      case "40" -> "解除";
+      default -> code.trim();
+    };
   }
 
   private void logSensitiveView(long employeeId, String resourceType) {

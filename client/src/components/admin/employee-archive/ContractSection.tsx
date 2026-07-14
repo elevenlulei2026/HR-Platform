@@ -373,11 +373,14 @@ export function ContractSection({
         ) : (
           <ArchiveRecordList>
             {items.map((item) => {
-              const statusLabel = archiveValidityStatusLabel(item.status);
+              const statusLabel =
+                item.statusLabel || archiveValidityStatusLabel(item.status);
               const operationLabel =
-                item.operationType
-                  ? OPERATION_TYPE_OPTIONS.find((o) => o.value === item.operationType)?.label ?? item.operationType
-                  : "—";
+                item.operationTypeLabel ||
+                (item.operationType
+                  ? OPERATION_TYPE_OPTIONS.find((o) => o.value === item.operationType)?.label ??
+                    item.operationType
+                  : "—");
               const indefinite = isIndefiniteContractDesc(item.contractCategoryDesc);
               const legalEntityName =
                 (item.legalEntityId ? legalNameById[String(item.legalEntityId)] : undefined) ||

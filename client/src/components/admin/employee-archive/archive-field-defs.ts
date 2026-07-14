@@ -47,13 +47,21 @@ export const WORK_COST_CENTER_FIELDS: ArchiveFieldDef[] = [
 ];
 
 export const WORK_CONTRACT_FIELDS: ArchiveFieldDef[] = [
+  { key: "effectiveStartDate", label: "生效日期", type: "date", required: true },
   { key: "contractCode", label: "合同编号", required: true },
-  { key: "contractType", label: "合同类型" },
-  { key: "legalEntityId", label: "合同法人主体", type: "id", reference: "legalEntity" },
-  { key: "operationType", label: "操作类型" },
-  { key: "startDate", label: "开始日期", type: "date" },
-  { key: "endDate", label: "结束日期", type: "date" },
-  { key: "effectiveDate", label: "生效日期", type: "date" },
+  { key: "legalEntityId", label: "合同法人主体", type: "id", reference: "legalEntity", required: true },
+  {
+    key: "operationType",
+    label: "操作类型",
+    type: "toggle",
+    required: true,
+    options: [
+      { value: "10", label: "新签" },
+      { value: "20", label: "续签" },
+      { value: "30", label: "变更" },
+      { value: "40", label: "解除" },
+    ],
+  },
   {
     key: "status",
     label: "状态",
@@ -61,14 +69,33 @@ export const WORK_CONTRACT_FIELDS: ArchiveFieldDef[] = [
     required: true,
     options: ARCHIVE_VALIDITY_STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
   },
-  { key: "fileAttachmentId", label: "附件ID" },
-  { key: "remark", label: "备注" },
+  {
+    key: "contractCategory",
+    label: "合同类别",
+    required: true,
+    parentChildType: "CONTRACT_CATEGORY",
+  },
+  {
+    key: "contractCategoryDesc",
+    label: "合同类别描述",
+    required: true,
+    parentChildType: "CONTRACT_CATEGORY",
+    parentFieldKey: "contractCategory",
+  },
+  { key: "startDate", label: "开始日期", type: "date", required: true },
+  { key: "endDate", label: "结束日期", type: "date" },
+  { key: "remark", label: "备注", type: "textarea" },
 ];
 
 export const WORK_AGREEMENT_FIELDS: ArchiveFieldDef[] = [
   { key: "effectiveStartDate", label: "生效日期", type: "date", required: true },
   { key: "agreementCode", label: "协议编号", required: true },
-  { key: "operationType", label: "操作类型", required: true },
+  {
+    key: "operationType",
+    label: "操作类型",
+    required: true,
+    dictTypeCode: "AGREEMENT_OPERATION_TYPE",
+  },
   {
     key: "status",
     label: "协议状态",
@@ -76,12 +103,16 @@ export const WORK_AGREEMENT_FIELDS: ArchiveFieldDef[] = [
     required: true,
     options: ARCHIVE_VALIDITY_STATUS_OPTIONS.map((o) => ({ value: o.id, label: o.label })),
   },
-  { key: "agreementCategory", label: "协议类别", required: true },
-  { key: "legalEntityId", label: "协议法人主体", type: "id", reference: "legalEntity" },
-  { key: "startDate", label: "开始日期", type: "date" },
-  { key: "endDate", label: "结束日期", type: "date" },
-  { key: "fileAttachmentId", label: "附件ID" },
-  { key: "remark", label: "备注" },
+  {
+    key: "agreementCategory",
+    label: "协议类别",
+    required: true,
+    dictTypeCode: "AGREEMENT_CATEGORY",
+  },
+  { key: "legalEntityId", label: "协议法人主体", type: "id", reference: "legalEntity", required: true },
+  { key: "startDate", label: "开始日期", type: "date", required: true },
+  { key: "endDate", label: "结束日期", type: "date", required: true },
+  { key: "remark", label: "备注", type: "textarea" },
 ];
 
 export const SERVICE_ATTENDANCE_FIELDS: ArchiveFieldDef[] = [
