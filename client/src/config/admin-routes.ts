@@ -20,6 +20,10 @@ for (const link of flattenAdminNavLinks()) {
 }
 
 export function getRoutePermission(pathname: string): string | undefined {
+  if (pathname === "/admin/employees/data") {
+    // 落地页用页面内 hasAny 校验；此处不阻断（RequirePermission 对 undefined 放行）
+    return undefined;
+  }
   if (adminRoutePermissions[pathname]) return adminRoutePermissions[pathname];
   const m = pathname.match(/^\/admin\/employees\/data\/([a-z0-9-]+)$/);
   if (m) {

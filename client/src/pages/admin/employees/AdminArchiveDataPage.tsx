@@ -5,7 +5,7 @@ import type {
 } from "@shared/api.interface";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
   Download,
@@ -33,6 +33,7 @@ import { getEmployeeFormOptions, listEmployees } from "@/api/employee";
 import { flattenOrgTree, getOrganizationTree, listLegalEntities } from "@/api/organization";
 import { listChildrenByParent, listParentsByType } from "@/api/parent-child-catalog";
 import { ArchiveDataImportDialog } from "@/components/admin/archive-data/ArchiveDataImportDialog";
+import { ArchiveDataPageChrome } from "@/components/admin/archive-data/ArchiveDataPageChrome";
 import type { ArchiveFieldDef } from "@/components/admin/employee-archive/ArchiveMultiSection";
 import { archiveValidityStatusLabel } from "@/components/admin/employee-archive/archive-status-ui";
 import { fetchInternalRelativeSnapshot } from "@/components/admin/employee-archive/internal-relative-snapshot";
@@ -79,6 +80,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  ARCHIVE_DATA_RESOURCES,
   getArchiveDataResource,
   isArchiveDataResourcePath,
 } from "@/config/archive-data-resources";
@@ -390,10 +392,26 @@ function cellText(
 }
 
 export function AdminArchiveDataPage() {
+  const navigate = useNavigate();
   const { resource: resourceParam } = useParams<{ resource: string }>();
   const resource = resourceParam && isArchiveDataResourcePath(resourceParam) ? resourceParam : null;
   const def = resource ? getArchiveDataResource(resource) : undefined;
   const perm = usePermission();
+
+  const switchResources = useMemo(
+    () =>
+      ARCHIVE_DATA_RESOURCES.filter((r) =>
+        perm.has(archiveSectionPermission(r.section, "view")),
+      ),
+    [perm],
+  );
+
+  const navigateToResource = useCallback(
+    (path: string) => {
+      navigate(`/admin/employees/data/${path}`);
+    },
+    [navigate],
+  );
 
   const canView = def
     ? perm.has(archiveSectionPermission(def.section, "view")) || perm.has("employee:roster:view")
@@ -1107,36 +1125,62 @@ export function AdminArchiveDataPage() {
 
   if (!resource || !def) {
     return (
-      <NoPermissionCard
-        icon={<Shield className="size-8 text-muted-foreground" />}
-        title="未知数据对象"
-        description="请从组织与员工 › 管理数据菜单进入合法入口"
-      />
+      <div className="space-y-4">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-fit px-2 text-muted-foreground"
+          onClick={() => navigate("/admin/employees/data")}
+        >
+          返回管理数据目录
+        </Button>
+        <NoPermissionCard
+          icon={<Shield className="size-8 text-muted-foreground" />}
+          title="未知数据对象"
+          description="请从组织与员工 › 员工主数据 › 管理数据 选择合法入口"
+        />
+      </div>
     );
   }
 
   if (!canView) {
     return (
-      <NoPermissionCard
-        icon={<Shield className="size-8 text-muted-foreground" />}
-        title={title}
-        description={`需要 ${archiveSectionPermission(def.section, "view")} 权限`}
-      />
+      <div className="space-y-4">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 w-fit px-2 text-muted-foreground"
+          onClick={() => navigate("/admin/employees/data")}
+        >
+          返回管理数据目录
+        </Button>
+        <NoPermissionCard
+          icon={<Shield className="size-8 text-muted-foreground" />}
+          title={title}
+          description={`需要 ${archiveSectionPermission(def.section, "view")} 权限`}
+        />
+      </div>
     );
   }
 
   if (!def.supported) {
     return (
       <div className="space-y-4">
-        <PageHeader
-          title={title}
+        <ArchiveDataPageChrome
+          currentPath={resource}
+          currentTitle={title}
           description={def.description || "该数据对象的批量管理能力建设中"}
+          resources={switchResources}
+          onBackToHub={() => navigate("/admin/employees/data")}
+          onSelectResource={navigateToResource}
         />
         <PanelCard>
           <PanelEmpty
             icon={<Inbox className="size-8 text-muted-foreground" />}
             title="能力建设中"
-            description="菜单与路由已就绪。接入步骤见 docs/档案数据批管开发模板.md（参考证件信息）。"
+            description="路由已就绪。接入步骤见 docs/档案数据批管开发模板.md（参考证件信息）。"
           />
         </PanelCard>
       </div>
@@ -1151,9 +1195,13 @@ export function AdminArchiveDataPage() {
 
   return (
     <div className="space-y-4">
-      <PageHeader
-        title={title}
+      <ArchiveDataPageChrome
+        currentPath={resource}
+        currentTitle={title}
         description={def.description}
+        resources={switchResources}
+        onBackToHub={() => navigate("/admin/employees/data")}
+        onSelectResource={navigateToResource}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             {canImport ? (

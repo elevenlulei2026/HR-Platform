@@ -554,12 +554,12 @@ flowchart TD
 
 #### 7.9 档案数据批管（管理数据）
 
-> **定位**：与花名册档案同表同规则，入口为对象维度跨员工批管（导入/导出）。菜单「管理数据」下 5 子 GROUP 对齐档案五一级模块。
+> **定位**：与花名册档案同表同规则，入口为对象维度跨员工批管（导入/导出）。Mega 单入口「管理数据」→ 落地页按档案五分区选 resource；Ctrl+K 可直达。
 > **原则**：零新业务表；写操作委托 `EmployeeArchiveService`；泛型页 + Handler 注册，禁止 26 套复制。
 > **开发模板**（必读）：`docs/档案数据批管开发模板.md`；参考实现 `IdDocumentArchiveDataHandler`。
 
-- **7.9.1（阶段 1）**：契约 `ArchiveDataApi` + Flyway 菜单（5 子 GROUP + 26 ITEM）+ 分区 import/export 权限
-  - 验收：Mega 可见「管理数据」分区；admin/hr 含 import/export 点
+- **7.9.1（阶段 1）**：契约 `ArchiveDataApi` + Flyway 菜单/权限 + Mega 单入口（V60 收敛）
+  - 验收：Mega「员工主数据」下可见「管理数据」单入口（3 列、无滚动）；admin/hr 含 import/export 点
 - **7.9.2（阶段 1）**：后端 `/api/v1/archive-data/{resource}` + **Handler 框架** + **证件信息**列表/CRUD/导入/导出
   - 验收：同工号+证件类型 upsert；校验委托档案 Service；导出写审计
 - **7.9.3（阶段 1）**：前端泛型页 + `ArchiveDataImportDialog` + 证件试点配置

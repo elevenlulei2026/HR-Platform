@@ -15,6 +15,7 @@ import { AdminOrgPositionsPage } from "@/pages/admin/org/AdminOrgPositionsPage";
 import { AdminOrgStructurePage } from "@/pages/admin/org/AdminOrgStructurePage";
 import { AdminEmployeesRosterPage } from "@/pages/admin/employees/AdminEmployeesRosterPage";
 import { AdminReportingLinesPage } from "@/pages/admin/employees/AdminReportingLinesPage";
+import { AdminArchiveDataHubPage } from "@/pages/admin/employees/AdminArchiveDataHubPage";
 import { AdminArchiveDataPage } from "@/pages/admin/employees/AdminArchiveDataPage";
 import { AdminWorkflowPage } from "@/pages/admin/platform/AdminWorkflowPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
@@ -70,6 +71,10 @@ export default function App() {
 
         <Route path="employees/roster" element={<Guarded title="员工花名册"><AdminEmployeesRosterPage /></Guarded>} />
         <Route path="employees/reporting-lines" element={<Guarded title="汇报关系"><AdminReportingLinesPage /></Guarded>} />
+        <Route
+          path="employees/data"
+          element={<AdminArchiveDataHubPage />}
+        />
         <Route
           path="employees/data/:resource"
           element={<Guarded title="管理数据"><AdminArchiveDataPage /></Guarded>}

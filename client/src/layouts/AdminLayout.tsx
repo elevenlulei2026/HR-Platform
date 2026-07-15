@@ -1,9 +1,10 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
-import { Moon, Sun } from "lucide-react";
+import { Database, Moon, Sun } from "lucide-react";
 
 import { getNavMenuTree } from "@/api/menu";
+import { AdminMegaMenuPanel } from "@/components/admin/AdminMegaMenuPanel";
 import { UserMenu } from "@/components/admin/UserMenu";
 import {
   adminTopNav,
@@ -11,10 +12,16 @@ import {
   type AdminNavTopItem,
 } from "@/config/admin-nav";
 import {
+  canSeeAdminNavLink,
   flattenDynamicNavLinks,
   getDynamicBreadcrumb,
   sysMenusToAdminTopNav,
 } from "@/config/dynamic-admin-nav";
+import { ARCHIVE_DATA_RESOURCES } from "@/config/archive-data-resources";
+import {
+  ARCHIVE_SECTION_LABELS,
+  archiveSectionPermission,
+} from "@/config/archive-permissions";
 import { ADMIN_NAV_CHANGED_EVENT } from "@/lib/admin-nav-events";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -132,15 +139,11 @@ export function AdminLayout() {
         }
         const columns = item.columns
           .map((col) => {
-            const links = col.links.filter((link) => perm.has(link.permission));
-            const sections = col.sections
-              ?.map((sec) => ({
-                ...sec,
-                links: sec.links.filter((link) => perm.has(link.permission)),
-              }))
-              .filter((sec) => sec.links.length > 0);
-            if (links.length === 0 && (!sections || sections.length === 0)) return null;
-            return { ...col, links, sections };
+            const links = col.links.filter((link) =>
+              canSeeAdminNavLink(link, perm.has, perm.hasAny),
+            );
+            if (links.length === 0) return null;
+            return { ...col, links, sections: undefined };
           })
           .filter((col): col is NonNullable<typeof col> => col != null);
         if (columns.length === 0) return null;
@@ -148,6 +151,12 @@ export function AdminLayout() {
       })
       .filter((item): item is NonNullable<typeof item> => item != null);
   }, [perm, topNav]);
+
+  const archiveCommandLinks = useMemo(() => {
+    return ARCHIVE_DATA_RESOURCES.filter((r) =>
+      perm.has(archiveSectionPermission(r.section, "view")),
+    );
+  }, [perm]);
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -199,82 +208,29 @@ export function AdminLayout() {
                       </NavigationMenuItem>
                     );
                   }
+                  const active = item.columns.some((column) =>
+                    column.links.some(
+                      (link) =>
+                        location.pathname === link.to ||
+                        location.pathname.startsWith(`${link.to}/`),
+                    ),
+                  );
                   return (
                     <NavigationMenuItem key={item.title}>
-                      <NavigationMenuTrigger className="text-sm">
+                      <NavigationMenuTrigger
+                        className={cn(
+                          "text-sm",
+                          active && "bg-primary/[0.08] text-primary",
+                        )}
+                      >
                         {item.title}
                       </NavigationMenuTrigger>
                       <NavigationMenuContent>
-                        <div
-                          className={cn(
-                            "grid gap-4 p-4",
-                            item.columns.length <= 3
-                              ? "w-[720px] grid-cols-3"
-                              : item.columns.length === 4
-                                ? "w-[880px] grid-cols-4"
-                                : "w-[960px] grid-cols-4",
-                          )}
-                        >
-                          {item.columns.map((col) => (
-                            <div key={col.title} className="space-y-2">
-                              <div className="text-xs font-semibold text-foreground">
-                                {col.title}
-                              </div>
-                              {col.sections && col.sections.length > 0 ? (
-                                <div className="max-h-[420px] space-y-3 overflow-y-auto pr-1">
-                                  {col.sections.map((sec) => (
-                                    <div key={sec.title} className="space-y-1">
-                                      <div className="px-3 text-[11px] font-medium text-muted-foreground">
-                                        {sec.title}
-                                      </div>
-                                      <div className="space-y-1">
-                                        {sec.links.map((link) => (
-                                          <a
-                                            key={link.to}
-                                            href={link.to}
-                                            className="block rounded-lg px-3 py-2 text-sm hover:bg-accent"
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              navigate(link.to);
-                                            }}
-                                          >
-                                            <div className="font-medium">{link.title}</div>
-                                            {link.description ? (
-                                              <div className="text-xs text-muted-foreground line-clamp-2">
-                                                {link.description}
-                                              </div>
-                                            ) : null}
-                                          </a>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <div className="space-y-1">
-                                  {col.links.map((link) => (
-                                    <a
-                                      key={link.to}
-                                      href={link.to}
-                                      className="block rounded-lg px-3 py-2 text-sm hover:bg-accent"
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        navigate(link.to);
-                                      }}
-                                    >
-                                      <div className="font-medium">{link.title}</div>
-                                      {link.description ? (
-                                        <div className="text-xs text-muted-foreground line-clamp-2">
-                                          {link.description}
-                                        </div>
-                                      ) : null}
-                                    </a>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          ))}
-                        </div>
+                        <AdminMegaMenuPanel
+                          columns={item.columns}
+                          pathname={location.pathname}
+                          onNavigate={navigate}
+                        />
                       </NavigationMenuContent>
                     </NavigationMenuItem>
                   );
@@ -356,26 +312,60 @@ export function AdminLayout() {
           </CommandGroup>
           <CommandSeparator />
           <CommandGroup heading="菜单">
-            {allLinks.map((link) => (
-              <CommandItem
-                key={link.to}
-                disabled={!perm.has(link.permission)}
-                onSelect={() => {
-                  if (!perm.has(link.permission)) return;
-                  setCmdOpen(false);
-                  navigate(link.to);
-                }}
-              >
-                <div className="flex w-full items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <link.icon className="h-4 w-4 text-muted-foreground" />
-                    <span>{link.title}</span>
+            {allLinks.map((link) => {
+              const allowed = canSeeAdminNavLink(link, perm.has, perm.hasAny);
+              return (
+                <CommandItem
+                  key={link.to}
+                  disabled={!allowed}
+                  onSelect={() => {
+                    if (!allowed) return;
+                    setCmdOpen(false);
+                    navigate(link.to);
+                  }}
+                >
+                  <div className="flex w-full items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <link.icon className="h-4 w-4 text-muted-foreground" />
+                      <span>{link.title}</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{link.group}</span>
                   </div>
-                  <span className="text-xs text-muted-foreground">{link.group}</span>
-                </div>
-              </CommandItem>
-            ))}
+                </CommandItem>
+              );
+            })}
           </CommandGroup>
+          {archiveCommandLinks.length > 0 ? (
+            <>
+              <CommandSeparator />
+              <CommandGroup heading="管理数据">
+                {archiveCommandLinks.map((res) => (
+                  <CommandItem
+                    key={res.path}
+                    onSelect={() => {
+                      setCmdOpen(false);
+                      navigate(`/admin/employees/data/${res.path}`);
+                    }}
+                  >
+                    <div className="flex w-full items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Database className="h-4 w-4 text-muted-foreground" />
+                        <span>
+                          {res.title}
+                          {!res.supported ? (
+                            <span className="ml-2 text-xs text-muted-foreground">建设中</span>
+                          ) : null}
+                        </span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {ARCHIVE_SECTION_LABELS[res.section]}
+                      </span>
+                    </div>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            </>
+          ) : null}
         </CommandList>
       </CommandDialog>
     </div>

@@ -103,6 +103,69 @@
     }
   }
 
+  /* 管理数据落地页：轻量入场与卡片悬浮 */
+  @keyframes hub-fade-up {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  .hub-enter {
+    animation: hub-fade-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  .hub-tile {
+    transition:
+      transform 0.2s cubic-bezier(0.16, 1, 0.3, 1),
+      border-color 0.2s ease,
+      box-shadow 0.2s ease,
+      background-color 0.2s ease;
+  }
+
+  .hub-tile:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 0 hsl(var(--foreground) / 0.04),
+      0 10px 28px -14px hsl(var(--primary) / 0.35);
+  }
+
+  .hub-tile:active {
+    transform: translateY(0);
+  }
+
+  .hub-dot-grid {
+    background-image: radial-gradient(
+      hsl(var(--foreground) / 0.06) 1px,
+      transparent 1px
+    );
+    background-size: 14px 14px;
+  }
+
+  .dark .hub-dot-grid {
+    background-image: radial-gradient(
+      hsl(var(--foreground) / 0.09) 1px,
+      transparent 1px
+    );
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hub-enter {
+      animation: none !important;
+    }
+    .hub-tile,
+    .hub-tile:hover,
+    .hub-tile:active {
+      transition: none !important;
+      transform: none !important;
+      box-shadow: none !important;
+    }
+  }
+
   [data-slot="sheet-content"] > [data-slot="sheet-header"] {
     animation: sheet-stagger-in 0.28s cubic-bezier(0.16, 1, 0.3, 1) 40ms both;
   }

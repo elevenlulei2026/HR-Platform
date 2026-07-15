@@ -4,6 +4,7 @@ import {
   Building2,
   ClipboardList,
   Cog,
+  Database,
   LayoutDashboard,
   LifeBuoy,
   Settings2,
@@ -12,18 +13,25 @@ import {
   Workflow,
 } from "lucide-react";
 
+import { getArchiveDataResource } from "@/config/archive-data-resources";
+import { ARCHIVE_DATA_HUB_VIEW_PERMISSIONS } from "@/config/archive-permissions";
+
 export type AdminNavLink = {
   title: string;
   description?: string;
   to: string;
   group: string;
+  /** 单一权限点；与 anyOfPermissions 二选一 */
   permission?: string;
+  /** 任一权限即可展示（如管理数据入口） */
+  anyOfPermissions?: readonly string[];
   icon: React.ComponentType<{ className?: string }>;
 };
 
 export type AdminNavColumn = {
   title: string;
   links: AdminNavLink[];
+  /** @deprecated Mega 不再展开嵌套分区；保留类型以兼容旧动态菜单数据 */
   sections?: Array<{ title: string; links: AdminNavLink[] }>;
 };
 
@@ -60,7 +68,7 @@ export const adminTopNav: AdminNavTopItem[] = [
         links: [
           {
             title: "组织架构",
-            description: "组织树与历史快照（asOfDate）",
+            description: "查看组织层级、关键属性与历史快照",
             to: "/admin/org/structure",
             group: "组织岗位",
             permission: "organization:view",
@@ -68,7 +76,7 @@ export const adminTopNav: AdminNavTopItem[] = [
           },
           {
             title: "岗位体系",
-            description: "岗位主数据与分类属性维护",
+            description: "统一维护岗位信息、分类与任职要求",
             to: "/admin/org/positions",
             group: "组织岗位",
             permission: "position:view",
@@ -76,7 +84,7 @@ export const adminTopNav: AdminNavTopItem[] = [
           },
           {
             title: "编制管理",
-            description: "部门编制计划、使用率与校验",
+            description: "规划部门编制并跟踪占用与使用率",
             to: "/admin/org/headcount",
             group: "组织岗位",
             permission: "headcount:view",
@@ -89,7 +97,7 @@ export const adminTopNav: AdminNavTopItem[] = [
         links: [
           {
             title: "员工花名册",
-            description: "列表 + 6 Tab 档案抽屉（27 项二级模块，Slice 7）",
+            description: "集中查询员工信息并快速查看完整档案",
             to: "/admin/employees/roster",
             group: "员工主数据",
             permission: "employee:roster:view",
@@ -97,30 +105,19 @@ export const adminTopNav: AdminNavTopItem[] = [
           },
           {
             title: "汇报关系",
-            description: "支持 asOfDate 历史查询（后续切片完善）",
+            description: "维护员工汇报关系并按日期查看历史",
             to: "/admin/employees/reporting-lines",
             group: "员工主数据",
             permission: "reporting-line:view",
             icon: ShieldCheck,
           },
-        ],
-      },
-      {
-        title: "管理数据",
-        links: [],
-        sections: [
           {
-            title: "个人信息",
-            links: [
-              {
-                title: "证件信息",
-                description: "跨员工证件信息批管（试点）",
-                to: "/admin/employees/data/id-documents",
-                group: "管理数据 / 个人信息",
-                permission: "employee:archive:personal:view",
-                icon: ClipboardList,
-              },
-            ],
+            title: "管理数据",
+            description: "跨员工批量维护证件、合同、协议等档案",
+            to: "/admin/employees/data",
+            group: "员工主数据",
+            anyOfPermissions: ARCHIVE_DATA_HUB_VIEW_PERMISSIONS,
+            icon: Database,
           },
         ],
       },
@@ -129,6 +126,7 @@ export const adminTopNav: AdminNavTopItem[] = [
         links: [
           {
             title: "入职办理",
+            description: "管理入职资料、流程与办理进度",
             to: "/admin/onboarding",
             group: "入转调离",
             permission: "onboarding:view",
@@ -136,6 +134,7 @@ export const adminTopNav: AdminNavTopItem[] = [
           },
           {
             title: "人事异动",
+            description: "办理转岗、调动等员工任职变更",
             to: "/admin/movements",
             group: "入转调离",
             permission: "employee:movement:view",
@@ -143,6 +142,7 @@ export const adminTopNav: AdminNavTopItem[] = [
           },
           {
             title: "离职办理",
+            description: "管理离职流程、交接与状态变更",
             to: "/admin/offboarding",
             group: "入转调离",
             permission: "offboarding:view",
@@ -150,6 +150,7 @@ export const adminTopNav: AdminNavTopItem[] = [
           },
           {
             title: "合同管理",
+            description: "维护劳动合同信息与到期续签",
             to: "/admin/contracts",
             group: "入转调离",
             permission: "contract:view",
@@ -258,6 +259,15 @@ export function getAdminBreadcrumb(pathname: string): string[] {
         }
       }
     }
+  }
+  // 管理数据资源页（产品内导航，不挂 Mega 子项）
+  if (pathname === "/admin/employees/data") {
+    return ["组织与员工", "员工主数据", "管理数据"];
+  }
+  const dataMatch = pathname.match(/^\/admin\/employees\/data\/([a-z0-9-]+)$/);
+  if (dataMatch) {
+    const title = getArchiveDataResource(dataMatch[1])?.title ?? dataMatch[1];
+    return ["组织与员工", "员工主数据", "管理数据", title];
   }
   return ["未定义页面"];
 }

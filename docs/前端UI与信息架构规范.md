@@ -110,7 +110,7 @@
 | 一级 | 类型 | 说明 |
 | --- | --- | --- |
 | 工作台 | 直达 | 人力驾驶舱 + 我的待办摘要（协同流程层入口的“首页聚合”） |
-| 组织与员工 | Mega Menu（3 列） | 组织岗位中心 + 员工主数据中心 + 员工生命周期（入转调离/合同）+ 员工服务（证明/工单） |
+| 组织与员工 | Mega Menu（3 列） | 组织岗位 + 员工主数据（含「管理数据」单入口）+ 入转调离；档案批管 26 项在落地页/命令面板 |
 | 平台 | Mega Menu（3 列） | 流程引擎 + 任务中心 + 消息/提醒 + 权限中心 + 审计 + 表单/规则/集成配置 |
 | 报表 | 直达 | 报表分析中心（经营看板、指标口径、导出） |
 | 设置 | 直达 | 系统管理与基础配置（字典、编码、参数等；尽量“少入口，强搜索”） |
@@ -126,8 +126,8 @@
 | | 编制管理 | `headcount` | `headcount:view` | `/admin/org/headcount` | 6 |
 | 员工主数据 | 员工花名册 | `roster` | `employee:roster:view` | `/admin/employees/roster` | 7（含 27 项档案 Sheet） |
 | | 档案详情 | `employee-archive` | `employee:detail:view` | 花名册内抽屉（6 Tab），无独立列表页 | 7 |
-| 管理数据 | 证件信息等 26 项 | `archive-data` | `employee:archive:{section}:view` | `/admin/employees/data/{resource}` | 7.9（阶段 1：证件试点） |
 | | 汇报关系 | `reporting-line` | `reporting-line:view` | `/admin/employees/reporting-lines` | 7.6 |
+| | 管理数据 | `archive-data` | 任一 `employee:archive:{section}:view` | `/admin/employees/data`（落地页）；资源页 `/admin/employees/data/{resource}`；Ctrl+K 可直达 | 7.9 |
 | 入转调离 | 入职办理 | `onboarding` | `onboarding:view` | `/admin/onboarding` | 8 |
 | | 人事异动 | `movement` | `employee:movement:view` | `/admin/movements` | 9–10 |
 | | 离职办理 | `offboarding` | `offboarding:view` | `/admin/offboarding` | 12 |
