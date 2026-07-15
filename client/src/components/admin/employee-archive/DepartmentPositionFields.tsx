@@ -214,9 +214,8 @@ export function DepartmentPositionFields({
 
   return (
     <>
-      <div className="col-span-full grid gap-4 md:grid-cols-4">
-        <div className="md:col-span-1">
-          <FormField label="部门" required={organizationRequired}>
+      <div className="md:col-span-1">
+        <FormField label="部门" required={organizationRequired}>
           <SearchableDialogPicker
             value={organizationId}
             onChange={handleDepartmentChange}
@@ -233,34 +232,32 @@ export function DepartmentPositionFields({
             helperText="none"
             className="w-full"
           />
-          </FormField>
-        </div>
-        <div className="md:col-span-3">
-          <FormField label="组织路径">
-            <div className={adminFormControlShellClassName({ readOnly: true })}>
-              {orgPathSegments.length ? (
-                <div className="flex flex-wrap items-center gap-1">
-                  {orgPathSegments.map((seg, idx) => (
-                    <div key={`${seg}-${idx}`} className="flex items-center gap-1">
-                      {idx > 0 ? <span className="text-muted-foreground/60">/</span> : null}
-                      <Badge
-                        variant={idx === orgPathSegments.length - 1 ? "default" : "secondary"}
-                        className="h-5"
-                      >
-                        {seg}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <span className="text-muted-foreground">{orgPathName || "—"}</span>
-              )}
-            </div>
-          </FormField>
-        </div>
+        </FormField>
       </div>
-
-      <div className="col-span-full grid gap-4 md:grid-cols-2">
+      <div className="md:col-span-3">
+        <FormField label="组织路径">
+          <div className={adminFormControlShellClassName({ readOnly: true })}>
+            {orgPathSegments.length ? (
+              <div className="flex flex-wrap items-center gap-1">
+                {orgPathSegments.map((seg, idx) => (
+                  <div key={`${seg}-${idx}`} className="flex items-center gap-1">
+                    {idx > 0 ? <span className="text-muted-foreground/60">/</span> : null}
+                    <Badge
+                      variant={idx === orgPathSegments.length - 1 ? "default" : "secondary"}
+                      className="h-5"
+                    >
+                      {seg}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <span className="text-muted-foreground">{orgPathName || "—"}</span>
+            )}
+          </div>
+        </FormField>
+      </div>
+      <div className="md:col-span-1">
         <FormField label="岗位" required={positionRequired}>
           <SearchableSelect
             value={positionId}
@@ -305,6 +302,8 @@ export function DepartmentPositionFields({
             className="w-full"
           />
         </FormField>
+      </div>
+      <div className="md:col-span-1">
         <FormField label="岗位序列">
           <Input value={jobSequence || "—"} disabled className="h-9" />
         </FormField>

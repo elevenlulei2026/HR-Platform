@@ -354,6 +354,35 @@ public class ArchiveDataSupport {
     }
   }
 
+  /** 指定父项下是否存在二级子项（用于「无子项则级别非必填」）。 */
+  public boolean hasParentChildChildren(String typeCode, String parentCode) {
+    if (typeCode == null || typeCode.isBlank() || parentCode == null || parentCode.isBlank()) {
+      return false;
+    }
+    return !parentChildCatalogService.listChildren(typeCode, parentCode).isEmpty();
+  }
+
+  /**
+   * 解析可选二级父子值：空白时若该父项有子项则报错；无子项则返回 null。
+   */
+  public String resolveOptionalParentChildChildCode(
+      String typeCode,
+      String raw,
+      String parentCode,
+      String fieldLabel
+  ) {
+    if (parentCode == null || parentCode.isBlank()) return null;
+    boolean hasChildren = hasParentChildChildren(typeCode, parentCode);
+    if (raw == null || raw.isBlank()) {
+      if (hasChildren) throw new RowImportException(fieldLabel, fieldLabel + "不能为空");
+      return null;
+    }
+    if (!hasChildren) {
+      throw new RowImportException(fieldLabel, "该类型无二级选项，请留空");
+    }
+    return resolveParentChildCode(typeCode, raw, parentCode, fieldLabel);
+  }
+
   public static String resolveValidityStatus(String raw, String fieldLabel) {
     if (raw == null || raw.isBlank()) return null;
     String v = raw.trim();

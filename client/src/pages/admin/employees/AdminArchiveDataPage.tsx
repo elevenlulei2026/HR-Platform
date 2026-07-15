@@ -4,10 +4,11 @@ import type {
   OrganizationTreeNode,
 } from "@shared/api.interface";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
+  Eye,
   Download,
   Inbox,
   Pencil,
@@ -28,6 +29,11 @@ import {
   listArchiveData,
   updateArchiveData,
 } from "@/api/archive-data";
+import {
+  downloadEmployeeAttachment,
+  EMPLOYEE_ATTACHMENT_MAX_BYTES,
+  uploadEmployeeFile,
+} from "@/api/employee-archive";
 import { listDictItemsByTypeCode } from "@/api/dict";
 import { getEmployeeFormOptions, listEmployees } from "@/api/employee";
 import { flattenOrgTree, getOrganizationTree, listLegalEntities } from "@/api/organization";
@@ -49,7 +55,6 @@ import {
 import { OptionSelect } from "@/components/admin/option-select";
 import {
   NoPermissionCard,
-  PageHeader,
   PanelCard,
   PanelEmpty,
   PanelError,
@@ -107,6 +112,7 @@ type LoadState =
 type SheetMode =
   | { type: "closed" }
   | { type: "new" }
+  | { type: "view"; item: ArchiveDataItem }
   | { type: "edit"; item: ArchiveDataItem; editMode?: EmployeeAttendanceCardEditMode };
 
 /** 与档案一致：每人一套生效版本链的批管资源 */
@@ -324,6 +330,12 @@ function cellText(
     return legalOptions.find((o) => o.value === String(value))?.label ?? String(value);
   }
 
+  if (key === "uploadedAt") {
+    const raw = value == null ? "" : String(value);
+    if (!raw) return "—";
+    return raw.length >= 10 ? raw.slice(0, 10) : raw;
+  }
+
   if (key === "relation") {
     return resolveCodedFieldLabel(item, key, value, field, dictBag);
   }
@@ -349,6 +361,10 @@ function cellText(
     if (key === "contractCategoryDesc" && item.contractCategoryDescLabel) {
       return String(item.contractCategoryDescLabel);
     }
+    return resolveCodedFieldLabel(item, key, value, field, dictBag);
+  }
+
+  if (field?.parentChildType || field?.dictTypeCode) {
     return resolveCodedFieldLabel(item, key, value, field, dictBag);
   }
 
@@ -429,7 +445,7 @@ export function AdminArchiveDataPage() {
       perm.has(archiveSectionPermission(def.section, "edit")) ||
       perm.has("employee:edit")
     : false;
-  const canImport = def
+  const canImport = def?.importConfig
     ? perm.has(archiveSectionPermission(def.section, "import")) ||
       perm.has(archiveSectionPermission(def.section, "edit")) ||
       perm.has("employee:edit") ||
@@ -451,6 +467,8 @@ export function AdminArchiveDataPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [relativeLoading, setRelativeLoading] = useState(false);
+  const [attachmentUploading, setAttachmentUploading] = useState(false);
+  const attachmentFileRef = useRef<HTMLInputElement>(null);
 
   const [orgOptions, setOrgOptions] = useState<SearchableSelectOption[]>([]);
   const [legalOptions, setLegalOptions] = useState<SearchableSelectOption[]>([]);
@@ -555,6 +573,8 @@ export function AdminArchiveDataPage() {
           payrollCompanies: data?.payrollCompanies ?? [],
           insuranceRegions: data?.insuranceRegions ?? [],
           workEnvironments: data?.workEnvironments ?? [],
+          educations: data?.educations ?? [],
+          degrees: data?.degrees ?? [],
         }));
       } catch {
         // 筛选项失败不阻断列表
@@ -664,7 +684,11 @@ export function AdminArchiveDataPage() {
     };
   }, [def?.formFields, resource]);
 
-  const contractParentCode = form.contractCategory?.trim() ?? "";
+  const parentChildParentCode = (() => {
+    const childField = def?.formFields.find((f) => f.parentChildType && f.parentFieldKey);
+    if (!childField?.parentFieldKey) return "";
+    return (form[childField.parentFieldKey] ?? "").trim();
+  })();
 
   useEffect(() => {
     if (!def?.formFields || sheet.type === "closed") return;
@@ -691,9 +715,9 @@ export function AdminArchiveDataPage() {
     return () => {
       cancelled = true;
     };
-    // 仅在父级类别变化时重载二级选项
+    // 仅在父级编码变化时重载二级选项
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [def?.formFields, sheet.type, contractParentCode]);
+  }, [def?.formFields, sheet.type, parentChildParentCode]);
 
   useEffect(() => {
     if (sheet.type !== "new") return;
@@ -740,6 +764,9 @@ export function AdminArchiveDataPage() {
   function openEdit(item: ArchiveDataItem) {
     if (!def) return;
     const next = itemToForm(def.formFields, item);
+    if (resource === "attachments") {
+      next.originalFilename = String(item.originalFilename ?? "");
+    }
     setForm(next);
     setEmployeeSearch("");
     setRelativeSearch("");
@@ -763,6 +790,31 @@ export function AdminArchiveDataPage() {
     });
   }
 
+  function openView(item: ArchiveDataItem) {
+    if (!def) return;
+    const next = itemToForm(def.formFields, item);
+    if (resource === "attachments") {
+      next.originalFilename = String(item.originalFilename ?? "");
+    }
+    setForm(next);
+    setEmployeeSearch("");
+    setRelativeSearch("");
+    setEmployeeOptions([]);
+    setRelativeOptions([]);
+    setSelectedEmployeeOption(null);
+    if (item.relativeEmployeeId) {
+      setSelectedRelativeOption({
+        value: String(item.relativeEmployeeId),
+        label: String(item.relativeEmployeeName ?? ""),
+        code: String(item.relativeEmployeeNo ?? ""),
+        keywords: `${item.relativeEmployeeNo ?? ""} ${item.relativeEmployeeName ?? ""}`,
+      });
+    } else {
+      setSelectedRelativeOption(null);
+    }
+    setSheet({ type: "view", item });
+  }
+
   function handleVersionEditModeChange(mode: EmployeeAttendanceCardEditMode) {
     if (sheet.type !== "edit" || !isVersionedArchiveResource(resource)) return;
     const base = itemToForm(def?.formFields ?? [], sheet.item);
@@ -783,6 +835,7 @@ export function AdminArchiveDataPage() {
     setRelativeOptions([]);
     setSelectedEmployeeOption(null);
     setSelectedRelativeOption(null);
+    setAttachmentUploading(false);
   }
 
   async function handleRelativeSelect(relativeEmployeeId: string) {
@@ -876,8 +929,19 @@ export function AdminArchiveDataPage() {
       const v = form[field.key]?.trim() ?? "";
       if (v) payload[field.key] = v;
     }
+    // 无二级子项时显式清空级别（与员工档案一致）
+    for (const field of def?.formFields ?? []) {
+      if (!field.parentFieldKey || !field.parentChildType) continue;
+      if (parentChildChildren.length === 0) payload[field.key] = "";
+    }
     if (isVersionedArchiveResource(resource) && sheet.type === "edit" && sheet.editMode) {
       payload.editMode = sheet.editMode;
+    }
+    if (resource === "attachments") {
+      const storageKey = form.storageKey?.trim();
+      const originalFilename = form.originalFilename?.trim();
+      if (storageKey) payload.storageKey = storageKey;
+      if (originalFilename) payload.originalFilename = originalFilename;
     }
     return payload;
   }
@@ -889,10 +953,19 @@ export function AdminArchiveDataPage() {
       return;
     }
     for (const field of def.formFields) {
-      if (!field.required || field.readOnly) continue;
+      if (field.readOnly) continue;
       if (field.type === "boolean") continue;
       // 编辑时脱敏敏感字段留空表示不改，跳过必填校验
       if (field.sensitive && sheet.type === "edit") continue;
+      // 父子值二级：有子项时必选；无子项（如一般奖励/经济处罚）不校验
+      if (field.parentChildType && field.parentFieldKey) {
+        if (parentChildChildren.length > 0 && !(form[field.key]?.trim())) {
+          toast.error(`请选择${field.label}`);
+          return;
+        }
+        continue;
+      }
+      if (!field.required) continue;
       if (!(form[field.key]?.trim())) {
         toast.error(`请填写${field.label}`);
         return;
@@ -900,6 +973,10 @@ export function AdminArchiveDataPage() {
     }
     if (resource === "id-documents" && sheet.type === "edit" && !(form.idNumber?.trim())) {
       toast.error("编辑时请重新填写证件号码（脱敏值不可提交）");
+      return;
+    }
+    if (resource === "attachments" && sheet.type === "new" && !(form.storageKey?.trim())) {
+      toast.error("请先上传文件");
       return;
     }
     setSaving(true);
@@ -927,6 +1004,7 @@ export function AdminArchiveDataPage() {
       await deleteArchiveData(resource, deleteTarget.id);
       toast.success("已删除");
       setDeleteTarget(null);
+      if (sheet.type === "view") closeSheet();
       await load();
     } catch (e) {
       toast.error(toApiError(e).message);
@@ -950,7 +1028,67 @@ export function AdminArchiveDataPage() {
     }
   }
 
+  async function handleAttachmentUpload(file: File) {
+    if (file.size > EMPLOYEE_ATTACHMENT_MAX_BYTES) {
+      toast.error("文件过大，单文件不能超过 20MB");
+      return;
+    }
+    setAttachmentUploading(true);
+    try {
+      const stored = await uploadEmployeeFile(file);
+      setForm((f) => ({
+        ...f,
+        storageKey: stored.storageKey,
+        originalFilename: stored.originalFilename,
+      }));
+      toast.success("文件已上传，请保存写入档案");
+    } catch (e) {
+      toast.error(toApiError(e).message);
+    } finally {
+      setAttachmentUploading(false);
+      if (attachmentFileRef.current) attachmentFileRef.current.value = "";
+    }
+  }
+
+  async function handleDownloadAttachment(item: ArchiveDataItem) {
+    try {
+      const blob = await downloadEmployeeAttachment(String(item.employeeId), item.id);
+      downloadBlob(blob, String(item.originalFilename ?? "attachment"));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "下载失败");
+    }
+  }
+
   function renderFieldControl(field: ArchiveFieldDef) {
+    const isViewSheet = sheet.type === "view";
+    if (isViewSheet) {
+      const raw = form[field.displayKey ?? field.key] ?? form[field.key] ?? "";
+      let display = String(raw || "");
+      if (field.type === "boolean" || field.type === "toggle") {
+        if (display === "true" || display === "YES" || display === "ACTIVE" || display === "VALID") {
+          display = "是";
+        } else if (display === "false" || display === "NO" || display === "INVALID") {
+          display = "否";
+        }
+      }
+      if (field.options?.length) {
+        const hit = field.options.find((o) => o.value === String(form[field.key] ?? ""));
+        if (hit) display = hit.label;
+      }
+      if (field.dictTypeCode) {
+        const hit = (dictBag[field.dictTypeCode] ?? []).find((o) => o.value === String(form[field.key] ?? ""));
+        if (hit) display = hit.label;
+      }
+      if (field.dictKey) {
+        const hit = (dictBag[field.dictKey] ?? []).find((o) => o.value === String(form[field.key] ?? ""));
+        if (hit) display = hit.label;
+      }
+      if (field.type === "textarea") {
+        return <Textarea value={display || "—"} disabled className="min-h-20 shadow-none" />;
+      }
+      return <Input value={display || "—"} disabled />;
+    }
+
     if (field.readOnly) {
       const display =
         field.displayKey && form[field.displayKey]
@@ -1189,9 +1327,15 @@ export function AdminArchiveDataPage() {
 
   const employeeField = def.formFields.find((f) => f.reference === "employee");
   const snapshotFields = def.formFields.filter((f) => f.readOnly);
-  const editableFields = def.formFields.filter(
-    (f) => f !== employeeField && !f.readOnly,
-  );
+  const editableFields = def.formFields.filter((f) => {
+    if (f === employeeField || f.readOnly) return false;
+    // 已选父级且无二级子项时隐藏（与档案页「一般奖励 / 经济处罚」一致）
+    if (f.parentChildType && f.parentFieldKey) {
+      const parentCode = (form[f.parentFieldKey] ?? "").trim();
+      if (parentCode && parentChildChildren.length === 0) return false;
+    }
+    return true;
+  });
 
   return (
     <div className="space-y-4">
@@ -1279,7 +1423,11 @@ export function AdminArchiveDataPage() {
           <PanelEmpty
             icon={<Inbox className="size-8 text-muted-foreground" />}
             title={`暂无${title}`}
-            description="可通过新建或 Excel 导入维护"
+            description={
+              resource === "attachments"
+                ? "可通过新建选择员工并上传文件"
+                : "可通过新建或 Excel 导入维护"
+            }
           />
         ) : null}
         {state.type === "ok" && state.items.length > 0 ? (
@@ -1315,6 +1463,19 @@ export function AdminArchiveDataPage() {
                     ))}
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="sm" title="查看" onClick={() => openView(item)}>
+                          <Eye className="size-3.5" />
+                        </Button>
+                        {resource === "attachments" ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="下载"
+                            onClick={() => void handleDownloadAttachment(item)}
+                          >
+                            <Download className="size-3.5" />
+                          </Button>
+                        ) : null}
                         {canEdit ? (
                           <Button variant="ghost" size="sm" onClick={() => openEdit(item)}>
                             <Pencil className="size-3.5" />
@@ -1349,16 +1510,22 @@ export function AdminArchiveDataPage() {
         <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-lg">
           <SheetHeader className="border-b px-6 py-4">
             <SheetTitle>
-              {sheet.type === "edit"
+              {sheet.type === "view"
+                ? `${title}详情`
+                : sheet.type === "edit"
                 ? isVersionedArchiveResource(resource) && sheet.editMode === "NEW_VERSION"
                   ? `新增${title}生效版本`
                   : `编辑${title}`
                 : `新建${title}`}
             </SheetTitle>
             <SheetDescription>
-              {isVersionedArchiveResource(resource)
+              {sheet.type === "view"
+                ? `查看${title}详细信息`
+                : isVersionedArchiveResource(resource)
                 ? `规则与员工档案「${title}」一致：每人一套版本链，新增生效版本会自动衔接失效日期`
-                : `规则与员工档案「${title}」分区一致`}
+                : resource === "attachments"
+                  ? "规则与员工档案「附件」一致：先上传文件再保存；导出仅为台账不含文件"
+                  : `规则与员工档案「${title}」分区一致`}
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
@@ -1398,7 +1565,9 @@ export function AdminArchiveDataPage() {
                   value={
                     form.employeeNo
                       ? `${form.employeeNo}${
-                          sheet.type === "edit" ? ` — ${String(sheet.item.employeeName ?? "")}` : ""
+                          sheet.type === "edit" || sheet.type === "view"
+                            ? ` — ${String(sheet.item.employeeName ?? "")}`
+                            : ""
                         }`
                       : ""
                   }
@@ -1439,14 +1608,86 @@ export function AdminArchiveDataPage() {
               {editableFields.map((field) => (
                 <div
                   key={field.key}
-                  className={field.type === "textarea" ? "sm:col-span-2" : undefined}
+                  className={
+                    field.type === "textarea" || field.key === "attachmentType"
+                      ? "sm:col-span-2"
+                      : undefined
+                  }
                 >
-                  <FormField label={field.label} required={field.required}>
+                  <FormField
+                    label={field.label}
+                    required={
+                      field.required ||
+                      Boolean(
+                        field.parentChildType &&
+                          field.parentFieldKey &&
+                          parentChildChildren.length > 0,
+                      )
+                    }
+                  >
                     {renderFieldControl(field)}
                   </FormField>
                 </div>
               ))}
             </div>
+
+            {resource === "attachments" ? (
+              <FormField label={sheet.type === "new" ? "上传文件" : "文件"} required={sheet.type === "new"}>
+                {sheet.type === "edit" || sheet.type === "view" ? (
+                  <div className="space-y-2">
+                    <Input value={form.originalFilename || "—"} disabled />
+                    {sheet.type === "view" ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        onClick={() => void handleDownloadAttachment(sheet.item)}
+                      >
+                        <Download className="size-4" />
+                        下载附件
+                      </Button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {form.storageKey && form.originalFilename ? (
+                      <div className="flex items-center justify-between gap-2 rounded-lg border border-border/80 bg-muted/20 px-3 py-2 text-sm">
+                        <span className="truncate font-medium">{form.originalFilename}</span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          disabled={attachmentUploading}
+                          onClick={() => attachmentFileRef.current?.click()}
+                        >
+                          重新选择
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="w-full"
+                        disabled={attachmentUploading}
+                        onClick={() => attachmentFileRef.current?.click()}
+                      >
+                        <Upload className="size-4" />
+                        {attachmentUploading ? "上传中…" : "选择文件上传（≤20MB）"}
+                      </Button>
+                    )}
+                    <input
+                      ref={attachmentFileRef}
+                      type="file"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void handleAttachmentUpload(file);
+                      }}
+                    />
+                  </div>
+                )}
+              </FormField>
+            ) : null}
 
             {employeeField && form.relativeEmployeeId && snapshotFields.length > 0 ? (
               <section className="overflow-hidden rounded-lg border border-border/80 bg-primary/[0.02]">
@@ -1466,11 +1707,13 @@ export function AdminArchiveDataPage() {
           <SheetFooter className="border-t px-6 py-4">
             <div className="flex w-full justify-end gap-2">
               <Button variant="outline" onClick={closeSheet}>
-                取消
+                {sheet.type === "view" ? "关闭" : "取消"}
               </Button>
-              <Button disabled={saving} onClick={() => void handleSave()}>
-                {saving ? "保存中…" : "保存"}
-              </Button>
+              {sheet.type !== "view" ? (
+                <Button disabled={saving} onClick={() => void handleSave()}>
+                  {saving ? "保存中…" : "保存"}
+                </Button>
+              ) : null}
             </div>
           </SheetFooter>
         </SheetContent>

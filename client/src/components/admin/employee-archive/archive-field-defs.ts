@@ -142,7 +142,7 @@ export const SERVICE_BANK_FIELDS: ArchiveFieldDef[] = [
   { key: "branchId", label: "支行ID", dictKey: "branchIds" },
   { key: "accountNo", label: "账号", required: true, sensitive: true },
   { key: "accountName", label: "户名" },
-  { key: "currencyCode", label: "币种", dictKey: "currencies" },
+  { key: "currencyCode", label: "币种", dictKey: "currencies", dictTypeCode: "CURRENCY" },
   { key: "cnapsCode", label: "联行号" },
   {
     key: "isPrimary",
@@ -257,6 +257,30 @@ export const SERVICE_ACCOMMODATION_FIELDS: ArchiveFieldDef[] = [
   { key: "accommodationFeeTotal", label: "住宿费汇总", type: "number" },
 ];
 
+/** 与档案 ArchiveAttachmentSection 类型目录一致 */
+export const ATTACHMENT_TYPE_OPTIONS = [
+  { value: "PHOTO", label: "照片" },
+  { value: "ID_CARD", label: "身份证" },
+  { value: "DIPLOMA", label: "学历证" },
+  { value: "RESUME", label: "简历" },
+  { value: "BANK_CARD", label: "银行卡" },
+  { value: "MEDICAL", label: "体检单" },
+  { value: "OFFER", label: "应聘登记表" },
+  { value: "RESIGNATION", label: "离职证明" },
+  { value: "CERTIFICATE", label: "资格证书" },
+  { value: "TITLE_CERTIFICATE", label: "职称证书" },
+  { value: "OTHER", label: "其他" },
+];
+
+export const SERVICE_ATTACHMENT_FIELDS: ArchiveFieldDef[] = [
+  {
+    key: "attachmentType",
+    label: "附件类型",
+    required: true,
+    options: ATTACHMENT_TYPE_OPTIONS,
+  },
+];
+
 export const BACKGROUND_EDUCATION_FIELDS: ArchiveFieldDef[] = [
   { key: "educationLevel", label: "学历", dictKey: "educations", displayKey: "educationLevelLabel" },
   { key: "degree", label: "学位", dictKey: "degrees", displayKey: "degreeLabel" },
@@ -290,7 +314,7 @@ export const BACKGROUND_WORK_EXP_FIELDS: ArchiveFieldDef[] = [
   { key: "referee", label: "证明人" },
   { key: "refereePhone", label: "证明人电话" },
   { key: "payFrequency", label: "薪酬频率" },
-  { key: "currencyCode", label: "货币代码" },
+  { key: "currencyCode", label: "货币代码", dictKey: "currencies", dictTypeCode: "CURRENCY" },
   { key: "description", label: "详细描述" },
 ];
 
@@ -319,27 +343,55 @@ export const BACKGROUND_TITLE_CERTIFICATE_FIELDS: ArchiveFieldDef[] = [
 export const BACKGROUND_REWARD_FIELDS: ArchiveFieldDef[] = [
   { key: "effectiveDate", label: "生效日期", type: "date" },
   { key: "archiveDate", label: "归档日期", type: "date" },
-  { key: "type", label: "奖励类型", required: true },
-  { key: "level", label: "级别" },
+  {
+    key: "type",
+    label: "奖励类型",
+    required: true,
+    parentChildType: "REWARD_TYPE",
+  },
+  {
+    key: "level",
+    label: "级别",
+    parentChildType: "REWARD_TYPE",
+    parentFieldKey: "type",
+  },
   { key: "witness", label: "见证人" },
   { key: "amount", label: "金额", type: "number" },
-  { key: "paymentMethod", label: "发放方式" },
+  {
+    key: "paymentMethod",
+    label: "发放方式",
+    dictTypeCode: "REWARD_PAYMENT_METHOD",
+  },
   { key: "issuingOrg", label: "颁发单位" },
   { key: "documentNo", label: "文号" },
-  { key: "description", label: "备注描述" },
+  { key: "description", label: "备注描述", type: "textarea" },
 ];
 
 export const BACKGROUND_PENALTY_FIELDS: ArchiveFieldDef[] = [
   { key: "effectiveDate", label: "生效日期", type: "date" },
   { key: "archiveDate", label: "归档日期", type: "date" },
-  { key: "type", label: "惩处类型", required: true },
-  { key: "level", label: "惩处类别" },
+  {
+    key: "type",
+    label: "惩处类型",
+    required: true,
+    parentChildType: "PENALTY_TYPE",
+  },
+  {
+    key: "level",
+    label: "惩处类别",
+    parentChildType: "PENALTY_TYPE",
+    parentFieldKey: "type",
+  },
   { key: "witness", label: "见证人" },
   { key: "amount", label: "金额", type: "number" },
-  { key: "paymentMethod", label: "扣款方式" },
-  { key: "involvesCompensation", label: "涉及赔偿", type: "boolean" },
+  {
+    key: "paymentMethod",
+    label: "扣款方式",
+    dictTypeCode: "PENALTY_PAYMENT_METHOD",
+  },
+  { key: "involvesCompensation", label: "涉及赔偿", type: "boolean", options: BOOLEAN_OPTIONS },
   { key: "issuingOrg", label: "发文单位" },
-  { key: "description", label: "处罚描述" },
+  { key: "description", label: "处罚描述", type: "textarea" },
 ];
 
 export const TALENT_TRAINING_FIELDS: ArchiveFieldDef[] = [

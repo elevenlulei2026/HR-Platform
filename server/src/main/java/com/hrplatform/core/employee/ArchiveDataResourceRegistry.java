@@ -40,18 +40,18 @@ public final class ArchiveDataResourceRegistry {
     put("work-injuries", "工伤信息", "service", true, "跨员工工伤信息批管");
     put("admin-infos", "行政信息", "service", true, "跨员工行政信息批管（版本化）");
     put("accommodations", "住宿信息", "service", true, "跨员工住宿信息批管（版本化）");
-    put("attachments", "附件", "service", false, "跨员工附件批管");
+    put("attachments", "附件", "service", true, "跨员工附件批管（页面上传，导出台账）");
     // 背景信息
-    put("educations", "教育经历", "background", false, "跨员工教育经历批管");
-    put("work-experiences", "工作经历", "background", false, "跨员工工作经历批管");
-    put("qualifications", "资格证书", "background", false, "跨员工资格证书批管");
-    put("title-certificates", "职称证书", "background", false, "跨员工职称证书批管");
-    put("rewards", "奖励记录", "background", false, "跨员工奖励记录批管");
-    put("penalties", "惩处记录", "background", false, "跨员工惩处记录批管");
+    put("educations", "教育经历", "background", true, "跨员工教育经历批管");
+    put("work-experiences", "工作经历", "background", true, "跨员工工作经历批管");
+    put("qualifications", "资格证书", "background", true, "跨员工资格证书批管");
+    put("title-certificates", "职称证书", "background", true, "跨员工职称证书批管");
+    put("rewards", "奖励记录", "background", true, "跨员工奖励记录批管");
+    put("penalties", "惩处记录", "background", true, "跨员工惩处记录批管");
     // 人才发展
-    put("training-records", "培训记录", "development", false, "跨员工培训记录批管");
-    put("performance-records", "绩效记录", "development", false, "跨员工绩效记录批管");
-    put("values-assessments", "价值观评估", "development", false, "跨员工价值观评估批管");
+    put("training-records", "培训记录", "development", true, "跨员工培训记录批管");
+    put("performance-records", "绩效记录", "development", true, "跨员工绩效记录批管");
+    put("values-assessments", "价值观评估", "development", true, "跨员工价值观评估批管");
     put("talent-reviews", "人才盘点", "development", false, "跨员工人才盘点批管");
     put("projects", "项目信息", "development", false, "跨员工项目信息批管");
     put("agent-assignments", "智能体归属", "development", false, "跨员工智能体归属批管");
