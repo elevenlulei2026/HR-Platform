@@ -354,3 +354,28 @@ export async function postMultipart<T>(path: string, formData: FormData): Promis
   return json as ApiResponse<T>;
 }
 
+export async function postBlob<TBody extends Record<string, unknown>>(
+  path: string,
+  body: TBody,
+): Promise<Blob> {
+  const url = `${baseUrl}${path.startsWith("/") ? path : `/${path}`}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    let message = `请求失败（HTTP ${res.status}）`;
+    try {
+      const json = await res.json();
+      if (typeof (json as { message?: string }).message === "string") {
+        message = (json as { message: string }).message;
+      }
+    } catch {
+      // ignore
+    }
+    throw { message } satisfies ApiError;
+  }
+  return res.blob();
+}
+

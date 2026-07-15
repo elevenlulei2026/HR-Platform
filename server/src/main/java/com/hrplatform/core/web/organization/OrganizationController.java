@@ -1,17 +1,28 @@
 package com.hrplatform.core.web.organization;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrplatform.core.organization.*;
+import com.hrplatform.platform.audit.AuditLogEntity;
+import com.hrplatform.platform.audit.AuditLogService;
+import com.hrplatform.platform.auth.AuthContext;
 import com.hrplatform.platform.dict.DictService;
 import com.hrplatform.platform.rbac.RbacService;
 import com.hrplatform.platform.web.ApiResponse;
+import com.hrplatform.platform.web.TraceId;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -22,22 +33,34 @@ import java.util.Map;
 public class OrganizationController {
   private final LegalEntityService legalEntityService;
   private final OrganizationService organizationService;
+  private final OrganizationBatchService organizationBatchService;
   private final PositionService positionService;
+  private final PositionBatchService positionBatchService;
   private final RbacService rbacService;
   private final DictService dictService;
+  private final AuditLogService auditLogService;
+  private final ObjectMapper objectMapper;
 
   public OrganizationController(
       LegalEntityService legalEntityService,
       OrganizationService organizationService,
+      OrganizationBatchService organizationBatchService,
       PositionService positionService,
       RbacService rbacService,
-      DictService dictService
+      DictService dictService,
+      PositionBatchService positionBatchService,
+      AuditLogService auditLogService,
+      ObjectMapper objectMapper
   ) {
     this.legalEntityService = legalEntityService;
     this.organizationService = organizationService;
+    this.organizationBatchService = organizationBatchService;
     this.positionService = positionService;
     this.rbacService = rbacService;
     this.dictService = dictService;
+    this.positionBatchService = positionBatchService;
+    this.auditLogService = auditLogService;
+    this.objectMapper = objectMapper;
   }
 
   // ----- Legal Entity -----
@@ -156,6 +179,71 @@ public class OrganizationController {
     return ApiResponse.ok(toOrganizationDto(updated, labels, parentName));
   }
 
+  @GetMapping("/organizations/import-template")
+  public ResponseEntity<byte[]> downloadOrganizationImportTemplate() {
+    requireOrgImport();
+    byte[] bytes = organizationBatchService.buildTemplate();
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=organization-import-template.xlsx")
+        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(bytes);
+  }
+
+  @PostMapping(value = "/organizations/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ApiResponse<Map<String, Object>> importOrganizations(@RequestParam("file") MultipartFile file) {
+    requireOrgImport();
+    OrganizationBatchService.ImportResult result = organizationBatchService.importExcel(file);
+    Map<String, Object> dto = new HashMap<>();
+    dto.put("totalRows", result.totalRows());
+    dto.put("successCount", result.successCount());
+    dto.put("failureCount", result.failureCount());
+    dto.put("errors", result.errors().stream().map(e -> Map.of(
+        "rowNumber", e.rowNumber(),
+        "field", e.field() == null ? "" : e.field(),
+        "message", e.message()
+    )).toList());
+    return ApiResponse.ok(dto);
+  }
+
+  @PostMapping("/organizations/import-error-report")
+  public ResponseEntity<byte[]> organizationImportErrorReport(
+      @Valid @RequestBody OrganizationImportErrorReportRequest req
+  ) {
+    requireOrgImport();
+    List<OrganizationBatchService.RowError> errors = req.errors().stream()
+        .map(e -> new OrganizationBatchService.RowError(e.rowNumber(), e.field(), e.message()))
+        .toList();
+    byte[] bytes = organizationBatchService.buildErrorReport(errors);
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=organization-import-errors.xlsx")
+        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(bytes);
+  }
+
+  @GetMapping("/organizations/export")
+  public ResponseEntity<byte[]> exportOrganizations(
+      HttpServletRequest request,
+      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) String asOfDate
+  ) {
+    requireOrgExport();
+    LocalDate date = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate);
+    List<OrganizationEntity> organizations = flattenTree(organizationService.getTree(date)).stream()
+        .filter(o -> {
+          if (keyword == null || keyword.isBlank()) return true;
+          String q = keyword.trim().toLowerCase();
+          return (o.getCode() != null && o.getCode().toLowerCase().contains(q))
+              || (o.getName() != null && o.getName().toLowerCase().contains(q));
+        })
+        .toList();
+    byte[] bytes = organizationBatchService.exportExcel(organizations);
+    logExport(request, "organizations", organizations.size());
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=organizations.xlsx")
+        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(bytes);
+  }
+
   // ----- Position -----
 
   @GetMapping("/positions/form-options")
@@ -239,6 +327,64 @@ public class OrganizationController {
     return ApiResponse.ok(Map.of("id", String.valueOf(id)));
   }
 
+  @GetMapping("/positions/import-template")
+  public ResponseEntity<byte[]> downloadPositionImportTemplate() {
+    requirePositionImport();
+    byte[] bytes = positionBatchService.buildTemplate();
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=position-import-template.xlsx")
+        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(bytes);
+  }
+
+  @PostMapping(value = "/positions/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ApiResponse<Map<String, Object>> importPositions(@RequestParam("file") MultipartFile file) {
+    requirePositionImport();
+    PositionBatchService.ImportResult result = positionBatchService.importExcel(file);
+    Map<String, Object> dto = new HashMap<>();
+    dto.put("totalRows", result.totalRows());
+    dto.put("successCount", result.successCount());
+    dto.put("failureCount", result.failureCount());
+    dto.put("errors", result.errors().stream().map(e -> Map.of(
+        "rowNumber", e.rowNumber(),
+        "field", e.field() == null ? "" : e.field(),
+        "message", e.message()
+    )).toList());
+    return ApiResponse.ok(dto);
+  }
+
+  @PostMapping("/positions/import-error-report")
+  public ResponseEntity<byte[]> positionImportErrorReport(@Valid @RequestBody PositionImportErrorReportRequest req) {
+    requirePositionImport();
+    List<PositionBatchService.RowError> errors = req.errors().stream()
+        .map(e -> new PositionBatchService.RowError(e.rowNumber(), e.field(), e.message()))
+        .toList();
+    byte[] bytes = positionBatchService.buildErrorReport(errors);
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=position-import-errors.xlsx")
+        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(bytes);
+  }
+
+  @GetMapping("/positions/export")
+  public ResponseEntity<byte[]> exportPositions(
+      HttpServletRequest request,
+      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) Long organizationId,
+      @RequestParam(required = false) String asOfDate
+  ) {
+    requirePositionExport();
+    LocalDate date = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate);
+    List<PositionEntity> positions = positionService.listForExport(keyword, organizationId, date);
+    Map<Long, OrganizationEntity> orgMap = positionService.orgMap(positions);
+    byte[] bytes = positionBatchService.exportExcel(positions, orgMap);
+    logExport(request, "positions", positions.size());
+    return ResponseEntity.ok()
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=positions.xlsx")
+        .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+        .body(bytes);
+  }
+
   // ----- helpers -----
 
   private void requireOrgView() { rbacService.requirePermission("organization:view"); }
@@ -249,6 +395,12 @@ public class OrganizationController {
   private void requireOrgDelete() {
     rbacService.requireAnyPermission("organization:delete", "organization:edit");
   }
+  private void requireOrgImport() {
+    rbacService.requireAnyPermission("organization:import", "organization:edit");
+  }
+  private void requireOrgExport() {
+    rbacService.requireAnyPermission("organization:export", "organization:view");
+  }
   private void requirePositionView() { rbacService.requirePermission("position:view"); }
   private void requirePositionCreate() {
     rbacService.requireAnyPermission("position:create", "position:edit");
@@ -256,6 +408,12 @@ public class OrganizationController {
   private void requirePositionEdit() { rbacService.requirePermission("position:edit"); }
   private void requirePositionDelete() {
     rbacService.requireAnyPermission("position:delete", "position:edit");
+  }
+  private void requirePositionImport() {
+    rbacService.requireAnyPermission("position:import", "position:edit");
+  }
+  private void requirePositionExport() {
+    rbacService.requireAnyPermission("position:export", "position:view");
   }
 
   /** 组织架构树：组织管理员或花名册维护者可读（任职选择部门） */
@@ -675,4 +833,44 @@ public class OrganizationController {
       String keyPosition,
       String identityCategory
   ) {}
+
+  public record PositionImportErrorReportRequest(
+      @NotNull List<PositionImportErrorItemRequest> errors
+  ) {}
+
+  public record PositionImportErrorItemRequest(
+      @NotNull Integer rowNumber,
+      String field,
+      @NotBlank String message
+  ) {}
+
+  public record OrganizationImportErrorReportRequest(
+      @NotNull List<OrganizationImportErrorItemRequest> errors
+  ) {}
+
+  public record OrganizationImportErrorItemRequest(
+      @NotNull Integer rowNumber,
+      String field,
+      @NotBlank String message
+  ) {}
+
+  private void logExport(HttpServletRequest request, String resourceType, int count) {
+    try {
+      AuditLogEntity log = new AuditLogEntity();
+      log.setAction("EXPORT");
+      log.setResourceType(resourceType);
+      var user = AuthContext.current();
+      if (user != null) {
+        log.setOperatorUserId(user.id());
+        log.setOperatorUsername(user.username());
+      }
+      log.setIpAddress(request.getRemoteAddr());
+      log.setTraceId(TraceId.current());
+      log.setCreatedAt(LocalDateTime.now());
+      log.setDetailJson(objectMapper.writeValueAsString(Map.of("count", count)));
+      auditLogService.append(log);
+    } catch (Exception ignored) {
+      // 审计失败不阻断业务
+    }
+  }
 }

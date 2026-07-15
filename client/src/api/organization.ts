@@ -6,6 +6,7 @@ import type {
   Organization,
   OrganizationCreateRequest,
   OrganizationFormOptions,
+  OrganizationImportResult,
   OrganizationTreeNode,
   OrganizationTreeQuery,
   OrganizationUpdateRequest,
@@ -14,12 +15,13 @@ import type {
   Position,
   PositionCreateRequest,
   PositionFormOptions,
+  PositionImportResult,
   PositionListQuery,
   PositionUpdateRequest,
   PositionVersion,
 } from "@shared/api.interface";
 
-import { deleteJson, getJson, postJson, putJson } from "@/api/http";
+import { deleteJson, getBlob, getJson, postBlob, postJson, postMultipart, putJson } from "@/api/http";
 
 function pageQuery(params: Record<string, string | number | undefined>): string {
   const qs = new URLSearchParams();
@@ -74,6 +76,36 @@ export async function updateOrganization(id: string, req: OrganizationUpdateRequ
   return putJson<Organization, OrganizationUpdateRequest>(`/api/v1/organizations/${id}`, req);
 }
 
+export async function downloadOrganizationImportTemplate() {
+  return getBlob("/api/v1/organizations/import-template");
+}
+
+export async function importOrganizations(file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+  return postMultipart<OrganizationImportResult>("/api/v1/organizations/import", fd);
+}
+
+export async function downloadOrganizationImportErrorReport(req: {
+  errors: OrganizationImportResult["errors"];
+}) {
+  return postBlob<{ errors: OrganizationImportResult["errors"] }>(
+    "/api/v1/organizations/import-error-report",
+    req,
+  );
+}
+
+export async function exportOrganizations(query?: {
+  keyword?: string;
+  asOfDate?: string;
+}) {
+  const qs = pageQuery({
+    keyword: query?.keyword,
+    asOfDate: query?.asOfDate,
+  });
+  return getBlob(`/api/v1/organizations/export${qs ? `?${qs}` : ""}`);
+}
+
 export async function getPositionFormOptions() {
   return getJson<PositionFormOptions>("/api/v1/positions/form-options");
 }
@@ -118,6 +150,36 @@ export async function updatePosition(id: string, req: PositionUpdateRequest) {
 
 export async function deletePosition(id: string) {
   return deleteJson<{ id: string }>(`/api/v1/positions/${id}`);
+}
+
+export async function downloadPositionImportTemplate() {
+  return getBlob("/api/v1/positions/import-template");
+}
+
+export async function importPositions(file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+  return postMultipart<PositionImportResult>("/api/v1/positions/import", fd);
+}
+
+export async function downloadPositionImportErrorReport(req: {
+  errors: PositionImportResult["errors"];
+}) {
+  return postBlob<{ errors: PositionImportResult["errors"] }>(
+    "/api/v1/positions/import-error-report",
+    req,
+  );
+}
+
+export async function exportPositions(
+  query?: Pick<PositionListQuery, "keyword" | "organizationId" | "asOfDate">,
+) {
+  const qs = pageQuery({
+    keyword: query?.keyword,
+    organizationId: query?.organizationId,
+    asOfDate: query?.asOfDate,
+  });
+  return getBlob(`/api/v1/positions/export${qs ? `?${qs}` : ""}`);
 }
 
 export function flattenOrgTree(nodes: OrganizationTreeNode[]): OrganizationTreeNode[] {

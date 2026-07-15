@@ -16,15 +16,20 @@ import type { ApiError } from "@/api/http";
 import {
   createPosition,
   deletePosition,
+  downloadPositionImportErrorReport,
+  downloadPositionImportTemplate,
+  exportPositions,
   flattenOrgTree,
   getOrganizationTree,
   getPosition,
   getPositionFormOptions,
   getPositionVersions,
+  importPositions,
   listPositions,
   updatePosition,
 } from "@/api/organization";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { ExcelBatchImportDialog } from "@/components/admin/ExcelBatchImportDialog";
 import { FormField, OptionToggle } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
 import {
@@ -60,6 +65,7 @@ import { cn } from "@/lib/utils";
 import {
   BriefcaseBusiness,
   CalendarClock,
+  Download,
   History,
   Inbox,
   Plus,
@@ -67,6 +73,7 @@ import {
   Shield,
   Sparkles,
   Trash2,
+  Upload,
 } from "lucide-react";
 
 type LoadState =
@@ -383,6 +390,8 @@ export function AdminOrgPositionsPage() {
   const perm = usePermission();
   const canView = perm.has("position:view");
   const canEdit = perm.has("position:edit");
+  const canImport = perm.has("position:import") || canEdit;
+  const canExport = perm.has("position:export") || canView;
 
   const [asOfDate, setAsOfDate] = useState(todayStr());
   const [keyword, setKeyword] = useState("");
@@ -401,6 +410,9 @@ export function AdminOrgPositionsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState<PositionForm>(emptyForm(todayStr()));
+  const [importOpen, setImportOpen] = useState(false);
+  const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const temporal = useMemo(() => temporalHint(asOfDate), [asOfDate]);
   const flatOrgs = useMemo(() => flattenOrgTree(orgs), [orgs]);
@@ -419,6 +431,15 @@ export function AdminOrgPositionsPage() {
 
   const patchForm = <K extends keyof PositionForm>(key: K, value: PositionForm[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
   };
 
   const loadRefs = useCallback(async () => {
@@ -585,6 +606,24 @@ export function AdminOrgPositionsPage() {
     }
   };
 
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportPositions({
+        keyword: debouncedKeyword.trim() || undefined,
+        asOfDate,
+      });
+      downloadBlob(blob, `positions-${asOfDate || todayStr()}.xlsx`);
+      setExportConfirmOpen(false);
+      toast.success("岗位导出已开始下载");
+    } catch (e: unknown) {
+      const err = e as ApiError;
+      toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const sheetOpen = sheet.type !== "closed";
   const isFormSheet = sheet.type === "new" || sheet.type === "edit";
 
@@ -638,6 +677,18 @@ export function AdminOrgPositionsPage() {
               <RefreshCw />
               刷新
             </Button>
+            {canImport ? (
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                <Upload />
+                批量导入
+              </Button>
+            ) : null}
+            {canExport ? (
+              <Button variant="outline" size="sm" onClick={() => setExportConfirmOpen(true)}>
+                <Download />
+                批量导出
+              </Button>
+            ) : null}
             {canEdit ? (
               <Button size="sm" onClick={openNew}>
                 <Plus />
@@ -1105,6 +1156,59 @@ export function AdminOrgPositionsPage() {
         destructive
         onConfirm={() => void confirmDelete()}
         onOpenChange={(o) => !o && setDeleteTarget(null)}
+      />
+
+      <ConfirmDialog
+        open={exportConfirmOpen}
+        title="确认导出岗位体系"
+        description="将按当前筛选条件与快照日期导出岗位数据。"
+        confirmLabel="确认导出"
+        loading={exporting}
+        onConfirm={() => void handleExport()}
+        onOpenChange={setExportConfirmOpen}
+      />
+
+      <ExcelBatchImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        elevated
+        title="批量导入岗位体系"
+        businessKeyHint="同岗位编码 + 生效日期已存在则更新，否则按岗位编码新增生效版本。岗位编码留空则新建岗位。"
+        fillHints={[
+          { text: "必填：岗位名称、生效日期、直属部门编码" },
+          { text: "更新：填写岗位编码；新建：岗位编码留空由系统自动生成" },
+          { text: "岗位分类/职级/身份类别可填字典名称或编码" },
+        ]}
+        fillSubHint="状态支持“有效/无效”或 ACTIVE/INACTIVE；职业病岗位/关键岗位支持“是/否”或 YES/NO"
+        templateSheetHint="下载模板后按列填写，第一行为表头"
+        templateFilename="position-import-template.xlsx"
+        errorReportFilename="position-import-errors.xlsx"
+        onDownloadTemplate={async () => {
+          try {
+            return await downloadPositionImportTemplate();
+          } catch (e: unknown) {
+            throw new Error((e as ApiError).message ?? "下载模板失败");
+          }
+        }}
+        onImport={async (file) => {
+          try {
+            const res = await importPositions(file);
+            return res.data;
+          } catch (e: unknown) {
+            const err = e as ApiError;
+            throw new Error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
+          }
+        }}
+        onDownloadErrorReport={async (result) => {
+          try {
+            return await downloadPositionImportErrorReport({ errors: result.errors });
+          } catch (e: unknown) {
+            throw new Error((e as ApiError).message ?? "下载错误报告失败");
+          }
+        }}
+        onImported={async () => {
+          await loadPositions();
+        }}
       />
     </div>
   );

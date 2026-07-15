@@ -43,6 +43,46 @@ public class PositionService {
       long page,
       long pageSize
   ) {
+    List<PositionEntity> filtered = filterSnapshot(keyword, organizationId, asOfDate);
+    long total = filtered.size();
+    long p = Math.max(1, page);
+    long ps = Math.max(1, pageSize);
+    int from = (int) ((p - 1) * ps);
+    if (from >= filtered.size()) {
+      return new LegalEntityService.PageResult<>(List.of(), total);
+    }
+    int to = Math.min(from + (int) ps, filtered.size());
+    return new LegalEntityService.PageResult<>(new ArrayList<>(filtered.subList(from, to)), total);
+  }
+
+  public List<PositionEntity> listForExport(String keyword, Long organizationId, LocalDate asOfDate) {
+    return filterSnapshot(keyword, organizationId, asOfDate);
+  }
+
+  public PositionEntity findLatestVersionByCode(String code) {
+    if (code == null || code.isBlank()) return null;
+    List<PositionEntity> versions = listVersionsByCode(code.trim());
+    if (versions.isEmpty()) return null;
+    return versions.stream()
+        .max(Comparator.comparing(PositionEntity::getEffectiveStartDate))
+        .orElse(null);
+  }
+
+  public PositionEntity findByCodeAndEffectiveStartDate(String code, LocalDate effectiveStartDate) {
+    if (code == null || code.isBlank() || effectiveStartDate == null) return null;
+    return positionMapper.selectOne(
+        new LambdaQueryWrapper<PositionEntity>()
+            .eq(PositionEntity::getCode, code.trim())
+            .eq(PositionEntity::getEffectiveStartDate, effectiveStartDate)
+            .last("LIMIT 1")
+    );
+  }
+
+  private List<PositionEntity> filterSnapshot(
+      String keyword,
+      Long organizationId,
+      LocalDate asOfDate
+  ) {
     LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
     List<PositionEntity> rows = positionMapper.selectList(
         new LambdaQueryWrapper<PositionEntity>()
@@ -95,16 +135,7 @@ public class PositionService {
         })
         .sorted(Comparator.comparing(PositionEntity::getCode))
         .toList();
-
-    long total = filtered.size();
-    long p = Math.max(1, page);
-    long ps = Math.max(1, pageSize);
-    int from = (int) ((p - 1) * ps);
-    if (from >= filtered.size()) {
-      return new LegalEntityService.PageResult<>(List.of(), total);
-    }
-    int to = Math.min(from + (int) ps, filtered.size());
-    return new LegalEntityService.PageResult<>(new ArrayList<>(filtered.subList(from, to)), total);
+    return filtered;
   }
 
   public PositionEntity require(long id) {

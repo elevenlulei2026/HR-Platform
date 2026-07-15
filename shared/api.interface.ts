@@ -1189,6 +1189,32 @@ export type PositionListQuery = {
   pageSize: number;
 };
 
+export type PositionImportRowError = {
+  rowNumber: number;
+  field?: string | null;
+  message: string;
+};
+
+export type PositionImportResult = {
+  totalRows: number;
+  successCount: number;
+  failureCount: number;
+  errors: PositionImportRowError[];
+};
+
+export type OrganizationImportRowError = {
+  rowNumber: number;
+  field?: string | null;
+  message: string;
+};
+
+export type OrganizationImportResult = {
+  totalRows: number;
+  successCount: number;
+  failureCount: number;
+  errors: OrganizationImportRowError[];
+};
+
 export type OrganizationApi = {
   /** GET /api/v1/legal-entities?page=&pageSize=&keyword= */
   listLegalEntities: (query: LegalEntityListQuery) => Promise<ApiResponse<PageResult<LegalEntity>>>;
@@ -1213,6 +1239,16 @@ export type OrganizationApi = {
   createOrganization: (req: OrganizationCreateRequest) => Promise<ApiResponse<Organization>>;
   /** PUT /api/v1/organizations/{id} */
   updateOrganization: (id: string, req: OrganizationUpdateRequest) => Promise<ApiResponse<Organization>>;
+  /** GET /api/v1/organizations/import-template */
+  downloadOrganizationImportTemplate: () => Promise<Blob>;
+  /** POST /api/v1/organizations/import (multipart) */
+  importOrganizations: (file: File) => Promise<ApiResponse<OrganizationImportResult>>;
+  /** POST /api/v1/organizations/import-error-report */
+  downloadOrganizationImportErrorReport: (req: {
+    errors: OrganizationImportRowError[];
+  }) => Promise<Blob>;
+  /** GET /api/v1/organizations/export?keyword=&asOfDate= */
+  exportOrganizations: (query?: Pick<OrganizationTreeQuery, "asOfDate"> & { keyword?: string }) => Promise<Blob>;
 
   /** GET /api/v1/positions/form-options */
   getPositionFormOptions: () => Promise<ApiResponse<PositionFormOptions>>;
@@ -1229,6 +1265,18 @@ export type OrganizationApi = {
   updatePosition: (id: string, req: PositionUpdateRequest) => Promise<ApiResponse<Position>>;
   /** DELETE /api/v1/positions/{id} */
   deletePosition: (id: string) => Promise<ApiResponse<{ id: string }>>;
+  /** GET /api/v1/positions/import-template */
+  downloadPositionImportTemplate: () => Promise<Blob>;
+  /** POST /api/v1/positions/import (multipart) */
+  importPositions: (file: File) => Promise<ApiResponse<PositionImportResult>>;
+  /** POST /api/v1/positions/import-error-report */
+  downloadPositionImportErrorReport: (req: {
+    errors: PositionImportRowError[];
+  }) => Promise<Blob>;
+  /** GET /api/v1/positions/export?keyword=&organizationId=&asOfDate= */
+  exportPositions: (
+    query?: Pick<PositionListQuery, "keyword" | "organizationId" | "asOfDate">,
+  ) => Promise<Blob>;
 };
 
 // -----------------------------

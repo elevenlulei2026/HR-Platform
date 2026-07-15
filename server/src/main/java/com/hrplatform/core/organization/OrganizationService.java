@@ -115,6 +115,25 @@ public class OrganizationService {
     );
   }
 
+  public OrganizationEntity findLatestVersionByCode(String code) {
+    if (code == null || code.isBlank()) return null;
+    List<OrganizationEntity> versions = listVersionsByCode(code.trim());
+    if (versions.isEmpty()) return null;
+    return versions.stream()
+        .max(Comparator.comparing(OrganizationEntity::getEffectiveStartDate))
+        .orElse(null);
+  }
+
+  public OrganizationEntity findByCodeAndEffectiveStartDate(String code, LocalDate effectiveStartDate) {
+    if (code == null || code.isBlank() || effectiveStartDate == null) return null;
+    return organizationMapper.selectOne(
+        new LambdaQueryWrapper<OrganizationEntity>()
+            .eq(OrganizationEntity::getCode, code.trim())
+            .eq(OrganizationEntity::getEffectiveStartDate, effectiveStartDate)
+            .last("LIMIT 1")
+    );
+  }
+
   @Transactional
   public OrganizationEntity update(long id, OrganizationEntity patch, String editMode) {
     OrganizationEntity current = require(id);

@@ -18,13 +18,19 @@ import { listEmployees } from "@/api/employee";
 import type { ApiError } from "@/api/http";
 import {
   createOrganization,
+  downloadOrganizationImportErrorReport,
+  downloadOrganizationImportTemplate,
+  exportOrganizations,
   flattenOrgTree,
   getOrganization,
   getOrganizationFormOptions,
   getOrganizationTree,
   getOrganizationVersions,
+  importOrganizations,
   updateOrganization,
 } from "@/api/organization";
+import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { ExcelBatchImportDialog } from "@/components/admin/ExcelBatchImportDialog";
 import { FormField, OptionToggle } from "@/components/admin/form-field";
 import { SearchableDialogPicker } from "@/components/admin/searchable-dialog-picker";
 import {
@@ -66,6 +72,7 @@ import { cn } from "@/lib/utils";
 import {
   Building2,
   CalendarClock,
+  Download,
   ChevronDown,
   ChevronRight,
   ChevronsDownUp,
@@ -77,6 +84,7 @@ import {
   Plus,
   RefreshCw,
   Shield,
+  Upload,
   UserRound,
 } from "lucide-react";
 
@@ -792,6 +800,8 @@ export function AdminOrgStructurePage() {
   const perm = usePermission();
   const canView = perm.has("organization:view");
   const canEdit = perm.has("organization:edit");
+  const canImport = perm.has("organization:import") || canEdit;
+  const canExport = perm.has("organization:export") || canView;
 
   const [asOfDate, setAsOfDate] = useState(todayStr());
   const [treeSearch, setTreeSearch] = useState("");
@@ -811,6 +821,9 @@ export function AdminOrgStructurePage() {
   const [employeeLoading, setEmployeeLoading] = useState(false);
   const [employeeByNo, setEmployeeByNo] = useState<Record<string, SearchableSelectOption>>({});
   const debouncedEmployeeSearch = useDebouncedValue(employeeSearch, 280);
+  const [importOpen, setImportOpen] = useState(false);
+  const [exportConfirmOpen, setExportConfirmOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const temporal = useMemo(() => temporalHint(asOfDate), [asOfDate]);
   const isViewingToday = asOfDate === todayStr();
@@ -1074,6 +1087,15 @@ export function AdminOrgStructurePage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const downloadBlob = (blob: Blob, filename: string) => {
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
   const patchPersonNo = (key: OrgPersonNoField, value: string) => {
     patchForm(key, value);
     if (!value) return;
@@ -1126,6 +1148,24 @@ export function AdminOrgStructurePage() {
       toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await exportOrganizations({
+        keyword: debouncedSearch.trim() || undefined,
+        asOfDate,
+      });
+      downloadBlob(blob, `organizations-${asOfDate || todayStr()}.xlsx`);
+      setExportConfirmOpen(false);
+      toast.success("组织导出已开始下载");
+    } catch (e: unknown) {
+      const err = e as ApiError;
+      toast.error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -1213,6 +1253,18 @@ export function AdminOrgStructurePage() {
               <RefreshCw />
               刷新
             </Button>
+            {canImport ? (
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                <Upload />
+                批量导入
+              </Button>
+            ) : null}
+            {canExport ? (
+              <Button variant="outline" size="sm" onClick={() => setExportConfirmOpen(true)}>
+                <Download />
+                批量导出
+              </Button>
+            ) : null}
           </div>
         }
       >
@@ -1512,6 +1564,59 @@ export function AdminOrgStructurePage() {
           )}
         </SheetContent>
       </Sheet>
+
+      <ConfirmDialog
+        open={exportConfirmOpen}
+        title="确认导出组织架构"
+        description="将按当前筛选条件与快照日期导出组织数据。"
+        confirmLabel="确认导出"
+        loading={exporting}
+        onConfirm={() => void handleExport()}
+        onOpenChange={setExportConfirmOpen}
+      />
+
+      <ExcelBatchImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        elevated
+        title="批量导入组织架构"
+        businessKeyHint="同部门编码 + 生效日期已存在则更新，否则按部门编码新增生效版本。部门编码留空则新建部门。"
+        fillHints={[
+          { text: "必填：部门名称、生效日期" },
+          { text: "更新：填写部门编码；新建：部门编码留空由系统自动生成" },
+          { text: "地点/法人公司/部门类型/层级可填字典名称或编码" },
+        ]}
+        fillSubHint="状态支持“有效/无效”或 ACTIVE/INACTIVE；组织属性支持“实体/虚拟”"
+        templateSheetHint="下载模板后按列填写，第一行为表头"
+        templateFilename="organization-import-template.xlsx"
+        errorReportFilename="organization-import-errors.xlsx"
+        onDownloadTemplate={async () => {
+          try {
+            return await downloadOrganizationImportTemplate();
+          } catch (e: unknown) {
+            throw new Error((e as ApiError).message ?? "下载模板失败");
+          }
+        }}
+        onImport={async (file) => {
+          try {
+            const res = await importOrganizations(file);
+            return res.data;
+          } catch (e: unknown) {
+            const err = e as ApiError;
+            throw new Error(err.traceId ? `${err.message}（traceId: ${err.traceId}）` : err.message);
+          }
+        }}
+        onDownloadErrorReport={async (result) => {
+          try {
+            return await downloadOrganizationImportErrorReport({ errors: result.errors });
+          } catch (e: unknown) {
+            throw new Error((e as ApiError).message ?? "下载错误报告失败");
+          }
+        }}
+        onImported={async () => {
+          await load();
+        }}
+      />
     </div>
   );
 }
