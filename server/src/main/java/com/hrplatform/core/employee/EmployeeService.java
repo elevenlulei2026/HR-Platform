@@ -100,7 +100,9 @@ public class EmployeeService {
         null,
         null,
         null,
-        asOfDate
+        asOfDate,
+        null,
+        null
     );
     return page(filter, page, pageSize);
   }
@@ -108,12 +110,12 @@ public class EmployeeService {
   public PageResult page(EmployeeListFilter filter, long page, long pageSize) {
     LocalDate asOf = filter == null ? LocalDate.now() : filter.snapshotDate();
     EmployeeListFilter f = filter == null
-        ? new EmployeeListFilter("FUZZY", null, null, null, null, null, null, null, null, null, null, null, asOf)
+        ? new EmployeeListFilter(
+            "FUZZY", null, null, null, null, null, null, null, null, null, null, null, asOf, null, null)
         : filter;
 
-    LambdaQueryWrapper<EmployeeEntity> qw = new LambdaQueryWrapper<EmployeeEntity>()
-        .orderByDesc(EmployeeEntity::getHireDate)
-        .orderByDesc(EmployeeEntity::getId);
+    LambdaQueryWrapper<EmployeeEntity> qw = new LambdaQueryWrapper<>();
+    applySort(qw, f.sortBy(), f.sortOrder());
 
     Set<Long> allowed = resolveAllowedEmployeeIds();
     if (allowed != null && allowed.isEmpty()) {
@@ -187,6 +189,34 @@ public class EmployeeService {
     });
   }
 
+  private void applySort(
+      LambdaQueryWrapper<EmployeeEntity> qw,
+      String sortBy,
+      String sortOrder
+  ) {
+    boolean asc = sortOrder != null && "asc".equalsIgnoreCase(sortOrder.trim());
+    String key = sortBy == null ? "" : sortBy.trim();
+    switch (key) {
+      case "employeeNo" -> {
+        if (asc) qw.orderByAsc(EmployeeEntity::getEmployeeNo);
+        else qw.orderByDesc(EmployeeEntity::getEmployeeNo);
+      }
+      case "fullName" -> {
+        if (asc) qw.orderByAsc(EmployeeEntity::getFullName);
+        else qw.orderByDesc(EmployeeEntity::getFullName);
+      }
+      case "status" -> {
+        if (asc) qw.orderByAsc(EmployeeEntity::getStatus);
+        else qw.orderByDesc(EmployeeEntity::getStatus);
+      }
+      default -> {
+        if (asc) qw.orderByAsc(EmployeeEntity::getHireDate);
+        else qw.orderByDesc(EmployeeEntity::getHireDate);
+      }
+    }
+    qw.orderByDesc(EmployeeEntity::getId);
+  }
+
   private void applyAdvancedFilters(
       LambdaQueryWrapper<EmployeeEntity> qw,
       EmployeeListFilter filter,
@@ -201,7 +231,8 @@ public class EmployeeService {
       qw.in(EmployeeEntity::getId, statusIds);
     }
     if (filter.fullName() != null && !filter.fullName().isBlank()) {
-      List<Long> ids = findEmployeeIdsByMasterExact(EmployeeMasterVersionEntity::getFullName, filter.fullName().trim(), asOf);
+      List<Long> ids = findEmployeeIdsByMasterContains(
+          EmployeeMasterVersionEntity::getFullName, filter.fullName().trim(), asOf);
       if (ids.isEmpty()) {
         qw.eq(EmployeeEntity::getId, -1L);
         return;
@@ -209,10 +240,10 @@ public class EmployeeService {
       qw.in(EmployeeEntity::getId, ids);
     }
     if (filter.employeeNo() != null && !filter.employeeNo().isBlank()) {
-      qw.eq(EmployeeEntity::getEmployeeNo, filter.employeeNo().trim());
+      qw.like(EmployeeEntity::getEmployeeNo, filter.employeeNo().trim());
     }
     if (filter.companyEmail() != null && !filter.companyEmail().isBlank()) {
-      List<Long> ids = findEmployeeIdsByMasterExact(
+      List<Long> ids = findEmployeeIdsByMasterContains(
           EmployeeMasterVersionEntity::getCompanyEmail,
           filter.companyEmail().trim(),
           asOf
@@ -224,7 +255,7 @@ public class EmployeeService {
       qw.in(EmployeeEntity::getId, ids);
     }
     if (filter.personalEmail() != null && !filter.personalEmail().isBlank()) {
-      List<Long> ids = findEmployeeIdsByMasterExact(
+      List<Long> ids = findEmployeeIdsByMasterContains(
           EmployeeMasterVersionEntity::getPersonalEmail,
           filter.personalEmail().trim(),
           asOf
@@ -473,6 +504,26 @@ public class EmployeeService {
             new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
                 .select(EmployeeMasterVersionEntity::getEmployeeId)
                 .eq(field, value)
+                .le(EmployeeMasterVersionEntity::getEffectiveStartDate, date)
+                .and(w -> w.isNull(EmployeeMasterVersionEntity::getEffectiveEndDate)
+                    .or().ge(EmployeeMasterVersionEntity::getEffectiveEndDate, date))
+        ).stream()
+        .map(EmployeeMasterVersionEntity::getEmployeeId)
+        .distinct()
+        .toList();
+  }
+
+  /** 主档字段包含匹配（高级筛选姓名/邮箱） */
+  private List<Long> findEmployeeIdsByMasterContains(
+      com.baomidou.mybatisplus.core.toolkit.support.SFunction<EmployeeMasterVersionEntity, ?> field,
+      String value,
+      LocalDate asOfDate
+  ) {
+    LocalDate date = asOfDate == null ? LocalDate.now() : asOfDate;
+    return masterVersionMapper.selectList(
+            new LambdaQueryWrapper<EmployeeMasterVersionEntity>()
+                .select(EmployeeMasterVersionEntity::getEmployeeId)
+                .like(field, value)
                 .le(EmployeeMasterVersionEntity::getEffectiveStartDate, date)
                 .and(w -> w.isNull(EmployeeMasterVersionEntity::getEffectiveEndDate)
                     .or().ge(EmployeeMasterVersionEntity::getEffectiveEndDate, date))

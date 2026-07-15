@@ -1670,18 +1670,22 @@ export type EmployeeMovement = {
   createdBy?: string;
 };
 
+/** 花名册列表排序字段 */
+export type EmployeeListSortBy = "hireDate" | "employeeNo" | "fullName" | "status";
+export type EmployeeListSortOrder = "asc" | "desc";
+
 export type EmployeeListQuery = {
-  /** 筛选模式：FUZZY 模糊 / ADVANCED 高级精确；默认 FUZZY */
+  /** 筛选模式：FUZZY 模糊 / ADVANCED 高级（字段包含匹配）；默认 FUZZY */
   filterMode?: EmployeeListFilterMode;
   /** 模糊：姓名 / 工号 / 岗位 / 部门 / 邮箱 */
   keyword?: string;
-  /** 高级精确：姓名（完全匹配） */
+  /** 高级：姓名（包含匹配） */
   fullName?: string;
-  /** 高级精确：工号（完全匹配） */
+  /** 高级：工号（包含匹配） */
   employeeNo?: string;
   companyEmail?: string;
   personalEmail?: string;
-  /** 高级精确：主任职岗位 ID */
+  /** 高级：主任职岗位 ID */
   positionId?: string;
   status?: EmployeeStatus;
   organizationId?: string;
@@ -1690,6 +1694,10 @@ export type EmployeeListQuery = {
   hireDateTo?: string;
   /** 快照日期 YYYY-MM-DD；不传则默认今天，列表字段取当日个人主档版本 */
   asOfDate?: string;
+  /** 排序字段；默认 hireDate */
+  sortBy?: EmployeeListSortBy;
+  /** 排序方向；默认 desc */
+  sortOrder?: EmployeeListSortOrder;
   /** 显式申请查看敏感字段明文（须 employee:sensitive:view） */
   revealSensitive?: boolean;
   page: number;
@@ -2609,6 +2617,8 @@ export type EmployeeApi = {
       | "hireDateFrom"
       | "hireDateTo"
       | "asOfDate"
+      | "sortBy"
+      | "sortOrder"
     > & {
       /** 逗号分隔的列 key，与花名册列配置一致 */
       columns?: string;

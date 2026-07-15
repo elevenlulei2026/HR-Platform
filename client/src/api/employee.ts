@@ -6,6 +6,7 @@ import type {
   EmployeeAssignmentUpdateRequest,
   EmployeeCreateRequest,
   EmployeeFormOptions,
+  EmployeeImportErrorReportRequest,
   EmployeeImportResult,
   EmployeeListQuery,
   EmployeeMasterVersion,
@@ -20,8 +21,12 @@ import type {
   ReportingLineUpdateRequest,
 } from "@shared/api.interface";
 
-import { deleteJson, getBlob, getJson, postJson, postMultipart, putJson } from "@/api/http";
+import { deleteJson, getAuthToken, getBlob, getJson, postJson, postMultipart, putJson } from "@/api/http";
 import { normalizeNumericId } from "@/lib/numeric-id";
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL?.toString().replace(/\/$/, "") ||
+  "http://localhost:8087";
 
 function pageQuery(params: Record<string, string | number | boolean | undefined>): string {
   const qs = new URLSearchParams();
@@ -116,6 +121,20 @@ export async function importEmployees(file: File) {
   return postMultipart<EmployeeImportResult>("/api/v1/employees/import", fd);
 }
 
+export async function downloadEmployeeImportErrorReport(req: EmployeeImportErrorReportRequest) {
+  const token = getAuthToken();
+  const res = await fetch(`${API_BASE}/api/v1/employees/import-error-report`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(req),
+  });
+  if (!res.ok) throw new Error(`下载错误报告失败（HTTP ${res.status}）`);
+  return res.blob();
+}
+
 export async function exportEmployees(
   query?: Pick<
     EmployeeListQuery,
@@ -132,6 +151,8 @@ export async function exportEmployees(
     | "hireDateFrom"
     | "hireDateTo"
     | "asOfDate"
+    | "sortBy"
+    | "sortOrder"
   > & {
     columns?: string;
   },
@@ -151,6 +172,8 @@ export async function exportEmployees(
     hireDateFrom: query?.hireDateFrom,
     hireDateTo: query?.hireDateTo,
     asOfDate: query?.asOfDate,
+    sortBy: query?.sortBy,
+    sortOrder: query?.sortOrder,
   });
   return getBlob(`/api/v1/employees/export${qs ? `?${qs}` : ""}`);
 }

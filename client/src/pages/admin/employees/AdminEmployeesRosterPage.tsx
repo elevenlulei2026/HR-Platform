@@ -2,11 +2,25 @@ import type {
   Employee,
   EmployeeArchive,
   EmployeeFormOptions,
+  EmployeeListSortBy,
+  EmployeeListSortOrder,
   EmployeeMovement,
   OrganizationTreeNode,
 } from "@shared/api.interface";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Download, Eye, EyeOff, Inbox, Plus, RefreshCw, Shield } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Download,
+  Eye,
+  EyeOff,
+  Inbox,
+  Plus,
+  RefreshCw,
+  Shield,
+  Upload,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import type { ApiError } from "@/api/http";
@@ -30,6 +44,7 @@ import type { SearchableSelectOption } from "@/components/admin/searchable-selec
 import { ArchiveFormDialog } from "@/components/admin/employee-archive/ArchiveFormDialog";
 import { ArchiveDialogMountProvider } from "@/components/admin/employee-archive/archive-dialog-mount";
 import { EmployeeArchiveDetailView } from "@/components/admin/employee-archive/EmployeeArchiveDetailView";
+import { EmployeeRosterImportDialog } from "@/components/admin/employees/EmployeeRosterImportDialog";
 import {
   RosterColumnPicker,
   RosterColumnPickerTrigger,
@@ -37,6 +52,7 @@ import {
 import {
   EMPTY_ROSTER_FILTER,
   RosterFilterPanel,
+  countActiveRosterFilters,
   rosterFilterToQuery,
   type RosterFilterState,
 } from "@/components/admin/employees/RosterFilterPanel";
@@ -77,6 +93,13 @@ import {
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { useArchivePermission } from "@/hooks/useArchivePermission";
 import { cn } from "@/lib/utils";
+
+const SORTABLE_COLUMNS: Partial<Record<string, EmployeeListSortBy>> = {
+  fullName: "fullName",
+  employeeNo: "employeeNo",
+  hireDate: "hireDate",
+  status: "status",
+};
 
 type ListLoadState =
   | { type: "loading" }
@@ -119,18 +142,22 @@ export function AdminEmployeesRosterPage() {
   const archivePerm = useArchivePermission();
   const canView = archivePerm.canViewRoster();
   const canEdit = archivePerm.canEditRoster();
+  const canImport = archivePerm.canImportRoster();
   const canViewSensitive = archivePerm.canViewSensitive();
   const [revealSensitive, setRevealSensitive] = useState(false);
 
   const [rosterFilter, setRosterFilter] = useState<RosterFilterState>(EMPTY_ROSTER_FILTER);
   const debouncedFilter = useDebouncedValue(rosterFilter, 280);
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<EmployeeListSortBy>("hireDate");
+  const [sortOrder, setSortOrder] = useState<EmployeeListSortOrder>("desc");
   const [state, setState] = useState<ListLoadState>({ type: "loading" });
   const [orgs, setOrgs] = useState<OrganizationTreeNode[]>([]);
   const [positions, setPositions] = useState<Array<{ id: string; code: string; name: string }>>([]);
   const [formOptions, setFormOptions] = useState<EmployeeFormOptions | null>(null);
   const [visibleColumnKeys, setVisibleColumnKeys] = useState<string[]>(() => loadVisibleColumnKeys());
   const [columnPickerOpen, setColumnPickerOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [sheet, setSheet] = useState<SheetMode>({ type: "closed" });
   const [detailAsOfDate, setDetailAsOfDate] = useState(todayStr());
   const [masterVersionsRefreshSeq, setMasterVersionsRefreshSeq] = useState(0);
@@ -175,9 +202,15 @@ export function AdminEmployeesRosterPage() {
     [visibleColumnKeys],
   );
   const listQuery = useMemo(
-    () => rosterFilterToQuery(debouncedFilter),
-    [debouncedFilter],
+    () => ({
+      ...rosterFilterToQuery(debouncedFilter),
+      sortBy,
+      sortOrder,
+    }),
+    [debouncedFilter, sortBy, sortOrder],
   );
+  const snapshotDate = rosterFilter.asOfDate || todayStr();
+  const activeFilterCount = countActiveRosterFilters(rosterFilter);
 
   const loadRefs = useCallback(async () => {
     const [treeRes, optionsRes, positionsRes] = await Promise.allSettled([
@@ -279,11 +312,22 @@ export function AdminEmployeesRosterPage() {
 
   useEffect(() => {
     setPage(1);
-  }, [debouncedFilter]);
+  }, [debouncedFilter, sortBy, sortOrder]);
+
+  const toggleSort = (columnKey: string) => {
+    const next = SORTABLE_COLUMNS[columnKey];
+    if (!next) return;
+    if (sortBy === next) {
+      setSortOrder((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(next);
+      setSortOrder(next === "fullName" || next === "employeeNo" ? "asc" : "desc");
+    }
+  };
 
   const openView = async (employee: Employee) => {
-    const today = todayStr();
-    setDetailAsOfDate(today);
+    const asOf = snapshotDate;
+    setDetailAsOfDate(asOf);
     setArchive(null);
     setMovements([]);
     setArchiveLoadError(null);
@@ -291,7 +335,7 @@ export function AdminEmployeesRosterPage() {
     void loadDetailTabs(employee.id);
     try {
       const res = await getEmployeeSnapshot(employee.id, {
-        asOfDate: today,
+        asOfDate: asOf,
         revealSensitive: revealSensitive && canViewSensitive,
       });
       setSheet({ type: "view", employee: res.data });
@@ -442,7 +486,7 @@ export function AdminEmployeesRosterPage() {
     <div className="space-y-5">
       <PageHeader
         title="员工花名册"
-        description="员工主档、档案二级模块与异动记录统一维护"
+        description="集中查询员工信息并快速查看完整档案"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <Can permission="employee:sensitive:view">
@@ -458,6 +502,12 @@ export function AdminEmployeesRosterPage() {
                 {revealSensitive ? "隐藏敏感信息" : "查看敏感信息"}
               </Button>
             </Can>
+            {canImport ? (
+              <Button variant="outline" size="sm" onClick={() => setImportOpen(true)}>
+                <Upload />
+                导入
+              </Button>
+            ) : null}
             <Can permission="employee:export">
               <Button variant="outline" size="sm" onClick={() => setExportConfirmOpen(true)}>
                 <Download />
@@ -476,7 +526,7 @@ export function AdminEmployeesRosterPage() {
 
       <PanelCard
         title="查询条件"
-        description="今日生效快照"
+        description="按场景、关键词与生效日筛选"
         dense
         toolbar={
           <div className="flex items-center gap-1.5">
@@ -499,45 +549,104 @@ export function AdminEmployeesRosterPage() {
         />
       </PanelCard>
 
-      <PanelCard title="花名册">
+      <PanelCard
+        title="花名册"
+        description={state.type === "ok" ? `共 ${state.total} 人` : undefined}
+      >
         {state.type === "loading" ? <PanelLoading message="加载花名册…" /> : null}
         {state.type === "error" ? <PanelError error={state.error} onRetry={() => void load()} /> : null}
         {state.type === "ok" && state.items.length === 0 ? (
           <PanelEmpty
             icon={<Inbox className="size-5 text-muted-foreground" />}
             title="暂无员工"
-            description="可新建员工或调整筛选条件"
+            description={
+              activeFilterCount > 0
+                ? "当前筛选无结果，可清除条件或调整场景"
+                : "可导入、新建员工或调整筛选条件"
+            }
+            action={
+              activeFilterCount > 0 ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setRosterFilter({
+                      ...EMPTY_ROSTER_FILTER,
+                      filterMode: rosterFilter.filterMode,
+                      asOfDate: todayStr(),
+                    })
+                  }
+                >
+                  清除筛选
+                </Button>
+              ) : undefined
+            }
           />
         ) : null}
         {state.type === "ok" && state.items.length > 0 ? (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 bg-muted/50 text-[11px] uppercase tracking-wide text-muted-foreground">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead className="sticky top-0 z-[1] bg-muted/80 text-[11px] uppercase tracking-wide text-muted-foreground backdrop-blur-sm">
                   <tr className="border-b">
-                    {visibleColumns.map((column) => (
-                      <th
-                        key={column.key}
-                        className="px-4 py-3 text-left font-medium"
-                        style={column.minWidth ? { minWidth: column.minWidth } : undefined}
-                      >
-                        {column.label}
-                      </th>
-                    ))}
+                    {visibleColumns.map((column) => {
+                      const sortField = SORTABLE_COLUMNS[column.key];
+                      const isSorted = sortField === sortBy;
+                      const isName = column.key === "fullName";
+                      return (
+                        <th
+                          key={column.key}
+                          className={cn(
+                            "px-4 py-3 text-left font-medium",
+                            isName &&
+                              "sticky left-0 z-[2] bg-muted/95 shadow-[2px_0_8px_-4px_rgba(0,0,0,0.12)]",
+                            sortField && "cursor-pointer select-none hover:text-foreground",
+                          )}
+                          style={column.minWidth ? { minWidth: column.minWidth } : undefined}
+                          onClick={() => sortField && toggleSort(column.key)}
+                          aria-sort={
+                            isSorted
+                              ? sortOrder === "asc"
+                                ? "ascending"
+                                : "descending"
+                              : undefined
+                          }
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            {column.label}
+                            {sortField ? (
+                              isSorted ? (
+                                sortOrder === "asc" ? (
+                                  <ArrowUp className="size-3 text-primary" />
+                                ) : (
+                                  <ArrowDown className="size-3 text-primary" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="size-3 opacity-40" />
+                              )
+                            ) : null}
+                          </span>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
                   {state.items.map((employee) => (
                     <tr
                       key={employee.id}
-                      className="cursor-pointer border-b transition-colors hover:bg-muted/40"
+                      className="group cursor-pointer border-b transition-colors hover:bg-muted/40"
                       onClick={() => void openView(employee)}
                     >
                       {visibleColumns.map((column) => {
                         const value = resolveRosterCellValue(employee, column.key);
-                        if (column.key === "fullName") {
+                        const isName = column.key === "fullName";
+                        if (isName) {
                           return (
-                            <td key={column.key} className="px-4 py-3">
+                            <td
+                              key={column.key}
+                              className="sticky left-0 z-[1] bg-background px-4 py-3 shadow-[2px_0_8px_-4px_rgba(0,0,0,0.08)] group-hover:bg-muted/40"
+                            >
                               <div className="flex items-center gap-3">
                                 <Avatar className="size-8">
                                   <AvatarFallback className="text-xs">
@@ -578,10 +687,10 @@ export function AdminEmployeesRosterPage() {
                             className={cn(
                               "px-4 py-3 text-muted-foreground",
                               column.mono && "font-mono text-xs",
-                              column.key === "fullName" && "text-foreground",
                             )}
+                            title={value.length > 24 ? value : undefined}
                           >
-                            {value}
+                            <span className="line-clamp-2">{value}</span>
                           </td>
                         );
                       })}
@@ -764,11 +873,17 @@ export function AdminEmployeesRosterPage() {
         onChange={handleColumnChange}
       />
 
+      <EmployeeRosterImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => void load()}
+      />
+
       <ConfirmDialog
         open={exportConfirmOpen}
         onOpenChange={setExportConfirmOpen}
         title="确认导出员工花名册"
-        description={`将导出当前筛选结果，共 ${visibleColumnKeys.length} 列（与列表显示一致）；字典字段导出名称，任职字段取今日有效主任职快照。`}
+        description={`将导出当前筛选结果，共 ${visibleColumnKeys.length} 列（与列表显示一致）；字典字段导出名称，任职字段取所选生效日的主任职快照。`}
         confirmLabel="确认导出"
         loading={exporting}
         onConfirm={() => void handleExport()}

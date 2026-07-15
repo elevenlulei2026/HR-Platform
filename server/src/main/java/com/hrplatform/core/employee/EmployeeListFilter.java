@@ -15,7 +15,9 @@ public record EmployeeListFilter(
     String gender,
     LocalDate hireDateFrom,
     LocalDate hireDateTo,
-    LocalDate asOfDate
+    LocalDate asOfDate,
+    String sortBy,
+    String sortOrder
 ) {
   public boolean isAdvanced() {
     return filterMode != null && "ADVANCED".equalsIgnoreCase(filterMode.trim());

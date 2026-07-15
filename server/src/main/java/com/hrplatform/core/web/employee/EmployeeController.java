@@ -81,6 +81,8 @@ public class EmployeeController {
       @RequestParam(required = false) String hireDateFrom,
       @RequestParam(required = false) String hireDateTo,
       @RequestParam(required = false) String asOfDate,
+      @RequestParam(required = false) String sortBy,
+      @RequestParam(required = false) String sortOrder,
       @RequestParam(defaultValue = "false") boolean revealSensitive,
       @RequestParam @Min(1) long page,
       @RequestParam @Min(1) @Max(200) long pageSize
@@ -100,7 +102,9 @@ public class EmployeeController {
         gender,
         parseDate(hireDateFrom),
         parseDate(hireDateTo),
-        snapshotDate
+        snapshotDate,
+        sortBy,
+        sortOrder
     );
     var p = employeeService.page(filter, page, pageSize);
     boolean reveal = employeeService.shouldRevealSensitive(revealSensitive);
@@ -418,7 +422,9 @@ public class EmployeeController {
       @RequestParam(required = false) String gender,
       @RequestParam(required = false) String hireDateFrom,
       @RequestParam(required = false) String hireDateTo,
-      @RequestParam(required = false) String asOfDate
+      @RequestParam(required = false) String asOfDate,
+      @RequestParam(required = false) String sortBy,
+      @RequestParam(required = false) String sortOrder
   ) {
     requireExport();
     boolean reveal = employeeService.canViewSensitive();
@@ -436,7 +442,9 @@ public class EmployeeController {
         gender,
         parseDate(hireDateFrom),
         parseDate(hireDateTo),
-        snapshotDate
+        snapshotDate,
+        sortBy,
+        sortOrder
     );
     List<EmployeeEntity> list = employeeService.listForExport(filter);
     List<Long> empIds = list.stream().map(EmployeeEntity::getId).toList();
