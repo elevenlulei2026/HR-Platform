@@ -10,7 +10,7 @@ import type {
   YesNo,
 } from "@shared/api.interface";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { History, Sparkles } from "lucide-react";
+import { BriefcaseBusiness, History, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
 import type { ApiError } from "@/api/http";
@@ -26,6 +26,11 @@ import { FormField, OptionToggle } from "@/components/admin/form-field";
 import { OptionSelect } from "@/components/admin/option-select";
 import { formatCodeName, SearchableSelect } from "@/components/admin/searchable-select";
 import { adminChipActive, adminChipIdle } from "@/components/admin/selection-styles";
+import {
+  SheetEntityHeader,
+  SheetEntityIcon,
+  SheetEntitySummary,
+} from "@/components/admin/sheet-entity-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -377,14 +382,17 @@ export function PositionWorkbenchSheet({
           </div>
         ) : mode === "view" ? (
           <>
-            <SheetHeader className="border-b px-6 py-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0 space-y-1">
-                  <SheetTitle className="truncate">{position.name}</SheetTitle>
-                  <SheetDescription className="font-mono text-xs">{position.code}</SheetDescription>
-                </div>
-                {canEdit ? (
-                  <div className="flex shrink-0 flex-wrap gap-1.5">
+            <SheetEntityHeader
+              icon={
+                <SheetEntityIcon>
+                  <BriefcaseBusiness className="size-5" />
+                </SheetEntityIcon>
+              }
+              title={position.name}
+              description={position.code}
+              actions={
+                canEdit ? (
+                  <>
                     <Button size="sm" variant="outline" onClick={() => openEdit("CURRENT")}>
                       编辑
                     </Button>
@@ -392,10 +400,37 @@ export function PositionWorkbenchSheet({
                       <History className="size-3.5" />
                       新增版本
                     </Button>
+                  </>
+                ) : null
+              }
+              badges={
+                <>
+                  <StatusBadge status={position.status} />
+                  {position.keyPosition === "YES" ? (
+                    <Badge
+                      variant="outline"
+                      className="border-amber-500/40 text-amber-700 dark:text-amber-300"
+                    >
+                      <Sparkles className="size-3" />
+                      关键岗位
+                    </Badge>
+                  ) : null}
+                  {position.positionSequence ? (
+                    <Badge variant="secondary">序列 {position.positionSequence}</Badge>
+                  ) : null}
+                </>
+              }
+              summary={
+                <SheetEntitySummary>
+                  <div className="min-w-0 text-[11px]">
+                    <span className="text-muted-foreground">直属部门 </span>
+                    <span className="font-medium text-foreground">
+                      {displayCodeName(position.organizationCode, position.organizationName)}
+                    </span>
                   </div>
-                ) : null}
-              </div>
-            </SheetHeader>
+                </SheetEntitySummary>
+              }
+            />
             <div className="flex-1 overflow-y-auto px-6 py-5">
               {versionsLoading ? (
                 <div className="mb-5 h-16 animate-pulse rounded-lg bg-muted/30" />
@@ -406,24 +441,6 @@ export function PositionWorkbenchSheet({
                   onSelect={(v) => void viewVersion(v)}
                 />
               )}
-              <div className="mb-6 flex items-start justify-between gap-4 rounded-xl border border-border/60 bg-muted/15 p-4">
-                <div className="min-w-0 space-y-2">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-lg font-semibold tracking-tight">{position.name}</span>
-                    <StatusBadge status={position.status} />
-                    {position.keyPosition === "YES" ? (
-                      <Badge
-                        variant="outline"
-                        className="border-amber-500/40 text-amber-700 dark:text-amber-300"
-                      >
-                        <Sparkles className="size-3" />
-                        关键岗位
-                      </Badge>
-                    ) : null}
-                  </div>
-                  <div className="font-mono text-xs text-muted-foreground">{position.code}</div>
-                </div>
-              </div>
               <div className="space-y-6">
                 <DetailSection title="基本信息">
                   <DetailCell label="生效日期" value={position.effectiveStartDate} />

@@ -77,6 +77,7 @@ import { ArchiveSectionAnchor } from "@/components/admin/employee-archive/Archiv
 import { AssignmentSection } from "@/components/admin/employee-archive/AssignmentSection";
 import { summarizePrimaryAssignmentHeader } from "@/components/admin/employee-archive/assignment-header-summary";
 import { PanelCard, PanelError } from "@/components/admin/page-shell";
+import { SheetEntityHeader } from "@/components/admin/sheet-entity-header";
 import { adminChipActive, adminChipIdle } from "@/components/admin/selection-styles";
 import { listEmployeeAssignments, listEmployeeMasterVersions } from "@/api/employee";
 import { employeeStatusLabel, statusBadgeClass } from "@/api/employee";
@@ -84,7 +85,7 @@ import { getEmployeeFormOptions } from "@/api/employee";
 import { EmployeeAvatar } from "@/components/admin/employee-archive/EmployeeAvatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { SheetFooter, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
+import { SheetFooter } from "@/components/ui/sheet";
 import { useScrollSpy } from "@/hooks/useScrollSpy";
 import { Can } from "@/components/admin/can";
 import { cn } from "@/lib/utils";
@@ -565,8 +566,9 @@ export function EmployeeArchiveDetailView({
 
   return (
     <>
-      <SheetHeader className="shrink-0 border-b px-5 py-3 text-left">
-        <div className="flex flex-wrap items-start gap-3 pr-8">
+      <SheetEntityHeader
+        className="pr-12"
+        icon={
           <EmployeeAvatar
             employeeId={employee.id}
             fullName={employee.fullName}
@@ -574,131 +576,134 @@ export function EmployeeArchiveDetailView({
             className="size-12 ring-2 ring-primary/15"
             fallbackClassName="bg-primary/10 text-base font-semibold text-primary"
           />
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <SheetTitle className="text-lg tracking-tight">{employee.fullName}</SheetTitle>
-              <div className="flex shrink-0 items-center gap-1.5">
+        }
+        title={employee.fullName}
+        description={
+          <>
+            <span>{employee.employeeNo}</span>
+            {employee.primaryOrganizationName ? (
+              <>
+                <span className="text-muted-foreground/50">·</span>
+                <span>{employee.primaryOrganizationName}</span>
+              </>
+            ) : null}
+            {employee.primaryPositionName ? (
+              <>
+                <span className="text-muted-foreground/50">·</span>
+                <span>{employee.primaryPositionName}</span>
+              </>
+            ) : null}
+          </>
+        }
+        actions={
+          <>
+            <Button
+              type="button"
+              variant={viewMode === "scroll" ? "secondary" : "outline"}
+              size="sm"
+              className="h-7"
+              title={
+                viewMode === "filter"
+                  ? "展开全部档案模块，连续滚动浏览"
+                  : "按分类筛选，仅浏览当前分区"
+              }
+              onClick={() =>
+                handleViewModeChange(viewMode === "filter" ? "scroll" : "filter")
+              }
+            >
+              {viewMode === "filter" ? (
+                <>
+                  <Layers className="size-3.5" />
+                  查看全部档案
+                </>
+              ) : (
+                <>
+                  <List className="size-3.5" />
+                  分类浏览
+                </>
+              )}
+            </Button>
+            {canViewSensitive ? (
+              <Can permission="employee:sensitive:view">
                 <Button
                   type="button"
-                  variant={viewMode === "scroll" ? "secondary" : "outline"}
+                  variant={revealSensitive ? "secondary" : "outline"}
                   size="sm"
-                  className="h-7"
+                  className="h-7 shrink-0"
                   title={
-                    viewMode === "filter"
-                      ? "展开全部档案模块，连续滚动浏览"
-                      : "按分类筛选，仅浏览当前分区"
+                    revealSensitive
+                      ? "当前为明文查看，操作将记入审计"
+                      : hasMaskedFields
+                        ? "部分字段已脱敏，开启后可查看明文（将记入审计）"
+                        : "查看敏感字段明文（将记入审计）"
                   }
-                  onClick={() =>
-                    handleViewModeChange(viewMode === "filter" ? "scroll" : "filter")
-                  }
+                  onClick={() => {
+                    const next = !revealSensitive;
+                    onRevealSensitiveChange?.(next);
+                    if (next) toast.message("已开启敏感字段明文查看（将写入审计）");
+                  }}
                 >
-                  {viewMode === "filter" ? (
-                    <>
-                      <Layers className="size-3.5" />
-                      查看全部档案
-                    </>
-                  ) : (
-                    <>
-                      <List className="size-3.5" />
-                      分类浏览
-                    </>
-                  )}
+                  {revealSensitive ? <EyeOff /> : <Eye />}
+                  {revealSensitive ? "隐藏敏感" : "查看敏感"}
                 </Button>
-                {canViewSensitive ? (
-                  <Can permission="employee:sensitive:view">
-                    <Button
-                      type="button"
-                      variant={revealSensitive ? "secondary" : "outline"}
-                      size="sm"
-                      className="h-7 shrink-0"
-                      title={
-                        revealSensitive
-                          ? "当前为明文查看，操作将记入审计"
-                          : hasMaskedFields
-                            ? "部分字段已脱敏，开启后可查看明文（将记入审计）"
-                            : "查看敏感字段明文（将记入审计）"
-                      }
-                      onClick={() => {
-                        const next = !revealSensitive;
-                        onRevealSensitiveChange?.(next);
-                        if (next) toast.message("已开启敏感字段明文查看（将写入审计）");
-                      }}
-                    >
-                      {revealSensitive ? <EyeOff /> : <Eye />}
-                      {revealSensitive ? "隐藏敏感" : "查看敏感"}
-                    </Button>
-                  </Can>
-                ) : null}
-              </div>
-            </div>
-            <SheetDescription className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 font-mono text-xs">
-              <span>{employee.employeeNo}</span>
-              {employee.primaryOrganizationName ? (
-                <>
-                  <span className="text-muted-foreground/50">·</span>
-                  <span>{employee.primaryOrganizationName}</span>
-                </>
-              ) : null}
-              {employee.primaryPositionName ? (
-                <>
-                  <span className="text-muted-foreground/50">·</span>
-                  <span>{employee.primaryPositionName}</span>
-                </>
-              ) : null}
-            </SheetDescription>
-            <div className="mt-1.5 flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className={cn(statusBadgeClass(employee.status))}>
-                {employee.statusLabel ?? employeeStatusLabel(employee.status)}
-              </Badge>
-              {employee.hireDate ? (
-                <span className="text-xs text-muted-foreground">入职 {employee.hireDate}</span>
-              ) : null}
-              {assignmentHeader.versionCount > 0 ? (
-                <span className="inline-flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  <span className="text-muted-foreground/50">·</span>
-                  <span className="inline-flex items-center gap-1">
-                    <Briefcase className="size-3 opacity-70" />
-                    任职 {assignmentHeader.rangeLabel}
-                  </span>
-                  <Badge
-                    variant={
-                      assignmentHeader.temporalLabel === "当前"
-                        ? "default"
-                        : assignmentHeader.temporalLabel === "将来"
-                          ? "outline"
-                          : "secondary"
-                    }
-                    className="h-5 px-1.5 text-[11px] font-normal"
-                  >
-                    {assignmentHeader.temporalLabel}
-                  </Badge>
-                  {assignmentHeader.hasFuture ? (
-                    <Badge
-                      variant="outline"
-                      className="h-5 border-amber-500/40 bg-amber-500/10 px-1.5 text-[11px] font-normal text-amber-800 dark:text-amber-300"
-                    >
-                      将来 {assignmentHeader.futureCount} 版
-                    </Badge>
-                  ) : (
-                    <span className="text-xs text-muted-foreground/80">无将来版本</span>
-                  )}
-                  {assignmentHeader.versionCount > 1 ? (
-                    <span className="font-mono text-xs tabular-nums text-muted-foreground/70">
-                      共 {assignmentHeader.versionCount} 版
-                    </span>
-                  ) : null}
+              </Can>
+            ) : null}
+          </>
+        }
+        badges={
+          <>
+            <Badge variant="secondary" className={cn(statusBadgeClass(employee.status))}>
+              {employee.statusLabel ?? employeeStatusLabel(employee.status)}
+            </Badge>
+            {employee.hireDate ? (
+              <span className="text-xs text-muted-foreground">入职 {employee.hireDate}</span>
+            ) : null}
+            {assignmentHeader.versionCount > 0 ? (
+              <span className="inline-flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="text-muted-foreground/50">·</span>
+                <span className="inline-flex items-center gap-1">
+                  <Briefcase className="size-3 opacity-70" />
+                  任职 {assignmentHeader.rangeLabel}
                 </span>
-              ) : null}
-            </div>
-            <MovementSummaryStrip
-              className="mt-2.5"
-              movements={movements}
-              assignments={headerAssignments}
-              onViewAll={jumpToMovements}
-            />
-          </div>
-        </div>
-      </SheetHeader>
+                <Badge
+                  variant={
+                    assignmentHeader.temporalLabel === "当前"
+                      ? "default"
+                      : assignmentHeader.temporalLabel === "将来"
+                        ? "outline"
+                        : "secondary"
+                  }
+                  className="h-5 px-1.5 text-[11px] font-normal"
+                >
+                  {assignmentHeader.temporalLabel}
+                </Badge>
+                {assignmentHeader.hasFuture ? (
+                  <Badge
+                    variant="outline"
+                    className="h-5 border-amber-500/40 bg-amber-500/10 px-1.5 text-[11px] font-normal text-amber-800 dark:text-amber-300"
+                  >
+                    将来 {assignmentHeader.futureCount} 版
+                  </Badge>
+                ) : (
+                  <span className="text-xs text-muted-foreground/80">无将来版本</span>
+                )}
+                {assignmentHeader.versionCount > 1 ? (
+                  <span className="font-mono text-xs tabular-nums text-muted-foreground/70">
+                    共 {assignmentHeader.versionCount} 版
+                  </span>
+                ) : null}
+              </span>
+            ) : null}
+          </>
+        }
+        summary={
+          <MovementSummaryStrip
+            movements={movements}
+            assignments={headerAssignments}
+            onViewAll={jumpToMovements}
+          />
+        }
+      />
 
       <ArchiveDetailNav
         activeCategoryId={navCategoryId}

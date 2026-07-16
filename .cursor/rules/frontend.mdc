@@ -73,6 +73,7 @@ client/src/
 | `OptionToggle` | `form-field.tsx` | 枚举二选一/多选一（ACTIVE/DISABLED、数据范围等） |
 | `STATUS_OPTIONS` | `form-field.tsx` | 启用/停用常量 |
 | `ConfirmDialog` | `confirm-dialog.tsx` | 破坏性操作确认；**禁止** `window.confirm` |
+| `SheetEntityHeader` | `sheet-entity-header.tsx` | 实体**查看态**详情抽屉 Hero；表单/工具抽屉勿用 |
 
 **基准参照页**
 
@@ -128,6 +129,14 @@ client/src/
 - 含删除时：参考 `AdminSettingsPage` — `sm:justify-between`，左侧 `destructive`，右侧取消+保存
 - 宽度：默认 `min(560px,100vw)`（`sheet.tsx` 内置），非必要不覆盖 `max-w-*`
 - 枚举字段：用 `OptionToggle`，**禁止**用 `Input` 手填 `ACTIVE` / `DISABLED`
+
+### 实体详情 Hero（查看态）
+
+- 打开**业务实体查看详情**时，顶部用 `SheetEntityHeader`（`components/admin/sheet-entity-header.tsx`），勿各页手写一套装饰头
+- 槽位：`icon` / `title` / `description` / `badges` / `summary` / `actions`；图标容器用 `SheetEntityIcon`，次要摘要条用 `SheetEntitySummary`
+- **适用**：组织详情、员工档案查看、岗位工作台查看等
+- **不适用**：新建/编辑表单、配置工具、列选择、批导等窄用途抽屉（仍用普通 `SheetHeader`）
+- 基准参照：`AdminOrgChartPage` 组织详情、`EmployeeArchiveDetailView`、`PositionWorkbenchSheet` 查看态
 
 ## 表单（当前阶段）
 

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type {
   Employee,
@@ -18,6 +18,8 @@ import dagre from "@dagrejs/dagre";
 import {
   Background,
   Controls,
+  getNodesBounds,
+  getViewportForBounds,
   Handle,
   MarkerType,
   MiniMap,
@@ -33,6 +35,8 @@ import {
   type OnNodeDrag,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { toPng } from "html-to-image";
+import { jsPDF } from "jspdf";
 import {
   BriefcaseBusiness,
   Building2,
@@ -40,6 +44,8 @@ import {
   ChevronDown,
   ChevronRight,
   CornerDownRight,
+  Download,
+  Expand,
   GripVertical,
   History,
   MapPin,
@@ -47,6 +53,7 @@ import {
   Network,
   Pencil,
   Shield,
+  Shrink,
   UserRound,
   Users,
 } from "lucide-react";
@@ -80,6 +87,11 @@ import {
   PanelLoading,
   SearchInput,
 } from "@/components/admin/page-shell";
+import {
+  SheetEntityHeader,
+  SheetEntityIcon,
+  SheetEntitySummary,
+} from "@/components/admin/sheet-entity-header";
 import { SearchableSelect } from "@/components/admin/searchable-select";
 import { adminChipActive, adminChipIdle } from "@/components/admin/selection-styles";
 import { Badge } from "@/components/ui/badge";
@@ -163,6 +175,8 @@ const CHART_MODE_OPTIONS: Array<{ id: ChartMode; label: string }> = [
 const NODE_WIDTH = 228;
 const NODE_HEIGHT = 136;
 const DEFAULT_EXPAND_DEPTH = 1;
+/** 导出 PNG 单边最大像素，避免超大组织树撑爆内存 */
+const EXPORT_MAX_EDGE_PX = 4096;
 
 /** 连线锚点：保留定位能力，视觉上完全隐藏，避免挡住展开按钮 */
 const handleClassName =
@@ -427,6 +441,8 @@ function ChartCanvas({
   selectedCode,
   reparentMode,
   layoutNonce,
+  asOfDate,
+  canExport,
   onSelect,
   onRequestReparent,
 }: {
@@ -435,14 +451,122 @@ function ChartCanvas({
   selectedCode: string | null;
   reparentMode: boolean;
   layoutNonce: number;
+  asOfDate: string;
+  canExport: boolean;
   onSelect: (org: OrganizationTreeNode | null) => void;
   onRequestReparent: (req: ReparentRequest) => void;
 }) {
-  const { fitView, getIntersectingNodes, getNode } = useReactFlow();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { fitView, getIntersectingNodes, getNode, getNodes } = useReactFlow();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [dropTargetCode, setDropTargetCode] = useState<string | null>(null);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node<OrgChartNodeData>>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
+
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const active = document.fullscreenElement === containerRef.current;
+      setIsFullscreen(active);
+      if (active) {
+        window.setTimeout(() => {
+          void fitView({ padding: 0.15, duration: 280 });
+        }, 80);
+      }
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+  }, [fitView]);
+
+  const toggleFullscreen = async () => {
+    const el = containerRef.current;
+    if (!el) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await el.requestFullscreen();
+      }
+    } catch {
+      toast.error("无法切换全屏，请检查浏览器权限");
+    }
+  };
+
+  const exportPdf = async () => {
+    if (exportingPdf) return;
+    const flowNodes = getNodes();
+    if (flowNodes.length === 0) {
+      toast.error("当前没有可导出的组织节点");
+      return;
+    }
+    const viewportEl = containerRef.current?.querySelector(
+      ".react-flow__viewport",
+    ) as HTMLElement | null;
+    if (!viewportEl) {
+      toast.error("未找到组织图画布");
+      return;
+    }
+
+    setExportingPdf(true);
+    try {
+      const sizedNodes = flowNodes.map((n) => ({
+        ...n,
+        width: n.measured?.width ?? n.width ?? NODE_WIDTH,
+        height: n.measured?.height ?? n.height ?? NODE_HEIGHT,
+      }));
+      const bounds = getNodesBounds(sizedNodes);
+      const padRatio = 0.08;
+      const contentW = Math.max(bounds.width * (1 + padRatio * 2), 320);
+      const contentH = Math.max(bounds.height * (1 + padRatio * 2), 240);
+      const scale = Math.min(1, EXPORT_MAX_EDGE_PX / Math.max(contentW, contentH));
+      const imageWidth = Math.ceil(contentW * scale);
+      const imageHeight = Math.ceil(contentH * scale);
+      const viewport = getViewportForBounds(bounds, imageWidth, imageHeight, 0.05, 2, padRatio);
+
+      const dataUrl = await toPng(viewportEl, {
+        backgroundColor: "#ffffff",
+        width: imageWidth,
+        height: imageHeight,
+        pixelRatio: 2,
+        style: {
+          width: `${imageWidth}px`,
+          height: `${imageHeight}px`,
+          transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+        },
+      });
+
+      const PX_PER_MM = 96 / 25.4;
+      let pageWmm = imageWidth / PX_PER_MM;
+      let pageHmm = imageHeight / PX_PER_MM;
+      // jsPDF 单页边长上限约 14400 单位，过大时等比缩小
+      const maxMm = 14000;
+      if (pageWmm > maxMm || pageHmm > maxMm) {
+        const shrink = maxMm / Math.max(pageWmm, pageHmm);
+        pageWmm *= shrink;
+        pageHmm *= shrink;
+      }
+
+      const titleBandMm = 10;
+      const pdf = new jsPDF({
+        orientation: pageWmm >= pageHmm ? "landscape" : "portrait",
+        unit: "mm",
+        format: [pageWmm, pageHmm + titleBandMm],
+        compress: true,
+      });
+      // jsPDF 内置字体不含中文，标题用 ASCII，中文信息落在文件名
+      pdf.setFontSize(11);
+      pdf.setTextColor(40, 40, 40);
+      pdf.text(`Organization Chart · asOf ${asOfDate}`, 6, 7);
+      pdf.addImage(dataUrl, "PNG", 0, titleBandMm, pageWmm, pageHmm);
+      pdf.save(`组织图-${asOfDate}.pdf`);
+      toast.success("组织图 PDF 已开始下载");
+    } catch (e: unknown) {
+      toast.error(e instanceof Error ? e.message : "导出 PDF 失败");
+    } finally {
+      setExportingPdf(false);
+    }
+  };
 
   const filtered = useMemo(() => filterOrgTree(tree, search), [tree, search]);
 
@@ -646,7 +770,15 @@ function ChartCanvas({
   );
 
   return (
-    <div className="relative h-[min(72vh,720px)] min-h-[480px] w-full overflow-hidden rounded-lg border border-border/70 bg-muted/20">
+    <div
+      ref={containerRef}
+      className={cn(
+        "relative w-full overflow-hidden bg-muted/20",
+        isFullscreen
+          ? "h-screen rounded-none border-0 bg-background"
+          : "h-[min(72vh,720px)] min-h-[480px] rounded-lg border border-border/70",
+      )}
+    >
       <div className="absolute left-3 top-3 z-10 flex flex-wrap gap-1.5">
         <Button
           type="button"
@@ -664,6 +796,29 @@ function ChartCanvas({
         <Button type="button" size="sm" variant="outline" className="h-8 bg-background/90" onClick={collapseDeep}>
           收起深层
         </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-8 bg-background/90"
+          onClick={() => void toggleFullscreen()}
+        >
+          {isFullscreen ? <Shrink className="size-3.5" /> : <Expand className="size-3.5" />}
+          {isFullscreen ? "退出全屏" : "全屏"}
+        </Button>
+        {canExport ? (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="h-8 bg-background/90"
+            disabled={exportingPdf}
+            onClick={() => void exportPdf()}
+          >
+            <Download className="size-3.5" />
+            {exportingPdf ? "导出中…" : "导出 PDF"}
+          </Button>
+        ) : null}
       </div>
       {reparentMode ? (
         <div className="absolute right-3 top-3 z-10 max-w-[260px] rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-[11px] text-sky-900 dark:text-sky-100">
@@ -688,6 +843,7 @@ function ChartCanvas({
           if (!reparentMode) onSelect(null);
         }}
         proOptions={{ hideAttribution: true }}
+        className={isFullscreen ? "h-full" : undefined}
       >
         <Background gap={18} size={1} />
         <Controls showInteractive={false} className="!shadow-sm" />
@@ -936,6 +1092,7 @@ export function AdminOrgChartPage() {
   const perm = usePermission();
   const canView = perm.has("organization:view");
   const canEdit = perm.has("organization:edit");
+  const canExport = perm.has("organization:export") || canView;
   const canViewPosition = perm.has("position:view");
   const canViewEmployee = perm.has("employee:roster:view");
 
@@ -1416,6 +1573,8 @@ export function AdminOrgChartPage() {
               selectedCode={selected?.code ?? null}
               reparentMode={reparentMode}
               layoutNonce={layoutNonce}
+              asOfDate={asOfDate}
+              canExport={canExport}
               onSelect={setSelected}
               onRequestReparent={openReparent}
             />
@@ -1489,61 +1648,61 @@ export function AdminOrgChartPage() {
                 const leader = displayOrgLeader(display, selected);
                 const locationText = displayCodeName(display.location, display.locationLabel);
                 return (
-                  <SheetHeader className="relative overflow-hidden border-b border-border/70 px-5 pb-4 pt-5 text-left">
-                    <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/70 to-transparent" />
-                    <div className="pointer-events-none absolute -right-8 -top-10 size-36 rounded-full bg-primary/[0.05]" />
-                    <div className="relative flex items-start gap-3.5">
-                      <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-primary/15 bg-primary/10 text-primary shadow-sm">
+                  <SheetEntityHeader
+                    icon={
+                      <SheetEntityIcon>
                         <Network className="size-5" />
-                      </div>
-                      <div className="min-w-0 flex-1 space-y-2">
-                        <div className="space-y-1">
-                          <SheetTitle className="truncate text-xl tracking-tight">{display.name}</SheetTitle>
-                          <SheetDescription className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs">
-                            <span>{display.code}</span>
-                            <span className="text-border">·</span>
-                            <span className="inline-flex items-center gap-1 text-muted-foreground">
-                              <CornerDownRight className="size-3" />
-                              {displayParent(display)}
-                            </span>
-                          </SheetDescription>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge variant="outline" className={statusTone(display.status)}>
-                            {display.statusLabel ?? display.status}
-                          </Badge>
-                          {display.departmentLevelLabel ? (
-                            <Badge variant="secondary">{display.departmentLevelLabel}</Badge>
-                          ) : null}
-                          {display.departmentTypeLabel ? (
-                            <Badge variant="outline">{display.departmentTypeLabel}</Badge>
-                          ) : null}
-                          {locationText ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                              <MapPin className="size-3" />
-                              {locationText}
-                            </span>
-                          ) : null}
-                        </div>
-                        {(leader.name || leader.no) && (
-                          <div className="flex items-center gap-2 rounded-lg border border-border/50 bg-muted/20 px-2.5 py-1.5">
-                            <div className="flex size-6 items-center justify-center rounded-full bg-background text-[10px] font-semibold text-primary">
-                              {initialsFromName(leader.name || leader.no)}
-                            </div>
-                            <div className="min-w-0 text-[11px]">
-                              <span className="text-muted-foreground">负责人 </span>
-                              <span className="font-medium text-foreground">
-                                {leader.name || leader.no}
-                              </span>
-                              {leader.name && leader.no ? (
-                                <span className="ml-1 font-mono text-muted-foreground">{leader.no}</span>
-                              ) : null}
-                            </div>
+                      </SheetEntityIcon>
+                    }
+                    title={display.name}
+                    description={
+                      <>
+                        <span>{display.code}</span>
+                        <span className="text-border">·</span>
+                        <span className="inline-flex items-center gap-1 text-muted-foreground">
+                          <CornerDownRight className="size-3" />
+                          {displayParent(display)}
+                        </span>
+                      </>
+                    }
+                    badges={
+                      <>
+                        <Badge variant="outline" className={statusTone(display.status)}>
+                          {display.statusLabel ?? display.status}
+                        </Badge>
+                        {display.departmentLevelLabel ? (
+                          <Badge variant="secondary">{display.departmentLevelLabel}</Badge>
+                        ) : null}
+                        {display.departmentTypeLabel ? (
+                          <Badge variant="outline">{display.departmentTypeLabel}</Badge>
+                        ) : null}
+                        {locationText ? (
+                          <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <MapPin className="size-3" />
+                            {locationText}
+                          </span>
+                        ) : null}
+                      </>
+                    }
+                    summary={
+                      leader.name || leader.no ? (
+                        <SheetEntitySummary>
+                          <div className="flex size-6 items-center justify-center rounded-full bg-background text-[10px] font-semibold text-primary">
+                            {initialsFromName(leader.name || leader.no)}
                           </div>
-                        )}
-                      </div>
-                    </div>
-                  </SheetHeader>
+                          <div className="min-w-0 text-[11px]">
+                            <span className="text-muted-foreground">负责人 </span>
+                            <span className="font-medium text-foreground">
+                              {leader.name || leader.no}
+                            </span>
+                            {leader.name && leader.no ? (
+                              <span className="ml-1 font-mono text-muted-foreground">{leader.no}</span>
+                            ) : null}
+                          </div>
+                        </SheetEntitySummary>
+                      ) : null
+                    }
+                  />
                 );
               })()}
 
