@@ -7,6 +7,7 @@ import {
   Database,
   LayoutDashboard,
   LifeBuoy,
+  Network,
   Settings2,
   Shield,
   ShieldCheck,
@@ -67,12 +68,20 @@ export const adminTopNav: AdminNavTopItem[] = [
         title: "组织岗位",
         links: [
           {
-            title: "组织架构",
-            description: "查看组织层级、关键属性与历史快照",
+            title: "组织管理",
+            description: "维护组织层级、关键属性与历史快照",
             to: "/admin/org/structure",
             group: "组织岗位",
             permission: "organization:view",
             icon: Building2,
+          },
+          {
+            title: "组织图",
+            description: "图形化浏览组织树，下钻查看岗位与人员",
+            to: "/admin/org/chart",
+            group: "组织岗位",
+            permission: "organization:view",
+            icon: Network,
           },
           {
             title: "岗位体系",
@@ -170,6 +179,7 @@ export const adminTopNav: AdminNavTopItem[] = [
         links: [
           {
             title: "流程配置",
+            description: "配置审批流程定义与节点规则",
             to: "/admin/platform/workflow",
             group: "协同流程",
             permission: "workflow:manage",
@@ -177,6 +187,7 @@ export const adminTopNav: AdminNavTopItem[] = [
           },
           {
             title: "待办中心",
+            description: "处理待办任务并跟踪审批进度",
             to: "/admin/platform/tasks",
             group: "协同流程",
             permission: "workflow:task:view",
@@ -189,6 +200,7 @@ export const adminTopNav: AdminNavTopItem[] = [
         links: [
           {
             title: "RBAC 权限",
+            description: "管理角色、菜单与功能权限",
             to: "/admin/platform/permissions",
             group: "权限与审计",
             permission: "permission:manage",
@@ -196,6 +208,7 @@ export const adminTopNav: AdminNavTopItem[] = [
           },
           {
             title: "审计日志",
+            description: "查询系统关键操作与安全审计记录",
             to: "/admin/platform/audit",
             group: "权限与审计",
             permission: "audit:view",
@@ -208,7 +221,7 @@ export const adminTopNav: AdminNavTopItem[] = [
         links: [
           {
             title: "健康检查",
-            description: "真实调用 /api/v1/health（禁止 mock）",
+            description: "查看服务健康状态与接口联通情况",
             to: "/admin/dev/health",
             group: "开发与运维",
             permission: "dev:health:view",

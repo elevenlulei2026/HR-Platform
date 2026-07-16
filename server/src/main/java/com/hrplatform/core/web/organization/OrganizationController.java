@@ -2,6 +2,7 @@ package com.hrplatform.core.web.organization;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hrplatform.core.organization.*;
+import com.hrplatform.core.employee.EmployeeEntity;
 import com.hrplatform.platform.audit.AuditLogEntity;
 import com.hrplatform.platform.audit.AuditLogService;
 import com.hrplatform.platform.auth.AuthContext;
@@ -34,6 +35,7 @@ public class OrganizationController {
   private final LegalEntityService legalEntityService;
   private final OrganizationService organizationService;
   private final OrganizationBatchService organizationBatchService;
+  private final OrganizationOverviewService organizationOverviewService;
   private final PositionService positionService;
   private final PositionBatchService positionBatchService;
   private final RbacService rbacService;
@@ -45,6 +47,7 @@ public class OrganizationController {
       LegalEntityService legalEntityService,
       OrganizationService organizationService,
       OrganizationBatchService organizationBatchService,
+      OrganizationOverviewService organizationOverviewService,
       PositionService positionService,
       RbacService rbacService,
       DictService dictService,
@@ -55,6 +58,7 @@ public class OrganizationController {
     this.legalEntityService = legalEntityService;
     this.organizationService = organizationService;
     this.organizationBatchService = organizationBatchService;
+    this.organizationOverviewService = organizationOverviewService;
     this.positionService = positionService;
     this.rbacService = rbacService;
     this.dictService = dictService;
@@ -119,7 +123,11 @@ public class OrganizationController {
     LocalDate date = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate);
     List<OrganizationService.TreeNode> tree = organizationService.getTree(date);
     DictLabels labels = loadDictLabels();
-    return ApiResponse.ok(tree.stream().map(n -> toTreeNodeDto(n, labels)).toList());
+    OrganizationOverviewService.TreeEnrichment enrichment = organizationOverviewService.enrichTree(date);
+    Map<String, String> leaderNames = organizationOverviewService.resolveLeaderNames(tree);
+    return ApiResponse.ok(tree.stream()
+        .map(n -> toTreeNodeDto(n, labels, enrichment, leaderNames))
+        .toList());
   }
 
   @GetMapping("/organizations/department-type-options")
@@ -154,6 +162,58 @@ public class OrganizationController {
     DictLabels labels = loadDictLabels();
     String parentName = resolveParentName(e.getParentCode(), e.getEffectiveStartDate());
     return ApiResponse.ok(toOrganizationDto(e, labels, parentName));
+  }
+
+  @GetMapping("/organizations/{id}/members-overview")
+  public ApiResponse<Map<String, Object>> getOrganizationMembersOverview(
+      @PathVariable("id") long id,
+      @RequestParam(required = false) String asOfDate,
+      @RequestParam(required = false, defaultValue = "false") boolean includeSubtree,
+      @RequestParam(required = false, defaultValue = "100") @Min(1) @Max(200) int limit
+  ) {
+    requireOrgReferenceView();
+    LocalDate date = asOfDate == null || asOfDate.isBlank() ? LocalDate.now() : LocalDate.parse(asOfDate);
+    OrganizationOverviewService.MembersOverview overview =
+        organizationOverviewService.membersOverview(id, date, includeSubtree, limit);
+    PositionDictLabels posLabels = loadPositionDictLabels();
+    Map<String, Object> dto = new HashMap<>();
+    dto.put("organizationId", String.valueOf(overview.organizationId()));
+    dto.put("organizationCode", overview.organizationCode());
+    dto.put("organizationName", overview.organizationName());
+    dto.put("asOfDate", overview.asOfDate().toString());
+    dto.put("includeSubtree", overview.includeSubtree());
+    dto.put("positionTotal", overview.positionTotal());
+    dto.put("employeeTotal", overview.employeeTotal());
+    dto.put("positions", overview.positions().stream().map(p -> {
+      PositionEntity e = p.entity();
+      Map<String, Object> item = new HashMap<>();
+      item.put("id", String.valueOf(e.getId()));
+      item.put("code", e.getCode());
+      item.put("name", e.getName());
+      item.put("status", e.getStatus());
+      item.put("statusLabel", statusLabel(e.getStatus()));
+      item.put("positionSequence", e.getPositionSequence());
+      item.put("positionLevel", e.getPositionLevel());
+      item.put("positionLevelLabel", labelOf(posLabels.positionLevels(), e.getPositionLevel()));
+      item.put("organizationId", String.valueOf(e.getOrganizationId()));
+      item.put("organizationName", p.organizationName());
+      return item;
+    }).toList());
+    dto.put("employees", overview.employees().stream().map(emp -> {
+      EmployeeEntity e = emp.entity();
+      Map<String, Object> item = new HashMap<>();
+      item.put("id", String.valueOf(e.getId()));
+      item.put("employeeNo", e.getEmployeeNo());
+      item.put("fullName", e.getFullName());
+      item.put("status", e.getStatus());
+      item.put("statusLabel", employeeStatusLabel(e.getStatus()));
+      item.put("positionId", emp.positionId() == null ? null : String.valueOf(emp.positionId()));
+      item.put("positionName", emp.positionName());
+      item.put("organizationId", emp.organizationId() == null ? null : String.valueOf(emp.organizationId()));
+      item.put("organizationName", emp.organizationName());
+      return item;
+    }).toList());
+    return ApiResponse.ok(dto);
   }
 
   @PostMapping("/organizations")
@@ -416,7 +476,7 @@ public class OrganizationController {
     rbacService.requireAnyPermission("position:export", "position:view");
   }
 
-  /** 组织架构树：组织管理员或花名册维护者可读（任职选择部门） */
+  /** 组织管理树：组织管理员或花名册维护者可读（任职选择部门） */
   private void requireOrgReferenceView() {
     rbacService.requireAnyPermission("organization:view", "employee:roster:view", "employee:edit");
   }
@@ -497,6 +557,17 @@ public class OrganizationController {
     return switch (value) {
       case "ACTIVE" -> "有效";
       case "INACTIVE" -> "无效";
+      default -> value;
+    };
+  }
+
+  private static String employeeStatusLabel(String value) {
+    if (value == null) return null;
+    return switch (value) {
+      case "CANDIDATE" -> "待入职";
+      case "PROBATION" -> "试用";
+      case "ACTIVE" -> "在职";
+      case "TERMINATED" -> "离职";
       default -> value;
     };
   }
@@ -637,12 +708,23 @@ public class OrganizationController {
 
   private Map<String, Object> toTreeNodeDto(
       OrganizationService.TreeNode node,
-      DictLabels labels
+      DictLabels labels,
+      OrganizationOverviewService.TreeEnrichment enrichment,
+      Map<String, String> leaderNames
   ) {
     OrganizationEntity e = node.entity();
     String parentName = resolveParentName(e.getParentCode(), e.getEffectiveStartDate());
     Map<String, Object> dto = toOrganizationDto(e, labels, parentName);
-    dto.put("children", node.children().stream().map(c -> toTreeNodeDto(c, labels)).toList());
+    Long orgId = e.getId();
+    dto.put("positionCount", enrichment.positionCounts().getOrDefault(orgId, 0));
+    dto.put("employeeCount", enrichment.employeeCounts().getOrDefault(orgId, 0));
+    String leaderNo = e.getOrgLeaderNo();
+    if (leaderNo != null && !leaderNo.isBlank()) {
+      dto.put("orgLeaderName", leaderNames.get(leaderNo.trim()));
+    }
+    dto.put("children", node.children().stream()
+        .map(c -> toTreeNodeDto(c, labels, enrichment, leaderNames))
+        .toList());
     return dto;
   }
 

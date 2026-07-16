@@ -160,7 +160,7 @@
 /admin/employees/roster         员工花名册（列表 + Sheet 抽屉档案）
 /admin/employees/reporting-lines 汇报关系（支持 asOfDate）
 /admin/employees/data/:resource 档案数据批管（管理数据；阶段 1：id-documents）
-/admin/org/structure            组织架构
+/admin/org/structure            组织管理
 /admin/org/positions            岗位体系
 /admin/org/headcount            编制管理
 /admin/onboarding               入职办理

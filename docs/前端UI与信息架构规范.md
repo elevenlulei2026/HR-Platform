@@ -121,7 +121,7 @@
 
 | 分组 | 菜单项 | `data-page` | 权限点 | 路由（建议） | Slice |
 | --- | --- | --- | --- | --- | --- |
-| 组织岗位 | 组织架构 | `org-structure` | `organization:view` | `/admin/org/structure` | 5 |
+| 组织岗位 | 组织管理 | `org-structure` | `organization:view` | `/admin/org/structure` | 5 |
 | | 岗位体系 | `position-system` | `position:view` | `/admin/org/positions` | 5 |
 | | 编制管理 | `headcount` | `headcount:view` | `/admin/org/headcount` | 6 |
 | 员工主数据 | 员工花名册 | `roster` | `employee:roster:view` | `/admin/employees/roster` | 7（含 27 项档案 Sheet） |

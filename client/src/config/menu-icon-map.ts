@@ -26,6 +26,7 @@ import {
   LayoutGrid,
   LifeBuoy,
   LineChart,
+  Network,
   Paperclip,
   PieChart,
   ScrollText,
@@ -42,6 +43,7 @@ import {
 const ICON_MAP: Record<string, LucideIcon> = {
   LayoutDashboard,
   Building2,
+  Network,
   BriefcaseBusiness,
   Settings2,
   ClipboardList,

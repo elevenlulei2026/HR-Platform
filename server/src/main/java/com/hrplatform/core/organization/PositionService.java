@@ -10,6 +10,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -57,6 +59,26 @@ public class PositionService {
 
   public List<PositionEntity> listForExport(String keyword, Long organizationId, LocalDate asOfDate) {
     return filterSnapshot(keyword, organizationId, asOfDate);
+  }
+
+  /** 按部门汇总直属岗位数（asOfDate 快照，去重后按 organizationId） */
+  public Map<Long, Integer> countByOrganization(LocalDate asOfDate) {
+    Map<Long, Integer> counts = new HashMap<>();
+    for (PositionEntity p : filterSnapshot(null, null, asOfDate)) {
+      if (p.getOrganizationId() == null) continue;
+      counts.merge(p.getOrganizationId(), 1, Integer::sum);
+    }
+    return counts;
+  }
+
+  /** 指定部门集合下的岗位快照列表（按编码排序） */
+  public List<PositionEntity> listSnapshotByOrganizationIds(List<Long> organizationIds, LocalDate asOfDate) {
+    if (organizationIds == null || organizationIds.isEmpty()) return List.of();
+    Set<Long> idSet = new HashSet<>(organizationIds);
+    return filterSnapshot(null, null, asOfDate).stream()
+        .filter(p -> p.getOrganizationId() != null && idSet.contains(p.getOrganizationId()))
+        .sorted(Comparator.comparing(PositionEntity::getCode, Comparator.nullsLast(String::compareTo)))
+        .toList();
   }
 
   public PositionEntity findLatestVersionByCode(String code) {

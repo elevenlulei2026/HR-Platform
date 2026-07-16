@@ -1025,6 +1025,58 @@ export type Organization = {
 
 export type OrganizationTreeNode = Organization & {
   children: OrganizationTreeNode[];
+  /** 直属岗位数（asOfDate 快照，不含下级） */
+  positionCount?: number;
+  /** 主任职挂在本部门的在岗人数（asOfDate 快照，不含下级） */
+  employeeCount?: number;
+  /** 组织负责人姓名（由 orgLeaderNo 解析） */
+  orgLeaderName?: string;
+};
+
+/** 组织图：部门下岗位/人员下钻 */
+export type OrganizationMembersOverview = {
+  organizationId: string;
+  organizationCode: string;
+  organizationName: string;
+  asOfDate: string;
+  includeSubtree: boolean;
+  positionTotal: number;
+  employeeTotal: number;
+  positions: OrganizationOverviewPosition[];
+  employees: OrganizationOverviewEmployee[];
+};
+
+export type OrganizationOverviewPosition = {
+  id: string;
+  code: string;
+  name: string;
+  status: OrgStatus;
+  statusLabel?: string;
+  positionSequence?: PositionSequence;
+  positionLevel?: string;
+  positionLevelLabel?: string;
+  organizationId: string;
+  organizationName?: string;
+};
+
+export type OrganizationOverviewEmployee = {
+  id: string;
+  employeeNo: string;
+  fullName: string;
+  status: EmployeeStatus;
+  statusLabel?: string;
+  positionId?: string;
+  positionName?: string;
+  organizationId?: string;
+  organizationName?: string;
+};
+
+export type OrganizationMembersOverviewQuery = {
+  asOfDate?: string;
+  /** 默认 false：仅直属；true：含下级部门 */
+  includeSubtree?: boolean;
+  /** 岗位/人员各返回条数上限，默认 100 */
+  limit?: number;
 };
 
 export type OrganizationCreateRequest = {
@@ -1235,6 +1287,14 @@ export type OrganizationApi = {
   getOrganization: (id: string) => Promise<ApiResponse<Organization>>;
   /** GET /api/v1/organizations/by-code/{code}/versions */
   getOrganizationVersions: (code: string) => Promise<ApiResponse<OrganizationVersion[]>>;
+  /**
+   * GET /api/v1/organizations/{id}/members-overview?asOfDate=&includeSubtree=&limit=
+   * 组织图下钻：部门下岗位与主任职人员
+   */
+  getOrganizationMembersOverview: (
+    id: string,
+    query?: OrganizationMembersOverviewQuery,
+  ) => Promise<ApiResponse<OrganizationMembersOverview>>;
   /** POST /api/v1/organizations */
   createOrganization: (req: OrganizationCreateRequest) => Promise<ApiResponse<Organization>>;
   /** PUT /api/v1/organizations/{id} */

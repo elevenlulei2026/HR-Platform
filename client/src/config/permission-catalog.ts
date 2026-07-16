@@ -26,7 +26,7 @@ export const PERMISSION_CATALOG: CatalogModule[] = [
   },
   {
     code: "organization",
-    label: "组织架构",
+    label: "组织管理",
     resources: [
       {
         code: "organization",

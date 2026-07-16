@@ -11,6 +11,7 @@ import { AdminAuditLogsPage } from "@/pages/admin/platform/AdminAuditLogsPage";
 import { AdminPermissionsPage } from "@/pages/admin/platform/AdminPermissionsPage";
 import { AdminTasksPage } from "@/pages/admin/platform/AdminTasksPage";
 import { AdminOrgHeadcountPage } from "@/pages/admin/org/AdminOrgHeadcountPage";
+import { AdminOrgChartPage } from "@/pages/admin/org/AdminOrgChartPage";
 import { AdminOrgPositionsPage } from "@/pages/admin/org/AdminOrgPositionsPage";
 import { AdminOrgStructurePage } from "@/pages/admin/org/AdminOrgStructurePage";
 import { AdminEmployeesRosterPage } from "@/pages/admin/employees/AdminEmployeesRosterPage";
@@ -65,7 +66,8 @@ export default function App() {
           }
         />
 
-        <Route path="org/structure" element={<Guarded title="组织架构"><AdminOrgStructurePage /></Guarded>} />
+        <Route path="org/structure" element={<Guarded title="组织管理"><AdminOrgStructurePage /></Guarded>} />
+        <Route path="org/chart" element={<Guarded title="组织图"><AdminOrgChartPage /></Guarded>} />
         <Route path="org/positions" element={<Guarded title="岗位体系"><AdminOrgPositionsPage /></Guarded>} />
         <Route path="org/headcount" element={<Guarded title="编制管理"><AdminOrgHeadcountPage /></Guarded>} />
 

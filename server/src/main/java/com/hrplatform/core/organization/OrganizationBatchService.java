@@ -152,7 +152,7 @@ public class OrganizationBatchService {
   public byte[] exportExcel(List<OrganizationEntity> organizations) {
     DictLookup lookup = loadDictLookup();
     try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-      Sheet sheet = wb.createSheet("组织架构");
+      Sheet sheet = wb.createSheet("组织管理");
       Row header = sheet.createRow(0);
       for (int i = 0; i < TEMPLATE_HEADERS.length; i++) {
         header.createCell(i).setCellValue(TEMPLATE_HEADERS[i]);
@@ -184,7 +184,7 @@ public class OrganizationBatchService {
       wb.write(out);
       return out.toByteArray();
     } catch (Exception e) {
-      throw new IllegalStateException("导出组织架构失败", e);
+      throw new IllegalStateException("导出组织管理失败", e);
     }
   }
 

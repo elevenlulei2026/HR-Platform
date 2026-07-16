@@ -374,7 +374,7 @@ TRUNCATE TABLE reporting_line;
 -- 员工主档
 TRUNCATE TABLE employee;
 
--- 组织架构
+-- 组织管理
 TRUNCATE TABLE headcount_plan;
 TRUNCATE TABLE role_org_scope;
 TRUNCATE TABLE position;
@@ -400,7 +400,7 @@ SET FOREIGN_KEY_CHECKS = 1;
             f"WHERE NOT EXISTS (SELECT 1 FROM legal_entity WHERE code = {esc(code)});\n"
         )
 
-    lines.append("-- ========== 2) 组织架构 ==========")
+    lines.append("-- ========== 2) 组织管理 ==========")
     for o in orgs:
         cc = f"CC-{o.code[-4:]}"
         if o.parent is None:

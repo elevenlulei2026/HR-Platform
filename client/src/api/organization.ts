@@ -7,6 +7,8 @@ import type {
   OrganizationCreateRequest,
   OrganizationFormOptions,
   OrganizationImportResult,
+  OrganizationMembersOverview,
+  OrganizationMembersOverviewQuery,
   OrganizationTreeNode,
   OrganizationTreeQuery,
   OrganizationUpdateRequest,
@@ -66,6 +68,20 @@ export async function getOrganizationVersions(code: string) {
 
 export async function getOrganization(id: string) {
   return getJson<Organization>(`/api/v1/organizations/${id}`);
+}
+
+export async function getOrganizationMembersOverview(
+  id: string,
+  query?: OrganizationMembersOverviewQuery,
+) {
+  const qs = pageQuery({
+    asOfDate: query?.asOfDate,
+    includeSubtree: query?.includeSubtree === undefined ? undefined : String(query.includeSubtree),
+    limit: query?.limit,
+  });
+  return getJson<OrganizationMembersOverview>(
+    `/api/v1/organizations/${id}/members-overview${qs ? `?${qs}` : ""}`,
+  );
 }
 
 export async function createOrganization(req: OrganizationCreateRequest) {

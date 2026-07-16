@@ -1172,7 +1172,7 @@ export function AdminOrgStructurePage() {
   if (!canView) {
     return (
       <div className="space-y-5">
-        <PageHeader title="组织架构" description="部门树与生效日期快照。" />
+        <PageHeader title="组织管理" description="部门树与生效日期快照。" />
         <NoPermissionCard
           icon={<Shield className="size-5 text-muted-foreground" />}
           title="无查看权限"
@@ -1192,7 +1192,7 @@ export function AdminOrgStructurePage() {
   return (
     <div className="space-y-5">
       <PageHeader
-        title="组织架构"
+        title="组织管理"
         description="按生效日期查看过去、现在或将来的组织树；变更将按生效日版本化存档。"
         actions={
           canEdit ? (
@@ -1360,15 +1360,15 @@ export function AdminOrgStructurePage() {
                   </Button>
                   {canEdit ? (
                     <div className="flex flex-wrap gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openEdit(sheet.org)}>
+                      <Button variant="outline" onClick={() => openEdit(sheet.org)}>
                         <Pencil />
                         编辑
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => openNewVersion(sheet.org)}>
+                      <Button variant="outline" onClick={() => openNewVersion(sheet.org)}>
                         <History />
                         新增版本
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => openCreate(sheet.org.code)}>
+                      <Button variant="outline" onClick={() => openCreate(sheet.org.code)}>
                         <GitBranchPlus />
                         添加下级
                       </Button>
@@ -1567,7 +1567,7 @@ export function AdminOrgStructurePage() {
 
       <ConfirmDialog
         open={exportConfirmOpen}
-        title="确认导出组织架构"
+        title="确认导出组织管理"
         description="将按当前筛选条件与快照日期导出组织数据。"
         confirmLabel="确认导出"
         loading={exporting}
@@ -1579,7 +1579,7 @@ export function AdminOrgStructurePage() {
         open={importOpen}
         onOpenChange={setImportOpen}
         elevated
-        title="批量导入组织架构"
+        title="批量导入组织管理"
         businessKeyHint="同部门编码 + 生效日期已存在则更新，否则按部门编码新增生效版本。部门编码留空则新建部门。"
         fillHints={[
           { text: "必填：部门名称、生效日期" },
