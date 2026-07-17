@@ -3,7 +3,7 @@ import type {
   OnboardingStatus,
   OrganizationTreeNode,
   Position,
-  WorkflowAssigneeOption,
+  WorkflowTask,
 } from "@shared/api.interface";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -17,6 +17,7 @@ import {
   completeOnboardingCase,
   createOnboardingCase,
   getOnboardingCase,
+  listOnboardingApprovalTasks,
   listOnboardingCases,
   ONBOARDING_STATUS_OPTIONS,
   onboardingStatusLabel,
@@ -24,9 +25,10 @@ import {
   updateOnboardingCase,
 } from "@/api/onboarding";
 import { flattenOrgTree, getOrganizationTree, listAllPositions } from "@/api/organization";
-import { listAssigneeOptions } from "@/api/workflow";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { FormField, OptionToggle } from "@/components/admin/form-field";
+import { OnboardingApprovalTimeline } from "@/components/admin/onboarding/OnboardingApprovalTimeline";
+import { OnboardingCaseSummary } from "@/components/admin/onboarding/OnboardingCaseSummary";
 import { OptionSelect } from "@/components/admin/option-select";
 import {
   NoPermissionCard,
@@ -75,7 +77,6 @@ type FormState = {
   expectedHireDate: string;
   employmentType: string;
   remark: string;
-  finalApproverId: string;
 };
 
 const EMPTY_FORM: FormState = {
@@ -87,7 +88,6 @@ const EMPTY_FORM: FormState = {
   expectedHireDate: new Date().toISOString().slice(0, 10),
   employmentType: "FULL_TIME",
   remark: "",
-  finalApproverId: "",
 };
 
 function statusBadgeClass(status: string) {
@@ -121,11 +121,12 @@ export function AdminOnboardingPage() {
 
   const [orgs, setOrgs] = useState<OrganizationTreeNode[]>([]);
   const [positions, setPositions] = useState<Position[]>([]);
-  const [assignees, setAssignees] = useState<WorkflowAssigneeOption[]>([]);
 
   const [sheet, setSheet] = useState<SheetMode>({ type: "closed" });
   const [detail, setDetail] = useState<OnboardingCase | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [approvalTasks, setApprovalTasks] = useState<WorkflowTask[]>([]);
+  const [approvalLoading, setApprovalLoading] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [cancelTarget, setCancelTarget] = useState<OnboardingCase | null>(null);
@@ -143,14 +144,9 @@ export function AdminOnboardingPage() {
   }, [positions, form.organizationId]);
 
   const loadRefs = useCallback(async () => {
-    const [treeRes, posRes, assigneeRes] = await Promise.all([
-      getOrganizationTree(),
-      listAllPositions(),
-      listAssigneeOptions().catch(() => ({ data: [] as WorkflowAssigneeOption[] })),
-    ]);
+    const [treeRes, posRes] = await Promise.all([getOrganizationTree(), listAllPositions()]);
     setOrgs(treeRes.data);
     setPositions(posRes);
-    setAssignees(assigneeRes.data);
   }, []);
 
   const load = useCallback(async () => {
@@ -184,12 +180,28 @@ export function AdminOnboardingPage() {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const loadApprovalTasks = useCallback(async (caseId: string, hasWorkflow: boolean) => {
+    if (!hasWorkflow) {
+      setApprovalTasks([]);
+      return;
+    }
+    setApprovalLoading(true);
+    try {
+      const res = await listOnboardingApprovalTasks(caseId);
+      setApprovalTasks(res.data);
+    } catch {
+      setApprovalTasks([]);
+    } finally {
+      setApprovalLoading(false);
+    }
+  }, []);
+
   const openNew = () => {
     setDetail(null);
+    setApprovalTasks([]);
     setForm({
       ...EMPTY_FORM,
       organizationId: flatOrgs[0]?.id ?? "",
-      finalApproverId: assignees[0]?.id ?? "",
     });
     setSheet({ type: "new" });
   };
@@ -197,6 +209,7 @@ export function AdminOnboardingPage() {
   const openView = async (item: OnboardingCase) => {
     setSheet({ type: "view", id: item.id });
     setDetailLoading(true);
+    setApprovalTasks([]);
     try {
       const res = await getOnboardingCase(item.id);
       setDetail(res.data);
@@ -209,8 +222,8 @@ export function AdminOnboardingPage() {
         expectedHireDate: res.data.expectedHireDate,
         employmentType: res.data.employmentType || "FULL_TIME",
         remark: res.data.remark || "",
-        finalApproverId: assignees[0]?.id ?? "",
       });
+      void loadApprovalTasks(res.data.id, Boolean(res.data.workflowInstanceId));
     } catch (e: unknown) {
       toast.error((e as ApiError).message);
       setSheet({ type: "closed" });
@@ -222,6 +235,7 @@ export function AdminOnboardingPage() {
   const closeSheet = () => {
     setSheet({ type: "closed" });
     setDetail(null);
+    setApprovalTasks([]);
   };
 
   const buildPayload = () => ({
@@ -285,10 +299,6 @@ export function AdminOnboardingPage() {
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-    if (!form.finalApproverId) {
-      toast.error("请指定末级审批人");
-      return;
-    }
     setSaving(true);
     try {
       let caseId = detail?.id;
@@ -304,11 +314,10 @@ export function AdminOnboardingPage() {
         }
       }
       if (!caseId) return;
-      const res = await submitOnboardingCase(caseId, {
-        nodeAssignees: { final_approve: form.finalApproverId },
-      });
+      const res = await submitOnboardingCase(caseId);
       toast.success("已提交审批");
       setDetail(res.data);
+      await loadApprovalTasks(res.data.id, Boolean(res.data.workflowInstanceId));
       await load();
     } catch (e: unknown) {
       const err = e as ApiError;
@@ -554,24 +563,9 @@ export function AdminOnboardingPage() {
                         placeholder="可选"
                       />
                     </FormField>
-                    <FormField
-                      label="末级审批人"
-                      required
-                      hint="首节点「部门负责人」按待入职组织的组织负责人自动派单；此处仅指定流程末级审批人"
-                    >
-                      <OptionSelect
-                        value={form.finalApproverId}
-                        onValueChange={(v) => patchForm("finalApproverId", v)}
-                        placeholder="选择审批人"
-                        options={assignees.map((u) => ({
-                          value: u.id,
-                          label: u.username,
-                        }))}
-                      />
-                    </FormField>
                     <div className="rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground">
-                      审批链：部门负责人（组织主数据）→ HR 角色 → 末级指定人。请确保目标组织已维护「组织负责人」，且该员工已绑定登录账号（演示账号
-                      manager 已尝试绑定一名负责人）。
+                      提交后按「平台 → 流程定义」中已发布的入职流程自动派单审批。默认链路为组织负责人 →
+                      HR；可在流程定义中增删节点或调整派单规则。请确保组织已维护负责人，且对应员工已绑定登录账号。
                     </div>
                     <div className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
                       <div className="mb-2 font-medium text-foreground">材料 / 合同（占位）</div>
@@ -593,53 +587,16 @@ export function AdminOnboardingPage() {
 
                 {showReadonly && detail ? (
                   <>
-                    <dl className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                      <div>
-                        <dt className="text-xs text-muted-foreground">姓名</dt>
-                        <dd className="font-medium">{detail.candidateName}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">手机</dt>
-                        <dd>{detail.mobile}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">组织</dt>
-                        <dd>{detail.organizationName || detail.organizationId}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">岗位</dt>
-                        <dd>{detail.positionName || detail.positionId}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">预计入职日</dt>
-                        <dd>{detail.expectedHireDate}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">用工类型</dt>
-                        <dd>
-                          {EMPLOYMENT_TYPE_OPTIONS.find((o) => o.id === detail.employmentType)?.label ||
-                            detail.employmentType ||
-                            "—"}
-                        </dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">流程实例</dt>
-                        <dd className="font-mono text-xs">{detail.workflowInstanceId || "—"}</dd>
-                      </div>
-                      <div>
-                        <dt className="text-xs text-muted-foreground">员工工号</dt>
-                        <dd>{detail.employeeNo || "—"}</dd>
-                      </div>
-                    </dl>
-                    {detail.remark ? (
-                      <div className="text-sm">
-                        <div className="text-xs text-muted-foreground">备注</div>
-                        <div>{detail.remark}</div>
-                      </div>
-                    ) : null}
+                    <OnboardingCaseSummary caseData={detail} />
                     {detail.status === "PENDING" ? (
                       <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-muted-foreground">
-                        审批进行中，请在「待办中心」完成审批。通过后将自动创建员工档案。
+                        审批进行中
+                        {(() => {
+                          const pending = approvalTasks.find((t) => t.status === "PENDING");
+                          if (!pending) return "。";
+                          return `，当前待「${pending.assigneeUsername || pending.assigneeUserId}」处理。`;
+                        })()}
+                        通过后将自动创建员工档案。
                       </div>
                     ) : null}
                     {detail.status === "IN_PROGRESS" ? (
@@ -648,6 +605,30 @@ export function AdminOnboardingPage() {
                       </div>
                     ) : null}
                   </>
+                ) : null}
+
+                {(detail?.workflowInstanceId || approvalTasks.length > 0 || approvalLoading) &&
+                sheet.type === "view" ? (
+                  <div className={cn(showReadonly ? "pt-1" : "pt-2")}>
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-medium text-muted-foreground">流程进度</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        disabled={approvalLoading || !detail}
+                        onClick={() =>
+                          detail &&
+                          void loadApprovalTasks(detail.id, Boolean(detail.workflowInstanceId))
+                        }
+                      >
+                        <RefreshCw className={cn("size-3.5", approvalLoading && "animate-spin")} />
+                        刷新
+                      </Button>
+                    </div>
+                    <OnboardingApprovalTimeline tasks={approvalTasks} loading={approvalLoading} />
+                  </div>
                 ) : null}
               </div>
             )}

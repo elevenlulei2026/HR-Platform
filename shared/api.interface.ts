@@ -875,16 +875,37 @@ export type RbacApi = {
 // Slice 4：流程引擎（最小可用）
 // -----------------------------
 
-export type WorkflowDefinitionStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+export type WorkflowDefinitionStatus = "DRAFT" | "PUBLISHED" | "DISABLED" | "ARCHIVED";
 
 export type WorkflowInstanceStatus = "RUNNING" | "COMPLETED" | "REJECTED" | "CANCELLED";
 
 export type WorkflowTaskStatus = "PENDING" | "APPROVED" | "REJECTED";
 
-export type WorkflowAssigneeRuleType = "DIRECT_MANAGER" | "ROLE" | "INITIATOR_SELECT";
+/**
+ * 审批人规则：
+ * - DIRECT_MANAGER：汇报线直属上级（优先手工 DIRECT，其次组织衍生，再回退账号 manager）
+ * - REPORTING_LINE：完整汇报线上第 N 级上级（level≥1）
+ * - ORG_LEADER / ORG_HRBP / ORG_SSC / ORG_HR_COORDINATOR：组织或任职主数据角色（可沿组织树上溯）
+ * - ROLE：系统角色（取该角色下一名可用用户）
+ * - INITIATOR_SELECT：发起时指定
+ */
+export type WorkflowAssigneeRuleType =
+  | "DIRECT_MANAGER"
+  | "REPORTING_LINE"
+  | "ORG_LEADER"
+  | "ORG_HRBP"
+  | "ORG_SSC"
+  | "ORG_HR_COORDINATOR"
+  | "ROLE"
+  | "INITIATOR_SELECT";
 
 export type WorkflowAssigneeRule =
   | { type: "DIRECT_MANAGER" }
+  | { type: "REPORTING_LINE"; level: number }
+  | { type: "ORG_LEADER" }
+  | { type: "ORG_HRBP" }
+  | { type: "ORG_SSC" }
+  | { type: "ORG_HR_COORDINATOR" }
   | { type: "ROLE"; roleCode: string }
   | { type: "INITIATOR_SELECT" };
 
@@ -973,6 +994,11 @@ export type StartWorkflowInstanceRequest = {
   businessId: string;
   /** HR 代发起时指定真实发起人（需 workflow:manage） */
   initiatorUserId?: string;
+  /**
+   * 组织上下文（可选）：用于 ORG_* 规则解析；
+   * 未传时按发起人绑定员工的主任职组织推导。
+   */
+  organizationId?: string;
   /** INITIATOR_SELECT 节点：nodeKey -> assigneeUserId */
   nodeAssignees?: Record<string, string>;
 };
@@ -984,6 +1010,29 @@ export type WorkflowTaskActionRequest = {
 export type WorkflowAssigneeOption = {
   id: string;
   username: string;
+  displayName?: string;
+};
+
+/** 预览/测试：各节点审批人解析结果 */
+export type WorkflowAssigneePreviewItem = {
+  nodeKey: string;
+  nodeName: string;
+  assigneeRule: WorkflowAssigneeRule;
+  resolvable: boolean;
+  assigneeUserId?: string;
+  assigneeUsername?: string;
+  assigneeDisplayName?: string;
+  errorMessage?: string;
+};
+
+export type WorkflowAssigneePreviewRequest = {
+  initiatorUserId: string;
+  organizationId?: string;
+  nodeAssignees?: Record<string, string>;
+};
+
+export type WorkflowAssigneePreviewResult = {
+  items: WorkflowAssigneePreviewItem[];
 };
 
 export type WorkflowApi = {
@@ -1004,8 +1053,19 @@ export type WorkflowApi = {
   getWorkflowDefinition: (id: string) => Promise<ApiResponse<WorkflowDefinition>>;
   /** POST /api/v1/workflow-definitions/{id}/publish */
   publishWorkflowDefinition: (id: string) => Promise<ApiResponse<WorkflowDefinition>>;
+  /** POST /api/v1/workflow-definitions/{id}/disable */
+  disableWorkflowDefinition: (id: string) => Promise<ApiResponse<WorkflowDefinition>>;
+  /** POST /api/v1/workflow-definitions/{id}/enable */
+  enableWorkflowDefinition: (id: string) => Promise<ApiResponse<WorkflowDefinition>>;
+  /** POST /api/v1/workflow-definitions/{id}/revise — 从已发布/停用克隆新草稿版本 */
+  reviseWorkflowDefinition: (id: string) => Promise<ApiResponse<WorkflowDefinition>>;
   /** DELETE /api/v1/workflow-definitions/{id} */
   deleteWorkflowDefinition: (id: string) => Promise<ApiResponse<{ id: string }>>;
+  /** POST /api/v1/workflow-definitions/{id}/preview-assignees */
+  previewWorkflowAssignees: (
+    id: string,
+    req: WorkflowAssigneePreviewRequest,
+  ) => Promise<ApiResponse<WorkflowAssigneePreviewResult>>;
 
   /** POST /api/v1/workflow-instances */
   startWorkflowInstance: (
@@ -2886,7 +2946,10 @@ export type OnboardingCaseListQuery = {
 };
 
 export type OnboardingSubmitRequest = {
-  /** 节点 key → 审批人用户 ID；入职流程末节点 final_approve 须指定 */
+  /**
+   * 仅当流程定义含 INITIATOR_SELECT 节点时需要；
+   * 默认入职流程按 ORG_LEADER / ROLE 等规则自动派单，无需传入。
+   */
   nodeAssignees?: Record<string, string>;
 };
 
@@ -2915,5 +2978,7 @@ export type OnboardingApi = {
   cancelOnboardingCase: (id: string) => Promise<ApiResponse<OnboardingCase>>;
   /** POST /api/v1/onboarding-cases/{id}/complete */
   completeOnboardingCase: (id: string) => Promise<ApiResponse<OnboardingCase>>;
+  /** GET /api/v1/onboarding-cases/{id}/approval-tasks */
+  listOnboardingApprovalTasks: (id: string) => Promise<ApiResponse<WorkflowTask[]>>;
 };
 

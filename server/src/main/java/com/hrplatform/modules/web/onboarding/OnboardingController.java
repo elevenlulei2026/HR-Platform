@@ -6,6 +6,7 @@ import com.hrplatform.core.organization.PositionEntity;
 import com.hrplatform.modules.onboarding.OnboardingCaseEntity;
 import com.hrplatform.modules.onboarding.OnboardingService;
 import com.hrplatform.modules.onboarding.OnboardingStatus;
+import com.hrplatform.platform.audit.ForbiddenException;
 import com.hrplatform.platform.rbac.RbacService;
 import com.hrplatform.platform.web.ApiResponse;
 import jakarta.validation.Valid;
@@ -63,8 +64,14 @@ public class OnboardingController {
 
   @GetMapping("/onboarding-cases/{id}")
   public ApiResponse<Map<String, Object>> get(@PathVariable("id") long id) {
-    requireView();
+    requireViewOrWorkflowParticipant(id);
     return ApiResponse.ok(toDetailDto(onboardingService.require(id)));
+  }
+
+  @GetMapping("/onboarding-cases/{id}/approval-tasks")
+  public ApiResponse<List<Map<String, Object>>> approvalTasks(@PathVariable("id") long id) {
+    requireViewOrWorkflowParticipant(id);
+    return ApiResponse.ok(onboardingService.listApprovalTasks(id));
   }
 
   @PostMapping("/onboarding-cases")
@@ -148,6 +155,18 @@ public class OnboardingController {
 
   private void requireView() {
     rbacService.requirePermission("onboarding:view");
+  }
+
+  /** 花名册/入职办理人员，或本单流程发起人/审批人 */
+  private void requireViewOrWorkflowParticipant(long caseId) {
+    if (rbacService.hasPermission("onboarding:view")) {
+      return;
+    }
+    if (rbacService.hasPermission("workflow:task:view")
+        && onboardingService.canCurrentUserViewCase(caseId)) {
+      return;
+    }
+    throw new ForbiddenException("无权限查看该入职单");
   }
 
   private void requireEdit() {

@@ -74,6 +74,49 @@ public class WorkflowController {
     return ApiResponse.ok(definitionService.toDto(e));
   }
 
+  @PostMapping("/workflow-definitions/{id}/disable")
+  public ApiResponse<Map<String, Object>> disableDefinition(@PathVariable("id") long id) {
+    WorkflowDefinitionEntity e = definitionService.disable(id);
+    return ApiResponse.ok(definitionService.toDto(e));
+  }
+
+  @PostMapping("/workflow-definitions/{id}/enable")
+  public ApiResponse<Map<String, Object>> enableDefinition(@PathVariable("id") long id) {
+    WorkflowDefinitionEntity e = definitionService.enable(id);
+    return ApiResponse.ok(definitionService.toDto(e));
+  }
+
+  @PostMapping("/workflow-definitions/{id}/revise")
+  public ApiResponse<Map<String, Object>> reviseDefinition(@PathVariable("id") long id) {
+    WorkflowDefinitionEntity e = definitionService.revise(id);
+    return ApiResponse.ok(definitionService.toDto(e));
+  }
+
+  @PostMapping("/workflow-definitions/{id}/preview-assignees")
+  public ApiResponse<Map<String, Object>> previewAssignees(
+      @PathVariable("id") long id,
+      @Valid @RequestBody WorkflowAssigneePreviewRequest req
+  ) {
+    Map<String, Long> nodeAssignees = new HashMap<>();
+    if (req.nodeAssignees() != null) {
+      req.nodeAssignees().forEach((k, v) -> {
+        if (v != null && !v.isBlank()) {
+          nodeAssignees.put(k, Long.parseLong(v));
+        }
+      });
+    }
+    Long organizationId = null;
+    if (req.organizationId() != null && !req.organizationId().isBlank()) {
+      organizationId = Long.parseLong(req.organizationId());
+    }
+    return ApiResponse.ok(definitionService.previewAssignees(
+        id,
+        Long.parseLong(req.initiatorUserId()),
+        organizationId,
+        nodeAssignees
+    ));
+  }
+
   @DeleteMapping("/workflow-definitions/{id}")
   public ApiResponse<Map<String, Object>> deleteDefinition(@PathVariable("id") long id) {
     definitionService.delete(id);
@@ -104,12 +147,17 @@ public class WorkflowController {
     if (req.initiatorUserId() != null && !req.initiatorUserId().isBlank()) {
       initiatorUserId = Long.parseLong(req.initiatorUserId());
     }
+    Long organizationId = null;
+    if (req.organizationId() != null && !req.organizationId().isBlank()) {
+      organizationId = Long.parseLong(req.organizationId());
+    }
     WorkflowInstanceEntity instance = workflowEngine.start(new WorkflowEngine.StartCommand(
         req.definitionCode(),
         req.businessType(),
         req.businessId(),
         initiatorUserId,
-        nodeAssignees
+        nodeAssignees,
+        organizationId
     ));
     return ApiResponse.ok(workflowEngine.toInstanceDto(instance));
   }
@@ -184,6 +232,13 @@ public class WorkflowController {
       @NotBlank String businessType,
       @NotBlank String businessId,
       String initiatorUserId,
+      String organizationId,
+      Map<String, String> nodeAssignees
+  ) {}
+
+  public record WorkflowAssigneePreviewRequest(
+      @NotBlank String initiatorUserId,
+      String organizationId,
       Map<String, String> nodeAssignees
   ) {}
 

@@ -7,10 +7,21 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class WorkflowDefinitionModel {
   private static final ObjectMapper MAPPER = new ObjectMapper();
+  private static final Set<String> ALLOWED_TYPES = Set.of(
+      "DIRECT_MANAGER",
+      "REPORTING_LINE",
+      "ORG_LEADER",
+      "ORG_HRBP",
+      "ORG_SSC",
+      "ORG_HR_COORDINATOR",
+      "ROLE",
+      "INITIATOR_SELECT"
+  );
 
   private List<WorkflowNodeModel> nodes = new ArrayList<>();
 
@@ -60,16 +71,23 @@ public class WorkflowDefinitionModel {
       if (rule == null || rule.getType() == null || rule.getType().isBlank()) {
         throw new IllegalArgumentException("节点 " + node.getKey() + " 缺少审批人规则");
       }
+      if (!ALLOWED_TYPES.contains(rule.getType())) {
+        throw new IllegalArgumentException("节点 " + node.getKey() + " 的审批人规则类型无效: " + rule.getType());
+      }
       switch (rule.getType()) {
         case "ROLE" -> {
           if (rule.getRoleCode() == null || rule.getRoleCode().isBlank()) {
             throw new IllegalArgumentException("节点 " + node.getKey() + " 的 ROLE 规则缺少 roleCode");
           }
         }
-        case "DIRECT_MANAGER", "INITIATOR_SELECT" -> {
+        case "REPORTING_LINE" -> {
+          if (rule.getLevel() == null || rule.getLevel() < 1) {
+            throw new IllegalArgumentException("节点 " + node.getKey() + " 的 REPORTING_LINE 规则缺少有效 level（≥1）");
+          }
+        }
+        default -> {
           // ok
         }
-        default -> throw new IllegalArgumentException("节点 " + node.getKey() + " 的审批人规则类型无效: " + rule.getType());
       }
     }
   }
@@ -109,6 +127,7 @@ public class WorkflowDefinitionModel {
   public static class WorkflowAssigneeRuleModel {
     private String type;
     private String roleCode;
+    private Integer level;
 
     public String getType() {
       return type;
@@ -124,6 +143,14 @@ public class WorkflowDefinitionModel {
 
     public void setRoleCode(String roleCode) {
       this.roleCode = roleCode;
+    }
+
+    public Integer getLevel() {
+      return level;
+    }
+
+    public void setLevel(Integer level) {
+      this.level = level;
     }
   }
 

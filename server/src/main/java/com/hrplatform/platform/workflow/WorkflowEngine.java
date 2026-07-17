@@ -95,7 +95,7 @@ public class WorkflowEngine {
     instance.setStatus(WorkflowInstanceStatus.RUNNING);
     instance.setInitiatorUserId(initiatorUserId);
     instance.setCurrentNodeIndex(0);
-    instance.setContextJson(serializeNodeAssignees(cmd.nodeAssignees()));
+    instance.setContextJson(serializeContext(cmd.nodeAssignees(), cmd.organizationId()));
     instanceMapper.insert(instance);
 
     createTaskForNode(instance, model, 0);
@@ -185,10 +185,14 @@ public class WorkflowEngine {
       int nodeIndex
   ) {
     WorkflowDefinitionModel.WorkflowNodeModel node = model.getNodes().get(nodeIndex);
+    InstanceContext ctx = deserializeContext(instance.getContextJson());
     long assigneeId = assigneeResolver.resolve(
         node,
-        instance.getInitiatorUserId(),
-        deserializeNodeAssignees(instance.getContextJson())
+        new WorkflowAssigneeResolveContext(
+            instance.getInitiatorUserId(),
+            ctx.nodeAssignees(),
+            ctx.organizationId()
+        )
     );
 
     WorkflowTaskEntity task = new WorkflowTaskEntity();
@@ -203,33 +207,58 @@ public class WorkflowEngine {
     instanceMapper.updateById(instance);
   }
 
-  private String serializeNodeAssignees(Map<String, Long> nodeAssignees) {
+  private String serializeContext(Map<String, Long> nodeAssignees, Long organizationId) {
     try {
-      return MAPPER.writeValueAsString(nodeAssignees == null ? Map.of() : nodeAssignees);
+      Map<String, Object> payload = new HashMap<>();
+      payload.put("nodeAssignees", nodeAssignees == null ? Map.of() : nodeAssignees);
+      if (organizationId != null) {
+        payload.put("organizationId", organizationId);
+      }
+      return MAPPER.writeValueAsString(payload);
     } catch (Exception e) {
-      return "{}";
+      return "{\"nodeAssignees\":{}}";
     }
   }
 
-  private Map<String, Long> deserializeNodeAssignees(String json) {
-    if (json == null || json.isBlank()) return Map.of();
+  private InstanceContext deserializeContext(String json) {
+    if (json == null || json.isBlank()) {
+      return new InstanceContext(Map.of(), null);
+    }
     try {
       Map<String, Object> raw = MAPPER.readValue(json, new TypeReference<>() {});
-      Map<String, Long> result = new HashMap<>();
-      raw.forEach((k, v) -> {
-        if (v == null) return;
-        if (v instanceof Number n) {
-          result.put(k, n.longValue());
-        } else {
-          String s = String.valueOf(v);
-          if (!s.isBlank()) result.put(k, Long.parseLong(s));
-        }
-      });
-      return result;
+      if (raw.containsKey("nodeAssignees") || raw.containsKey("organizationId")) {
+        Map<String, Long> assignees = parseIdMap(raw.get("nodeAssignees"));
+        Long orgId = parseLong(raw.get("organizationId"));
+        return new InstanceContext(assignees, orgId);
+      }
+      // 兼容旧版：整段 JSON 即为 nodeAssignees
+      return new InstanceContext(parseIdMap(raw), null);
     } catch (Exception e) {
-      return Map.of();
+      return new InstanceContext(Map.of(), null);
     }
   }
+
+  @SuppressWarnings("unchecked")
+  private Map<String, Long> parseIdMap(Object value) {
+    if (!(value instanceof Map<?, ?> map)) return Map.of();
+    Map<String, Long> result = new HashMap<>();
+    map.forEach((k, v) -> {
+      if (k == null || v == null) return;
+      Long id = parseLong(v);
+      if (id != null) result.put(String.valueOf(k), id);
+    });
+    return result;
+  }
+
+  private Long parseLong(Object value) {
+    if (value == null) return null;
+    if (value instanceof Number n) return n.longValue();
+    String s = String.valueOf(value).trim();
+    if (s.isBlank()) return null;
+    return Long.parseLong(s);
+  }
+
+  private record InstanceContext(Map<String, Long> nodeAssignees, Long organizationId) {}
 
   private WorkflowTaskEntity loadPendingTaskForCurrentUser(long taskId) {
     rbacService.requirePermission("workflow:task:view");
@@ -273,6 +302,15 @@ public class WorkflowEngine {
     WorkflowInstanceEntity instance = instanceMapper.selectById(instanceId);
     if (instance == null) throw new IllegalArgumentException("流程实例不存在");
     requireInstanceAccess(instance);
+    return listInstanceTasksInternal(instanceId);
+  }
+
+  /** 业务模块在已校验业务权限后拉取审批轨迹（不二次校验 workflow:task:view） */
+  public List<Map<String, Object>> listInstanceTaskDtosInternal(long instanceId) {
+    return listInstanceTasksInternal(instanceId).stream().map(this::toTaskDto).toList();
+  }
+
+  private List<WorkflowTaskEntity> listInstanceTasksInternal(long instanceId) {
     return taskMapper.selectList(
         new LambdaQueryWrapper<WorkflowTaskEntity>()
             .eq(WorkflowTaskEntity::getInstanceId, instanceId)
@@ -398,6 +436,17 @@ public class WorkflowEngine {
       String businessType,
       String businessId,
       Long initiatorUserId,
-      Map<String, Long> nodeAssignees
-  ) {}
+      Map<String, Long> nodeAssignees,
+      Long organizationId
+  ) {
+    public StartCommand(
+        String definitionCode,
+        String businessType,
+        String businessId,
+        Long initiatorUserId,
+        Map<String, Long> nodeAssignees
+    ) {
+      this(definitionCode, businessType, businessId, initiatorUserId, nodeAssignees, null);
+    }
+  }
 }

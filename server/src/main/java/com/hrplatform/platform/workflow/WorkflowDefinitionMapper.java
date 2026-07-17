@@ -15,4 +15,11 @@ public interface WorkflowDefinitionMapper extends BaseMapper<WorkflowDefinitionE
       LIMIT 1
       """)
   WorkflowDefinitionEntity selectLatestPublishedByCode(String code);
+
+  @Select("""
+      SELECT MAX(version)
+      FROM workflow_definition
+      WHERE code = #{code}
+      """)
+  Integer selectMaxVersionByCode(String code);
 }

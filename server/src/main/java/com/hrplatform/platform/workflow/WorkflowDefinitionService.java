@@ -10,7 +10,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -19,15 +21,18 @@ public class WorkflowDefinitionService {
   private static final ObjectMapper MAPPER = new ObjectMapper();
 
   private final WorkflowDefinitionMapper definitionMapper;
+  private final WorkflowAssigneeResolver assigneeResolver;
   private final RbacService rbacService;
   private final SysUserMapper sysUserMapper;
 
   public WorkflowDefinitionService(
       WorkflowDefinitionMapper definitionMapper,
+      WorkflowAssigneeResolver assigneeResolver,
       RbacService rbacService,
       SysUserMapper sysUserMapper
   ) {
     this.definitionMapper = definitionMapper;
+    this.assigneeResolver = assigneeResolver;
     this.rbacService = rbacService;
     this.sysUserMapper = sysUserMapper;
   }
@@ -36,6 +41,7 @@ public class WorkflowDefinitionService {
     rbacService.requirePermission("workflow:manage");
 
     LambdaQueryWrapper<WorkflowDefinitionEntity> qw = new LambdaQueryWrapper<WorkflowDefinitionEntity>()
+        .ne(WorkflowDefinitionEntity::getStatus, WorkflowDefinitionStatus.ARCHIVED)
         .orderByDesc(WorkflowDefinitionEntity::getUpdatedAt)
         .orderByDesc(WorkflowDefinitionEntity::getId);
 
@@ -71,14 +77,17 @@ public class WorkflowDefinitionService {
       throw new IllegalArgumentException("definitionJson 不能为空");
     }
 
+    String trimmedCode = code.trim();
+    ensureNoDraft(trimmedCode);
+
     WorkflowDefinitionModel model = WorkflowDefinitionModel.fromMap(definitionJson);
     String json = WorkflowDefinitionModel.toJson(model);
 
     WorkflowDefinitionEntity e = new WorkflowDefinitionEntity();
-    e.setCode(code.trim());
+    e.setCode(trimmedCode);
     e.setName(name.trim());
     e.setDescription(description);
-    e.setVersion(1);
+    e.setVersion(nextVersion(trimmedCode));
     e.setStatus(WorkflowDefinitionStatus.DRAFT);
     e.setDefinitionJson(json);
     definitionMapper.insert(e);
@@ -113,13 +122,66 @@ public class WorkflowDefinitionService {
     }
     WorkflowDefinitionModel.parse(cur.getDefinitionJson());
 
-    WorkflowDefinitionEntity latestPublished = definitionMapper.selectLatestPublishedByCode(cur.getCode());
-    int nextVersion = latestPublished == null ? cur.getVersion() : latestPublished.getVersion() + 1;
-    cur.setVersion(nextVersion);
+    // 同 code 其他已发布版本归档，保证仅一份生效定义
+    archivePublishedOfCode(cur.getCode(), cur.getId());
+
     cur.setStatus(WorkflowDefinitionStatus.PUBLISHED);
     cur.setPublishedAt(LocalDateTime.now());
     definitionMapper.updateById(cur);
     return definitionMapper.selectById(id);
+  }
+
+  @Transactional
+  public WorkflowDefinitionEntity disable(long id) {
+    rbacService.requirePermission("workflow:manage");
+    WorkflowDefinitionEntity cur = definitionMapper.selectById(id);
+    if (cur == null) throw new IllegalArgumentException("流程定义不存在");
+    if (!WorkflowDefinitionStatus.PUBLISHED.equals(cur.getStatus())) {
+      throw new IllegalArgumentException("仅已发布流程可停用");
+    }
+    cur.setStatus(WorkflowDefinitionStatus.DISABLED);
+    definitionMapper.updateById(cur);
+    return definitionMapper.selectById(id);
+  }
+
+  @Transactional
+  public WorkflowDefinitionEntity enable(long id) {
+    rbacService.requirePermission("workflow:manage");
+    WorkflowDefinitionEntity cur = definitionMapper.selectById(id);
+    if (cur == null) throw new IllegalArgumentException("流程定义不存在");
+    if (!WorkflowDefinitionStatus.DISABLED.equals(cur.getStatus())) {
+      throw new IllegalArgumentException("仅已停用流程可启用");
+    }
+    archivePublishedOfCode(cur.getCode(), cur.getId());
+    cur.setStatus(WorkflowDefinitionStatus.PUBLISHED);
+    if (cur.getPublishedAt() == null) {
+      cur.setPublishedAt(LocalDateTime.now());
+    }
+    definitionMapper.updateById(cur);
+    return definitionMapper.selectById(id);
+  }
+
+  @Transactional
+  public WorkflowDefinitionEntity revise(long id) {
+    rbacService.requirePermission("workflow:manage");
+    WorkflowDefinitionEntity source = definitionMapper.selectById(id);
+    if (source == null) throw new IllegalArgumentException("流程定义不存在");
+    if (!WorkflowDefinitionStatus.PUBLISHED.equals(source.getStatus())
+        && !WorkflowDefinitionStatus.DISABLED.equals(source.getStatus())) {
+      throw new IllegalArgumentException("仅已发布或已停用流程可修订为新草稿");
+    }
+    ensureNoDraft(source.getCode());
+
+    WorkflowDefinitionModel.parse(source.getDefinitionJson());
+    WorkflowDefinitionEntity draft = new WorkflowDefinitionEntity();
+    draft.setCode(source.getCode());
+    draft.setName(source.getName());
+    draft.setDescription(source.getDescription());
+    draft.setVersion(nextVersion(source.getCode()));
+    draft.setStatus(WorkflowDefinitionStatus.DRAFT);
+    draft.setDefinitionJson(source.getDefinitionJson());
+    definitionMapper.insert(draft);
+    return definitionMapper.selectById(draft.getId());
   }
 
   @Transactional
@@ -141,6 +203,50 @@ public class WorkflowDefinitionService {
     return e;
   }
 
+  public Map<String, Object> previewAssignees(
+      long id,
+      long initiatorUserId,
+      Long organizationId,
+      Map<String, Long> nodeAssignees
+  ) {
+    rbacService.requirePermission("workflow:manage");
+    WorkflowDefinitionEntity definition = definitionMapper.selectById(id);
+    if (definition == null) throw new IllegalArgumentException("流程定义不存在");
+
+    SysUserEntity initiator = sysUserMapper.selectById(initiatorUserId);
+    if (initiator == null || !"ACTIVE".equals(initiator.getStatus())) {
+      throw new IllegalArgumentException("发起人用户不存在或已停用");
+    }
+
+    WorkflowDefinitionModel model = WorkflowDefinitionModel.parse(definition.getDefinitionJson());
+    WorkflowAssigneeResolveContext context = new WorkflowAssigneeResolveContext(
+        initiatorUserId,
+        nodeAssignees,
+        organizationId
+    );
+
+    List<Map<String, Object>> items = new ArrayList<>();
+    for (WorkflowDefinitionModel.WorkflowNodeModel node : model.getNodes()) {
+      Map<String, Object> item = new LinkedHashMap<>();
+      item.put("nodeKey", node.getKey());
+      item.put("nodeName", node.getName());
+      item.put("assigneeRule", toRuleDto(node.getAssigneeRule()));
+      try {
+        long assigneeId = assigneeResolver.resolve(node, context);
+        SysUserEntity user = sysUserMapper.selectById(assigneeId);
+        item.put("resolvable", true);
+        item.put("assigneeUserId", String.valueOf(assigneeId));
+        item.put("assigneeUsername", user == null ? null : user.getUsername());
+        item.put("assigneeDisplayName", user == null ? null : user.getUsername());
+      } catch (IllegalArgumentException ex) {
+        item.put("resolvable", false);
+        item.put("errorMessage", ex.getMessage());
+      }
+      items.add(item);
+    }
+    return Map.of("items", items);
+  }
+
   public List<Map<String, Object>> listAssigneeOptions() {
     rbacService.requirePermission("workflow:manage");
     List<SysUserEntity> users = sysUserMapper.selectList(
@@ -148,10 +254,13 @@ public class WorkflowDefinitionService {
             .eq(SysUserEntity::getStatus, "ACTIVE")
             .orderByAsc(SysUserEntity::getUsername)
     );
-    return users.stream().map(u -> Map.<String, Object>of(
-        "id", String.valueOf(u.getId()),
-        "username", u.getUsername()
-    )).toList();
+    return users.stream().map(u -> {
+      Map<String, Object> m = new LinkedHashMap<>();
+      m.put("id", String.valueOf(u.getId()));
+      m.put("username", u.getUsername());
+      m.put("displayName", u.getUsername());
+      return m;
+    }).toList();
   }
 
   public Map<String, Object> toDto(WorkflowDefinitionEntity e) {
@@ -170,6 +279,44 @@ public class WorkflowDefinitionService {
     } catch (Exception ex) {
       dto.put("definitionJson", Map.of("nodes", List.of()));
     }
+    return dto;
+  }
+
+  private void ensureNoDraft(String code) {
+    Long draftCount = definitionMapper.selectCount(
+        new LambdaQueryWrapper<WorkflowDefinitionEntity>()
+            .eq(WorkflowDefinitionEntity::getCode, code)
+            .eq(WorkflowDefinitionEntity::getStatus, WorkflowDefinitionStatus.DRAFT)
+    );
+    if (draftCount != null && draftCount > 0) {
+      throw new IllegalArgumentException("流程编码 " + code + " 已有草稿，请先编辑或删除现有草稿");
+    }
+  }
+
+  private int nextVersion(String code) {
+    Integer max = definitionMapper.selectMaxVersionByCode(code);
+    return max == null ? 1 : max + 1;
+  }
+
+  private void archivePublishedOfCode(String code, long excludeId) {
+    List<WorkflowDefinitionEntity> published = definitionMapper.selectList(
+        new LambdaQueryWrapper<WorkflowDefinitionEntity>()
+            .eq(WorkflowDefinitionEntity::getCode, code)
+            .eq(WorkflowDefinitionEntity::getStatus, WorkflowDefinitionStatus.PUBLISHED)
+            .ne(WorkflowDefinitionEntity::getId, excludeId)
+    );
+    for (WorkflowDefinitionEntity row : published) {
+      row.setStatus(WorkflowDefinitionStatus.ARCHIVED);
+      definitionMapper.updateById(row);
+    }
+  }
+
+  private Map<String, Object> toRuleDto(WorkflowDefinitionModel.WorkflowAssigneeRuleModel rule) {
+    Map<String, Object> dto = new LinkedHashMap<>();
+    if (rule == null) return dto;
+    dto.put("type", rule.getType());
+    if (rule.getRoleCode() != null) dto.put("roleCode", rule.getRoleCode());
+    if (rule.getLevel() != null) dto.put("level", rule.getLevel());
     return dto;
   }
 }

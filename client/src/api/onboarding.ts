@@ -5,6 +5,7 @@ import type {
   OnboardingCaseUpdateRequest,
   OnboardingSubmitRequest,
   PageResult,
+  WorkflowTask,
 } from "@shared/api.interface";
 
 import { getJson, postJson, putJson } from "@/api/http";
@@ -53,6 +54,10 @@ export async function cancelOnboardingCase(id: string) {
 
 export async function completeOnboardingCase(id: string) {
   return postJson<OnboardingCase, Record<string, unknown>>(`/api/v1/onboarding-cases/${id}/complete`, {});
+}
+
+export async function listOnboardingApprovalTasks(id: string) {
+  return getJson<WorkflowTask[]>(`/api/v1/onboarding-cases/${id}/approval-tasks`);
 }
 
 export const ONBOARDING_STATUS_OPTIONS = [

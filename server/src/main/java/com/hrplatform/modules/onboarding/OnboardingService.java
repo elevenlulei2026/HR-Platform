@@ -11,36 +11,34 @@ import com.hrplatform.core.organization.PositionEntity;
 import com.hrplatform.core.organization.PositionMapper;
 import com.hrplatform.platform.auth.AuthContext;
 import com.hrplatform.platform.auth.AuthUser;
-import com.hrplatform.platform.auth.SysUserEntity;
-import com.hrplatform.platform.auth.SysUserMapper;
 import com.hrplatform.platform.code.CodeGeneratorService;
 import com.hrplatform.platform.crypto.FieldCryptoService;
 import com.hrplatform.platform.workflow.WorkflowEngine;
 import com.hrplatform.platform.workflow.WorkflowInstanceEntity;
+import com.hrplatform.platform.workflow.WorkflowInstanceMapper;
+import com.hrplatform.platform.workflow.WorkflowTaskEntity;
+import com.hrplatform.platform.workflow.WorkflowTaskMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
 public class OnboardingService {
-  private static final String NODE_ORG_LEADER = "manager_approve";
-
   private final OnboardingCaseMapper caseMapper;
   private final OrganizationMapper organizationMapper;
   private final PositionMapper positionMapper;
   private final EmployeeMapper employeeMapper;
-  private final SysUserMapper sysUserMapper;
   private final CodeGeneratorService codeGeneratorService;
   private final FieldCryptoService fieldCryptoService;
   private final HeadcountService headcountService;
   private final WorkflowEngine workflowEngine;
+  private final WorkflowInstanceMapper workflowInstanceMapper;
+  private final WorkflowTaskMapper workflowTaskMapper;
   private final EmployeeService employeeService;
 
   public OnboardingService(
@@ -48,22 +46,24 @@ public class OnboardingService {
       OrganizationMapper organizationMapper,
       PositionMapper positionMapper,
       EmployeeMapper employeeMapper,
-      SysUserMapper sysUserMapper,
       CodeGeneratorService codeGeneratorService,
       FieldCryptoService fieldCryptoService,
       HeadcountService headcountService,
       WorkflowEngine workflowEngine,
+      WorkflowInstanceMapper workflowInstanceMapper,
+      WorkflowTaskMapper workflowTaskMapper,
       EmployeeService employeeService
   ) {
     this.caseMapper = caseMapper;
     this.organizationMapper = organizationMapper;
     this.positionMapper = positionMapper;
     this.employeeMapper = employeeMapper;
-    this.sysUserMapper = sysUserMapper;
     this.codeGeneratorService = codeGeneratorService;
     this.fieldCryptoService = fieldCryptoService;
     this.headcountService = headcountService;
     this.workflowEngine = workflowEngine;
+    this.workflowInstanceMapper = workflowInstanceMapper;
+    this.workflowTaskMapper = workflowTaskMapper;
     this.employeeService = employeeService;
   }
 
@@ -157,12 +157,9 @@ public class OnboardingService {
     int fiscalYear = fiscalYearOf(cur.getExpectedHireDate());
     headcountService.reserve(cur.getOrganizationId(), fiscalYear, 1);
 
-    Map<String, Long> assignees = new HashMap<>();
-    if (nodeAssignees != null) {
-      assignees.putAll(nodeAssignees);
-    }
-    // 首节点：按待入职组织的组织负责人派单（沿组织树上溯），不再用发起人账号上级
-    assignees.put(NODE_ORG_LEADER, resolveOrgLeaderApproverUserId(cur.getOrganizationId()));
+    // 审批人由流程定义规则解析（ORG_LEADER / ROLE 等）；
+    // nodeAssignees 仅在流程含 INITIATOR_SELECT 时由前端传入
+    Map<String, Long> assignees = nodeAssignees == null ? Map.of() : Map.copyOf(nodeAssignees);
 
     WorkflowInstanceEntity instance;
     try {
@@ -171,7 +168,8 @@ public class OnboardingService {
           "ONBOARDING",
           String.valueOf(cur.getId()),
           null,
-          assignees
+          assignees,
+          cur.getOrganizationId()
       ));
     } catch (RuntimeException ex) {
       // 流程启动失败时回滚在途编制
@@ -204,7 +202,7 @@ public class OnboardingService {
           fiscalYearOf(cur.getExpectedHireDate()),
           1
       );
-      cur.setWorkflowInstanceId(null);
+      // 保留 workflowInstanceId，便于详情页继续查看审批轨迹
     }
 
     cur.setStatus(OnboardingStatus.CANCELLED);
@@ -273,7 +271,7 @@ public class OnboardingService {
         1
     );
     cur.setStatus(OnboardingStatus.DRAFT);
-    cur.setWorkflowInstanceId(null);
+    // 保留 workflowInstanceId，便于回退草稿后仍可查看驳回轨迹
     caseMapper.updateById(cur);
   }
 
@@ -332,6 +330,37 @@ public class OnboardingService {
     return dto;
   }
 
+  /** 入职单审批轨迹（需已提交并关联流程实例） */
+  public List<Map<String, Object>> listApprovalTasks(long caseId) {
+    OnboardingCaseEntity cur = require(caseId);
+    if (cur.getWorkflowInstanceId() == null) {
+      return List.of();
+    }
+    return workflowEngine.listInstanceTaskDtosInternal(cur.getWorkflowInstanceId());
+  }
+
+  /**
+   * 当前用户是否可查看入职单详情：具备 onboarding:view，
+   * 或为关联流程的发起人/任一审批节点处理人。
+   */
+  public boolean canCurrentUserViewCase(long caseId) {
+    AuthUser current = AuthContext.current();
+    if (current == null) return false;
+    OnboardingCaseEntity cur = require(caseId);
+    if (cur.getWorkflowInstanceId() == null) return false;
+
+    WorkflowInstanceEntity instance = workflowInstanceMapper.selectById(cur.getWorkflowInstanceId());
+    if (instance == null) return false;
+    if (current.id().equals(instance.getInitiatorUserId())) return true;
+
+    Long related = workflowTaskMapper.selectCount(
+        new LambdaQueryWrapper<WorkflowTaskEntity>()
+            .eq(WorkflowTaskEntity::getInstanceId, instance.getId())
+            .eq(WorkflowTaskEntity::getAssigneeUserId, current.id())
+    );
+    return related != null && related > 0;
+  }
+
   private void validateRequired(
       String name,
       String mobile,
@@ -353,53 +382,6 @@ public class OnboardingService {
     if (positionMapper.selectById(positionId) == null) {
       throw new IllegalArgumentException("岗位不存在");
     }
-  }
-
-  /**
-   * 解析待入职组织的审批人：本组织负责人 → 上级组织负责人…；
-   * 负责人工号须能对应到绑定了登录账号的员工。
-   */
-  long resolveOrgLeaderApproverUserId(long organizationId) {
-    Set<Long> seen = new HashSet<>();
-    Long orgId = organizationId;
-    String lastLeaderHint = null;
-    while (orgId != null && seen.add(orgId)) {
-      OrganizationEntity org = organizationMapper.selectById(orgId);
-      if (org == null) break;
-      String leaderNo = org.getOrgLeaderNo();
-      if (leaderNo != null && !leaderNo.isBlank()) {
-        String no = leaderNo.trim();
-        EmployeeEntity leader = employeeMapper.selectOne(
-            new LambdaQueryWrapper<EmployeeEntity>()
-                .eq(EmployeeEntity::getEmployeeNo, no)
-                .last("LIMIT 1")
-        );
-        if (leader == null) {
-          lastLeaderHint = String.format("组织「%s」负责人工号 %s 在花名册中不存在", org.getName(), no);
-        } else {
-          SysUserEntity user = sysUserMapper.selectOne(
-              new LambdaQueryWrapper<SysUserEntity>()
-                  .eq(SysUserEntity::getEmployeeId, leader.getId())
-                  .eq(SysUserEntity::getStatus, "ACTIVE")
-                  .last("LIMIT 1")
-          );
-          if (user != null) {
-            return user.getId();
-          }
-          lastLeaderHint = String.format(
-              "组织「%s」负责人 %s（工号 %s）未绑定系统登录账号",
-              org.getName(),
-              leader.getFullName() == null ? "" : leader.getFullName(),
-              no
-          );
-        }
-      }
-      orgId = org.getParentId();
-    }
-    if (lastLeaderHint != null) {
-      throw new IllegalArgumentException(lastLeaderHint + "。请在用户管理中为该员工绑定账号，或在组织管理中维护组织负责人。");
-    }
-    throw new IllegalArgumentException("待入职组织及其上级均未配置组织负责人，无法派发部门负责人审批。请先在组织管理中维护组织负责人。");
   }
 
   private void requireStatus(OnboardingCaseEntity e, String expected) {
