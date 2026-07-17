@@ -4,7 +4,9 @@ import { useTheme } from "next-themes";
 import { Database, Moon, Sun } from "lucide-react";
 
 import { getNavMenuTree } from "@/api/menu";
+import { useAuth } from "@/auth/AuthProvider";
 import { AdminMegaMenuPanel } from "@/components/admin/AdminMegaMenuPanel";
+import { ChangePasswordDialog } from "@/components/admin/ChangePasswordDialog";
 import { UserMenu } from "@/components/admin/UserMenu";
 import {
   adminTopNav,
@@ -72,10 +74,12 @@ export function AdminLayout() {
   const navigate = useNavigate();
   const { resolvedTheme, setTheme } = useTheme();
   const perm = usePermission();
+  const { user, refreshMe } = useAuth();
 
   const [cmdOpen, setCmdOpen] = useState(false);
   const [themeMounted, setThemeMounted] = useState(false);
   const [topNav, setTopNav] = useState<AdminNavTopItem[]>(adminTopNav);
+  const mustChangePassword = Boolean(user?.mustChangePassword);
 
   const breadcrumb = useMemo(() => {
     const dynamic = getDynamicBreadcrumb(location.pathname, topNav);
@@ -368,6 +372,15 @@ export function AdminLayout() {
           ) : null}
         </CommandList>
       </CommandDialog>
+
+      <ChangePasswordDialog
+        open={mustChangePassword}
+        onOpenChange={() => {
+          /* 强制改密不可关闭 */
+        }}
+        required
+        onSuccess={() => void refreshMe()}
+      />
     </div>
   );
 }

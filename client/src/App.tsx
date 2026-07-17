@@ -10,6 +10,7 @@ import { AdminDevHealthPage } from "@/pages/admin/dev/AdminDevHealthPage";
 import { AdminAuditLogsPage } from "@/pages/admin/platform/AdminAuditLogsPage";
 import { AdminPermissionsPage } from "@/pages/admin/platform/AdminPermissionsPage";
 import { AdminTasksPage } from "@/pages/admin/platform/AdminTasksPage";
+import { AdminUsersPage } from "@/pages/admin/platform/AdminUsersPage";
 import { AdminOrgHeadcountPage } from "@/pages/admin/org/AdminOrgHeadcountPage";
 import { AdminOrgChartPage } from "@/pages/admin/org/AdminOrgChartPage";
 import { AdminOrgPositionsPage } from "@/pages/admin/org/AdminOrgPositionsPage";
@@ -118,6 +119,7 @@ export default function App() {
 
         <Route path="platform/workflow" element={<Guarded title="流程配置"><AdminWorkflowPage /></Guarded>} />
         <Route path="platform/tasks" element={<Guarded title="待办中心"><AdminTasksPage /></Guarded>} />
+        <Route path="platform/users" element={<Guarded title="账号管理"><AdminUsersPage /></Guarded>} />
         <Route path="platform/permissions" element={<Guarded title="RBAC 权限"><AdminPermissionsPage /></Guarded>} />
         <Route path="platform/audit" element={<Guarded title="审计日志"><AdminAuditLogsPage /></Guarded>} />
 

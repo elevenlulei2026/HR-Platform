@@ -11,6 +11,7 @@ import {
   Settings2,
   Shield,
   ShieldCheck,
+  Users,
   Workflow,
 } from "lucide-react";
 
@@ -198,6 +199,14 @@ export const adminTopNav: AdminNavTopItem[] = [
       {
         title: "权限与审计",
         links: [
+          {
+            title: "账号管理",
+            description: "管理系统登录账号、启停、重置密码与角色挂接",
+            to: "/admin/platform/users",
+            group: "权限与审计",
+            permission: "user:manage",
+            icon: Users,
+          },
           {
             title: "RBAC 权限",
             description: "管理角色、菜单与功能权限",

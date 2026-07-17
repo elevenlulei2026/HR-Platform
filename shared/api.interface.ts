@@ -40,6 +40,9 @@ export type UserProfile = {
   username: string;
   status: UserStatus;
   employeeId?: string;
+  /** 系统账号为 displayName；员工账号为员工姓名（运行时组装） */
+  displayName?: string;
+  mustChangePassword?: boolean;
   lastLoginAt?: string; // ISO-8601
   /**
    * Slice 3（RBAC）：登录后返回的角色 code 集合
@@ -69,11 +72,102 @@ export type LoginResponseData = {
   user: UserProfile;
 };
 
+export type ChangePasswordRequest = {
+  oldPassword: string;
+  newPassword: string;
+};
+
 export type AuthApi = {
   /** POST /api/v1/auth/login */
   login: (req: LoginRequest) => Promise<ApiResponse<LoginResponseData>>;
   /** GET /api/v1/auth/me */
   me: () => Promise<ApiResponse<UserProfile>>;
+  /** PUT /api/v1/auth/password */
+  changePassword: (req: ChangePasswordRequest) => Promise<ApiResponse<{ ok: true }>>;
+};
+
+// -----------------------------
+// 账号管理（平台用户）
+// -----------------------------
+
+/** 派生字段：employeeId 为空 → SYSTEM，否则 → EMPLOYEE */
+export type UserAccountType = "EMPLOYEE" | "SYSTEM";
+
+export type SysUserAccount = {
+  id: string;
+  username: string;
+  accountType: UserAccountType;
+  /** 系统账号用库字段；员工账号为当前员工姓名（join） */
+  displayName?: string;
+  status: UserStatus;
+  employeeId?: string;
+  employeeNo?: string;
+  employeeName?: string;
+  adAccount?: string;
+  roles: string[];
+  mustChangePassword: boolean;
+  lastLoginAt?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type SysUserListQuery = {
+  keyword?: string;
+  status?: UserStatus | "ALL";
+  roleCode?: string;
+  accountType?: UserAccountType | "ALL";
+  boundEmployee?: "YES" | "NO" | "ALL";
+  page: number;
+  pageSize: number;
+};
+
+export type SysUserCreateRequest = {
+  accountType: "SYSTEM";
+  username: string;
+  displayName?: string;
+  password: string;
+  roleCodes?: string[];
+  mustChangePassword?: boolean;
+};
+
+export type SysUserUpdateRequest = {
+  displayName?: string;
+  status?: UserStatus;
+};
+
+export type OpenEmployeeAccountRequest = {
+  password: string;
+  roleCodes?: string[];
+  mustChangePassword?: boolean;
+};
+
+export type ResetPasswordRequest = {
+  newPassword: string;
+  mustChangePassword?: boolean;
+};
+
+export type RenameLoginRequest = {
+  newAdAccount: string;
+};
+
+export type UserAdminApi = {
+  /** GET /api/v1/users */
+  listUsers: (query: SysUserListQuery) => Promise<ApiResponse<PageResult<SysUserAccount>>>;
+  /** GET /api/v1/users/{id} */
+  getUser: (id: string) => Promise<ApiResponse<SysUserAccount>>;
+  /** POST /api/v1/users — 仅系统账号 */
+  createUser: (req: SysUserCreateRequest) => Promise<ApiResponse<SysUserAccount>>;
+  /** PUT /api/v1/users/{id} */
+  updateUser: (id: string, req: SysUserUpdateRequest) => Promise<ApiResponse<SysUserAccount>>;
+  /** POST /api/v1/users/{id}/reset-password */
+  resetPassword: (id: string, req: ResetPasswordRequest) => Promise<ApiResponse<{ id: string }>>;
+  /** POST /api/v1/users/{id}/rename-login */
+  renameLogin: (id: string, req: RenameLoginRequest) => Promise<ApiResponse<SysUserAccount>>;
+  /** POST /api/v1/employees/{id}/open-account */
+  openEmployeeAccount: (
+    employeeId: string,
+    req: OpenEmployeeAccountRequest,
+  ) => Promise<ApiResponse<SysUserAccount>>;
 };
 
 export type AuditAction = "VIEW" | "CREATE" | "UPDATE" | "DELETE" | "EXPORT";

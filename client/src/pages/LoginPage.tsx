@@ -85,14 +85,14 @@ export function LoginPage() {
               <div className="text-lg font-semibold tracking-tight text-foreground">{APP_NAME}</div>
               <div className="text-xl font-semibold tracking-tight text-foreground">登录</div>
               <div className="text-sm text-muted-foreground">
-                使用管理员账号进入系统（MVP：用户名密码登录，后续可接 SSO）。
+                员工请使用 AD账号 / 登录名；系统账号使用分配的用户名（MVP：本地密码，后续可接 SSO）。
               </div>
             </div>
           </div>
 
           <form className="mt-6 space-y-4" onSubmit={onSubmit}>
             <div className="space-y-2">
-              <div className="text-sm font-medium text-foreground">用户名</div>
+              <div className="text-sm font-medium text-foreground">AD账号 / 登录名</div>
               <Input value={username} onChange={(e) => setUsername(e.target.value)} />
             </div>
 

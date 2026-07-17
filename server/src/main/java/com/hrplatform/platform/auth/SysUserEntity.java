@@ -9,9 +9,13 @@ public class SysUserEntity {
   private Long id;
   private String username;
   private String passwordHash;
+  private String displayName;
   private Long employeeId;
   private Long managerUserId;
   private String status;
+  private Boolean mustChangePassword;
+  private LocalDateTime passwordUpdatedAt;
+  private LocalDateTime lockedUntil;
   private LocalDateTime lastLoginAt;
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
@@ -42,6 +46,14 @@ public class SysUserEntity {
     this.passwordHash = passwordHash;
   }
 
+  public String getDisplayName() {
+    return displayName;
+  }
+
+  public void setDisplayName(String displayName) {
+    this.displayName = displayName;
+  }
+
   public Long getEmployeeId() {
     return employeeId;
   }
@@ -64,6 +76,34 @@ public class SysUserEntity {
 
   public void setStatus(String status) {
     this.status = status;
+  }
+
+  public Boolean getMustChangePassword() {
+    return mustChangePassword;
+  }
+
+  public void setMustChangePassword(Boolean mustChangePassword) {
+    this.mustChangePassword = mustChangePassword;
+  }
+
+  public boolean mustChangePassword() {
+    return Boolean.TRUE.equals(mustChangePassword);
+  }
+
+  public LocalDateTime getPasswordUpdatedAt() {
+    return passwordUpdatedAt;
+  }
+
+  public void setPasswordUpdatedAt(LocalDateTime passwordUpdatedAt) {
+    this.passwordUpdatedAt = passwordUpdatedAt;
+  }
+
+  public LocalDateTime getLockedUntil() {
+    return lockedUntil;
+  }
+
+  public void setLockedUntil(LocalDateTime lockedUntil) {
+    this.lockedUntil = lockedUntil;
   }
 
   public LocalDateTime getLastLoginAt() {
@@ -106,4 +146,3 @@ public class SysUserEntity {
     this.updatedBy = updatedBy;
   }
 }
-

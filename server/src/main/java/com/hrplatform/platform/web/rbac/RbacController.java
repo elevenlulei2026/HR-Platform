@@ -281,7 +281,7 @@ public class RbacController {
 
   @GetMapping("/users/{id}/roles")
   public ApiResponse<List<String>> listUserRoles(@PathVariable("id") long id) {
-    rbacService.requirePermission("permission:manage");
+    rbacService.requirePermission("user:manage");
     return ApiResponse.ok(rbacService.listUserRoles(id));
   }
 
@@ -290,7 +290,7 @@ public class RbacController {
       @PathVariable("id") long id,
       @Valid @RequestBody SetUserRolesRequest req
   ) {
-    rbacService.requirePermission("permission:manage");
+    rbacService.requirePermission("user:manage");
     rbacService.setUserRoles(id, req.roleCodes());
     return ApiResponse.ok(Map.of("id", String.valueOf(id)));
   }

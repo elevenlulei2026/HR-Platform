@@ -20,11 +20,16 @@
 | 字段 | 类型 | 说明 |
 | --- | --- | --- |
 | id | BIGINT PK | |
-| username | VARCHAR(64) UNIQUE | 登录名 |
-| password_hash | VARCHAR(255) | |
-| employee_id | BIGINT NULL | 关联员工，可为空（纯管理员） |
+| username | VARCHAR(64) UNIQUE | 登录名；员工账号 = 当前有效 `ad_account` |
+| password_hash | VARCHAR(255) | BCrypt（`bcrypt:` 前缀）；兼容旧 `sha256:` |
+| display_name | VARCHAR(64) NULL | 仅系统账号展示名；员工账号运行时用员工姓名 |
+| employee_id | BIGINT NULL UNIQUE | 关联员工，可为空（系统账号）；一人一账号 |
 | status | VARCHAR(32) | ACTIVE / DISABLED |
+| must_change_password | TINYINT(1) | 首次/重置后强制改密 |
+| password_updated_at | DATETIME NULL | |
 | last_login_at | DATETIME | |
+
+> 账号管理细则见 `docs/账号管理功能方案.md`。绑定后 `ad_account` ≡ `username`；写路径经 core 绑定服务。
 
 ### role / permission / user_role / role_permission
 
@@ -154,7 +159,7 @@
 | id | BIGINT PK | | |
 | employee_no | VARCHAR(64) UNIQUE | 工号 | 系统生成 |
 | full_name | VARCHAR(128) | 姓名 | 个人基础信息 |
-| ad_account | VARCHAR(128) NULL | AD 域账号 | 个人基础信息 |
+| ad_account | VARCHAR(64) NULL | AD / 系统登录账号；绑定后 ≡ `sys_user.username` | 个人基础信息 |
 | gender | VARCHAR(16) | 性别（字典） | 个人基础信息 |
 | marital_status | VARCHAR(32) NULL | 婚姻状况（字典） | 个人基础信息 |
 | political_affiliation | VARCHAR(32) NULL | 政治面貌（字典） | 个人基础信息 |

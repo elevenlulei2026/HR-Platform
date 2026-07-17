@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ChevronDown, LogOut } from "lucide-react";
+import { ChevronDown, KeyRound, LogOut } from "lucide-react";
 
 import { useAuth } from "@/auth/AuthProvider";
+import { ChangePasswordDialog } from "@/components/admin/ChangePasswordDialog";
 import { Button } from "@/components/ui/button";
 import { useClickOutside } from "@/hooks/useClickOutside";
 import { cn } from "@/lib/utils";
 
 export function UserMenu() {
   const navigate = useNavigate();
-  const { user, logout } = useAuth();
+  const { user, logout, refreshMe } = useAuth();
   const [open, setOpen] = useState(false);
+  const [pwdOpen, setPwdOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const closeMenu = useCallback(() => setOpen(false), []);
@@ -31,6 +33,8 @@ export function UserMenu() {
     navigate("/login", { replace: true });
   }
 
+  const label = user?.displayName || user?.username || "未登录";
+
   return (
     <div ref={containerRef} className="relative">
       <Button
@@ -42,7 +46,7 @@ export function UserMenu() {
         aria-haspopup="menu"
         onClick={() => setOpen((value) => !value)}
       >
-        {user?.username || "未登录"}
+        {label}
         <ChevronDown
           className={cn(
             "h-4 w-4 text-muted-foreground transition-transform",
@@ -57,9 +61,21 @@ export function UserMenu() {
           className="absolute right-0 top-[calc(100%+4px)] z-[200] min-w-44 rounded-lg border bg-popover p-1 text-popover-foreground shadow-md"
         >
           <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-            {user?.username ? `当前用户：${user.username}` : "未登录"}
+            {user?.username ? `登录名：${user.username}` : "未登录"}
           </div>
           <div className="my-1 h-px bg-border" />
+          <button
+            type="button"
+            role="menuitem"
+            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent"
+            onClick={() => {
+              closeMenu();
+              setPwdOpen(true);
+            }}
+          >
+            <KeyRound className="h-4 w-4 shrink-0" />
+            修改密码
+          </button>
           <button
             type="button"
             role="menuitem"
@@ -71,6 +87,12 @@ export function UserMenu() {
           </button>
         </div>
       ) : null}
+
+      <ChangePasswordDialog
+        open={pwdOpen}
+        onOpenChange={setPwdOpen}
+        onSuccess={() => void refreshMe()}
+      />
     </div>
   );
 }

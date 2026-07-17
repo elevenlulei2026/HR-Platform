@@ -1,6 +1,7 @@
 package com.hrplatform.core.web.employee;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hrplatform.core.employee.EmployeeAccountBindingService;
 import com.hrplatform.core.employee.EmployeeAssignmentEntity;
 import com.hrplatform.core.employee.EmployeeEntity;
 import com.hrplatform.core.employee.EmployeeImportService;
@@ -44,6 +45,7 @@ public class EmployeeController {
   private final EmployeeMovementService movementService;
   private final EmployeeImportService importService;
   private final EmployeeRosterExportService rosterExportService;
+  private final EmployeeAccountBindingService accountBindingService;
   private final RbacService rbacService;
   private final AuditLogService auditLogService;
   private final ObjectMapper objectMapper;
@@ -53,6 +55,7 @@ public class EmployeeController {
       EmployeeMovementService movementService,
       EmployeeImportService importService,
       EmployeeRosterExportService rosterExportService,
+      EmployeeAccountBindingService accountBindingService,
       RbacService rbacService,
       AuditLogService auditLogService,
       ObjectMapper objectMapper
@@ -61,10 +64,34 @@ public class EmployeeController {
     this.movementService = movementService;
     this.importService = importService;
     this.rosterExportService = rosterExportService;
+    this.accountBindingService = accountBindingService;
     this.rbacService = rbacService;
     this.auditLogService = auditLogService;
     this.objectMapper = objectMapper;
   }
+
+  @PostMapping("/employees/{id}/open-account")
+  public ApiResponse<Map<String, Object>> openAccount(
+      @PathVariable("id") long id,
+      @Valid @RequestBody OpenAccountRequest req
+  ) {
+    rbacService.requirePermission("user:manage");
+    return ApiResponse.ok(
+        accountBindingService.openAccount(id, req.password(), req.roleCodes(), req.mustChangePassword())
+    );
+  }
+
+  @GetMapping("/employees/{id}/account-status")
+  public ApiResponse<Map<String, Object>> accountStatus(@PathVariable("id") long id) {
+    rbacService.requirePermission("user:manage");
+    return ApiResponse.ok(accountBindingService.accountStatusForEmployee(id));
+  }
+
+  public record OpenAccountRequest(
+      @NotBlank String password,
+      java.util.List<String> roleCodes,
+      Boolean mustChangePassword
+  ) {}
 
   @GetMapping("/employees")
   public ApiResponse<Map<String, Object>> listEmployees(
@@ -274,6 +301,12 @@ public class EmployeeController {
       @Valid @RequestBody EmployeeUpdateRequest req
   ) {
     requireEdit();
+    if (req.adAccount() != null) {
+      EmployeeEntity existing = employeeService.require(id);
+      if (existing.getUserId() != null) {
+        rbacService.requirePermission("user:manage");
+      }
+    }
     EmployeeEntity updated = employeeService.updateMaster(id, new EmployeeService.MasterUpdateCommand(
         req.editMode(),
         req.effectiveStartDate(),

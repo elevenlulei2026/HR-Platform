@@ -143,7 +143,8 @@
 | | 待办中心 | `tasks` | `workflow:task:view` | `/admin/platform/tasks` | 4 |
 | | 消息中心（后补） | `messages` | `message:view` | `/admin/platform/messages` | — |
 | | 日历提醒（后补） | `calendar` | `calendar:view` | `/admin/platform/calendar` | — |
-| 权限与安全 | RBAC 权限 | `permission` | `permission:manage` | `/admin/platform/permissions` | 3 |
+| 权限与安全 | 账号管理 | `users` | `user:manage` | `/admin/platform/users` | — |
+| | RBAC 权限 | `permission` | `permission:manage` | `/admin/platform/permissions` | 3 |
 | | 数据范围/字段权限（后补） | `data-scope` | `permission:data-scope:manage` | `/admin/platform/data-scope` | 3+ |
 | | 审计日志 | `audit` | `audit:view` | `/admin/platform/audit` | 1 |
 | 配置与集成 | 表单配置（后补） | `forms` | `form:manage` | `/admin/platform/forms` | — |

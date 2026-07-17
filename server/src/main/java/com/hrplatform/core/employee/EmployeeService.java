@@ -9,6 +9,7 @@ import com.hrplatform.platform.auth.AuthContext;
 import com.hrplatform.platform.auth.AuthUser;
 import com.hrplatform.platform.auth.SysUserEntity;
 import com.hrplatform.platform.auth.SysUserMapper;
+import com.hrplatform.platform.auth.UserAccountService;
 import com.hrplatform.platform.code.CodeGeneratorService;
 import com.hrplatform.platform.crypto.FieldCryptoService;
 import com.hrplatform.platform.dict.DictItemEntity;
@@ -44,6 +45,7 @@ public class EmployeeService {
   private final EmployeeMovementService movementService;
   private final RbacService rbacService;
   private final EmployeeAssignmentHelper assignmentHelper;
+  private final EmployeeAccountBindingService accountBindingService;
 
   public EmployeeService(
       EmployeeMapper employeeMapper,
@@ -58,7 +60,8 @@ public class EmployeeService {
       DictService dictService,
       EmployeeMovementService movementService,
       RbacService rbacService,
-      EmployeeAssignmentHelper assignmentHelper
+      EmployeeAssignmentHelper assignmentHelper,
+      EmployeeAccountBindingService accountBindingService
   ) {
     this.employeeMapper = employeeMapper;
     this.assignmentMapper = assignmentMapper;
@@ -73,6 +76,7 @@ public class EmployeeService {
     this.movementService = movementService;
     this.rbacService = rbacService;
     this.assignmentHelper = assignmentHelper;
+    this.accountBindingService = accountBindingService;
   }
 
   public PageResult page(String keyword, String status, Long organizationId, long page, long pageSize) {
@@ -693,11 +697,18 @@ public class EmployeeService {
       throw new IllegalArgumentException("新增生效版本时必须填写生效日期");
     }
 
+    // 已开号改 AD：绑定服务同事务同步登录名（仅 CURRENT）
+    boolean adHandledByBinding = false;
+    if (cmd.adAccount() != null) {
+      accountBindingService.onMasterAdAccountChange(id, cmd.adAccount(), mode);
+      adHandledByBinding = cur.getUserId() != null;
+    }
+
     if ("CURRENT".equals(mode)) {
       // 修改“今天”所在的个人主档版本
       LocalDate today = LocalDate.now();
       EmployeeMasterVersionEntity version = requireMasterVersionAsOf(id, today);
-      applyMasterPatch(version, cmd);
+      applyMasterPatch(version, cmd, adHandledByBinding);
       masterVersionMapper.updateById(version);
     } else {
       LocalDate start = cmd.effectiveStartDate();
@@ -717,7 +728,7 @@ public class EmployeeService {
       newV.setId(null);
       newV.setEmployeeId(id);
       newV.setEffectiveStartDate(start);
-      applyMasterPatch(newV, cmd);
+      applyMasterPatch(newV, cmd, adHandledByBinding);
 
       // 自动衔接：找前一版本/下一版本
       EmployeeMasterVersionEntity prev = findPrevVersion(id, start);
@@ -738,7 +749,12 @@ public class EmployeeService {
     EmployeeMasterVersionEntity todayV = requireMasterVersionAsOf(id, LocalDate.now());
     applyToEmployeeEntity(cur, todayV);
     employeeMapper.updateById(cur);
-    return require(id);
+
+    EmployeeEntity updated = require(id);
+    if (cmd.status() != null && "TERMINATED".equalsIgnoreCase(cmd.status().trim())) {
+      accountBindingService.onEmployeeTerminated(id);
+    }
+    return updated;
   }
 
   private EmployeeMasterVersionEntity findPrevVersion(long employeeId, LocalDate start) {
@@ -806,7 +822,7 @@ public class EmployeeService {
     return v;
   }
 
-  private void applyMasterPatch(EmployeeMasterVersionEntity v, MasterUpdateCommand cmd) {
+  private void applyMasterPatch(EmployeeMasterVersionEntity v, MasterUpdateCommand cmd, boolean skipAdAccount) {
     if (cmd.fullName() != null) v.setFullName(cmd.fullName().trim());
     if (cmd.gender() != null) v.setGender(cmd.gender());
     if (cmd.mobile() != null && !cmd.mobile().isBlank()) {
@@ -814,7 +830,10 @@ public class EmployeeService {
     }
     if (cmd.companyEmail() != null) v.setCompanyEmail(cmd.companyEmail());
     if (cmd.personalEmail() != null) v.setPersonalEmail(cmd.personalEmail());
-    if (cmd.adAccount() != null) v.setAdAccount(cmd.adAccount());
+    if (cmd.adAccount() != null && !skipAdAccount) {
+      String ad = cmd.adAccount().isBlank() ? null : UserAccountService.normalizeUsername(cmd.adAccount());
+      v.setAdAccount(ad);
+    }
     if (cmd.maritalStatus() != null) v.setMaritalStatus(cmd.maritalStatus());
     if (cmd.politicalAffiliation() != null) v.setPoliticalAffiliation(cmd.politicalAffiliation());
     if (cmd.highestEducation() != null) v.setHighestEducation(cmd.highestEducation());

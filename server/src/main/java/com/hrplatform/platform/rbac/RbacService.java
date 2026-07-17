@@ -143,9 +143,32 @@ public class RbacService {
 
   @Transactional
   public void setUserRoles(long userId, List<String> roleCodes) {
+    List<String> codes = roleCodes == null
+        ? List.of()
+        : roleCodes.stream().filter(c -> c != null && !c.isBlank()).map(String::trim).distinct().toList();
+    List<RoleEntity> roles = List.of();
+    if (!codes.isEmpty()) {
+      roles = roleMapper.selectList(
+          new LambdaQueryWrapper<RoleEntity>()
+              .in(RoleEntity::getCode, codes)
+              .eq(RoleEntity::getStatus, "ACTIVE")
+      );
+      Set<String> found = roles.stream().map(RoleEntity::getCode).collect(java.util.stream.Collectors.toSet());
+      List<String> missing = codes.stream().filter(c -> !found.contains(c)).toList();
+      if (!missing.isEmpty()) {
+        throw new IllegalArgumentException("存在无效或已停用的角色：" + String.join(", ", missing));
+      }
+    }
+
+    AuthUser current = AuthContext.current();
+    if (current != null && current.id().equals(userId)) {
+      Set<String> nextPerms = resolvePermissionCodesForRoles(roles);
+      if (!hasManagePath(nextPerms) && hasManagePath(current.permissions())) {
+        throw new IllegalArgumentException("不能移除自身最后一个管理权限（user:manage / permission:manage）");
+      }
+    }
+
     userRoleMapper.deleteByUserId(userId);
-    if (roleCodes == null || roleCodes.isEmpty()) return;
-    List<RoleEntity> roles = roleMapper.selectList(new LambdaQueryWrapper<RoleEntity>().in(RoleEntity::getCode, roleCodes));
     for (RoleEntity r : roles) {
       userRoleMapper.insert(userId, r.getId());
     }
@@ -153,6 +176,41 @@ public class RbacService {
 
   public List<String> listUserRoles(long userId) {
     return userRoleMapper.selectRoleCodesByUserId(userId);
+  }
+
+  /** 返回 codes 中实际存在且 ACTIVE 的角色 code（忽略无效项） */
+  public List<String> listActiveRoleCodesAmong(List<String> codes) {
+    if (codes == null || codes.isEmpty()) return List.of();
+    List<String> cleaned = codes.stream()
+        .filter(c -> c != null && !c.isBlank())
+        .map(String::trim)
+        .distinct()
+        .toList();
+    if (cleaned.isEmpty()) return List.of();
+    return roleMapper.selectList(
+            new LambdaQueryWrapper<RoleEntity>()
+                .in(RoleEntity::getCode, cleaned)
+                .eq(RoleEntity::getStatus, "ACTIVE")
+        ).stream()
+        .map(RoleEntity::getCode)
+        .toList();
+  }
+
+  public List<Long> listActiveUserIdsByRoleCode(String roleCode) {
+    return userRoleMapper.selectActiveUserIdsByRoleCode(roleCode);
+  }
+
+  private Set<String> resolvePermissionCodesForRoles(List<RoleEntity> roles) {
+    Set<String> perms = new HashSet<>();
+    for (RoleEntity r : roles) {
+      perms.addAll(permissionMapper.selectPermissionCodesByRoleId(r.getId()));
+    }
+    return perms;
+  }
+
+  private static boolean hasManagePath(Set<String> permissions) {
+    if (permissions == null) return false;
+    return permissions.contains("user:manage") || permissions.contains("permission:manage");
   }
 
   public List<String> listRoleOrgScopeIds(long roleId) {
