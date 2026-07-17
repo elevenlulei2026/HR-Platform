@@ -150,6 +150,35 @@ public class WorkflowEngine {
     return taskMapper.selectById(taskId);
   }
 
+  /**
+   * 业务侧取消进行中的流程（不触发驳回回调，由业务自行回滚状态）。
+   */
+  @Transactional
+  public void cancelRunningInstance(long instanceId, String reason) {
+    WorkflowInstanceEntity instance = instanceMapper.selectById(instanceId);
+    if (instance == null) {
+      throw new IllegalArgumentException("流程实例不存在");
+    }
+    if (!WorkflowInstanceStatus.RUNNING.equals(instance.getStatus())) {
+      throw new IllegalArgumentException("流程实例已结束，无法取消");
+    }
+    LocalDateTime now = LocalDateTime.now();
+    List<WorkflowTaskEntity> pending = taskMapper.selectList(
+        new LambdaQueryWrapper<WorkflowTaskEntity>()
+            .eq(WorkflowTaskEntity::getInstanceId, instanceId)
+            .eq(WorkflowTaskEntity::getStatus, WorkflowTaskStatus.PENDING)
+    );
+    for (WorkflowTaskEntity task : pending) {
+      task.setStatus(WorkflowTaskStatus.REJECTED);
+      task.setComment(reason == null || reason.isBlank() ? "业务取消" : reason.trim());
+      task.setCompletedAt(now);
+      taskMapper.updateById(task);
+    }
+    instance.setStatus(WorkflowInstanceStatus.CANCELLED);
+    instance.setCompletedAt(now);
+    instanceMapper.updateById(instance);
+  }
+
   private void createTaskForNode(
       WorkflowInstanceEntity instance,
       WorkflowDefinitionModel model,

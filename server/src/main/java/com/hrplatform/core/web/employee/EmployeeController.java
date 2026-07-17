@@ -257,7 +257,8 @@ public class EmployeeController {
         req.organizationId(),
         req.positionId(),
         req.employmentType(),
-        req.assignmentEffectiveStartDate()
+        req.assignmentEffectiveStartDate(),
+        null
     ));
     boolean reveal = employeeService.canViewSensitive();
     EmployeeAssignmentEntity pa = employeeService.findCurrentPrimaryAssignment(created.getId());

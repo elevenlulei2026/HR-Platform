@@ -94,12 +94,7 @@ public class HeadcountService {
   }
 
   public CheckResult check(long organizationId, int fiscalYear, int delta) {
-    HeadcountPlanEntity plan = headcountPlanMapper.selectOne(
-        new LambdaQueryWrapper<HeadcountPlanEntity>()
-            .eq(HeadcountPlanEntity::getOrganizationId, organizationId)
-            .eq(HeadcountPlanEntity::getFiscalYear, fiscalYear)
-            .last("LIMIT 1")
-    );
+    HeadcountPlanEntity plan = findPlan(organizationId, fiscalYear);
     int planned = plan == null ? 0 : (plan.getPlannedCount() == null ? 0 : plan.getPlannedCount());
     int occupied = plan == null ? 0 : (plan.getOccupiedCount() == null ? 0 : plan.getOccupiedCount());
     int reserved = plan == null ? 0 : (plan.getReservedCount() == null ? 0 : plan.getReservedCount());
@@ -111,6 +106,62 @@ public class HeadcountService {
         planned, occupied, reserved, available, need
     );
     return new CheckResult(allowed, organizationId, fiscalYear, planned, occupied, reserved, available, reason);
+  }
+
+  /** 提交入职/调岗时占用在途编制 */
+  @Transactional
+  public void reserve(long organizationId, int fiscalYear, int delta) {
+    int need = Math.max(1, delta);
+    CheckResult check = check(organizationId, fiscalYear, need);
+    if (!check.allowed()) {
+      throw new IllegalArgumentException(check.reason() == null ? "编制不足" : check.reason());
+    }
+    HeadcountPlanEntity plan = requirePlan(organizationId, fiscalYear);
+    int reserved = plan.getReservedCount() == null ? 0 : plan.getReservedCount();
+    plan.setReservedCount(reserved + need);
+    headcountPlanMapper.updateById(plan);
+  }
+
+  /** 驳回/取消时释放在途编制 */
+  @Transactional
+  public void releaseReserved(long organizationId, int fiscalYear, int delta) {
+    int need = Math.max(1, delta);
+    HeadcountPlanEntity plan = findPlan(organizationId, fiscalYear);
+    if (plan == null) return;
+    int reserved = plan.getReservedCount() == null ? 0 : plan.getReservedCount();
+    plan.setReservedCount(Math.max(0, reserved - need));
+    headcountPlanMapper.updateById(plan);
+  }
+
+  /** 审批通过建档：在途转已用 */
+  @Transactional
+  public void occupyFromReserved(long organizationId, int fiscalYear, int delta) {
+    int need = Math.max(1, delta);
+    HeadcountPlanEntity plan = requirePlan(organizationId, fiscalYear);
+    int reserved = plan.getReservedCount() == null ? 0 : plan.getReservedCount();
+    int occupied = plan.getOccupiedCount() == null ? 0 : plan.getOccupiedCount();
+    plan.setReservedCount(Math.max(0, reserved - need));
+    plan.setOccupiedCount(occupied + need);
+    headcountPlanMapper.updateById(plan);
+  }
+
+  private HeadcountPlanEntity findPlan(long organizationId, int fiscalYear) {
+    return headcountPlanMapper.selectOne(
+        new LambdaQueryWrapper<HeadcountPlanEntity>()
+            .eq(HeadcountPlanEntity::getOrganizationId, organizationId)
+            .eq(HeadcountPlanEntity::getFiscalYear, fiscalYear)
+            .last("LIMIT 1")
+    );
+  }
+
+  private HeadcountPlanEntity requirePlan(long organizationId, int fiscalYear) {
+    HeadcountPlanEntity plan = findPlan(organizationId, fiscalYear);
+    if (plan == null) {
+      throw new IllegalArgumentException(
+          String.format("部门 %d 在 %d 年无编制计划", organizationId, fiscalYear)
+      );
+    }
+    return plan;
   }
 
   public int defaultFiscalYear() {

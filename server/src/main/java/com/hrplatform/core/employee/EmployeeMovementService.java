@@ -35,7 +35,13 @@ public class EmployeeMovementService {
 
   @Transactional
   public void recordHire(long employeeId, Long assignmentId, LocalDate effectiveDate) {
-    insert("HIR", "H01", null, effectiveDate, employeeId, null, assignmentId, "manual_create");
+    recordHire(employeeId, assignmentId, effectiveDate, "manual_create");
+  }
+
+  @Transactional
+  public void recordHire(long employeeId, Long assignmentId, LocalDate effectiveDate, String sourceType) {
+    String source = sourceType == null || sourceType.isBlank() ? "manual_create" : sourceType.trim();
+    insert("HIR", "H01", null, effectiveDate, employeeId, null, assignmentId, source);
   }
 
   @Transactional

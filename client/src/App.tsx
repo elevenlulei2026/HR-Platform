@@ -19,6 +19,7 @@ import { AdminReportingLinesPage } from "@/pages/admin/employees/AdminReportingL
 import { AdminArchiveDataHubPage } from "@/pages/admin/employees/AdminArchiveDataHubPage";
 import { AdminArchiveDataPage } from "@/pages/admin/employees/AdminArchiveDataPage";
 import { AdminWorkflowPage } from "@/pages/admin/platform/AdminWorkflowPage";
+import { AdminOnboardingPage } from "@/pages/admin/onboarding/AdminOnboardingPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
 function Guarded(props: { title?: string; children: React.ReactNode }) {
@@ -86,7 +87,7 @@ export default function App() {
           path="onboarding"
           element={
             <Guarded title="入职办理">
-              <AdminPlaceholderPage title="入职办理" />
+              <AdminOnboardingPage />
             </Guarded>
           }
         />

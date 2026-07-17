@@ -2729,3 +2729,97 @@ export type EmployeeApi = {
   ) => Promise<ApiResponse<ReportingLineSyncFromOrgResult>>;
 };
 
+// -----------------------------
+// Slice 8：入职办理
+// -----------------------------
+
+export type OnboardingStatus =
+  | "DRAFT"
+  | "PENDING"
+  | "IN_PROGRESS"
+  | "COMPLETED"
+  | "CANCELLED";
+
+export type OnboardingCase = {
+  id: string;
+  caseNo: string;
+  candidateName: string;
+  /** 列表脱敏；详情在 DRAFT 编辑态可为完整手机号 */
+  mobile: string;
+  gender?: string;
+  organizationId: string;
+  positionId: string;
+  organizationName?: string;
+  positionName?: string;
+  expectedHireDate: string; // YYYY-MM-DD
+  employmentType?: string;
+  status: OnboardingStatus;
+  workflowInstanceId?: string;
+  employeeId?: string;
+  employeeNo?: string;
+  remark?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OnboardingCaseCreateRequest = {
+  candidateName: string;
+  mobile: string;
+  gender?: string;
+  organizationId: string;
+  positionId: string;
+  expectedHireDate: string;
+  employmentType?: string;
+  remark?: string;
+};
+
+export type OnboardingCaseUpdateRequest = {
+  candidateName?: string;
+  mobile?: string;
+  gender?: string;
+  organizationId?: string;
+  positionId?: string;
+  expectedHireDate?: string;
+  employmentType?: string;
+  remark?: string;
+};
+
+export type OnboardingCaseListQuery = {
+  keyword?: string;
+  status?: OnboardingStatus;
+  page: number;
+  pageSize: number;
+};
+
+export type OnboardingSubmitRequest = {
+  /** 节点 key → 审批人用户 ID；入职流程末节点 final_approve 须指定 */
+  nodeAssignees?: Record<string, string>;
+};
+
+export type OnboardingApi = {
+  /** GET /api/v1/onboarding-cases?page=&pageSize=&keyword=&status= */
+  listOnboardingCases: (
+    query: OnboardingCaseListQuery,
+  ) => Promise<ApiResponse<PageResult<OnboardingCase>>>;
+  /** GET /api/v1/onboarding-cases/{id} */
+  getOnboardingCase: (id: string) => Promise<ApiResponse<OnboardingCase>>;
+  /** POST /api/v1/onboarding-cases */
+  createOnboardingCase: (
+    req: OnboardingCaseCreateRequest,
+  ) => Promise<ApiResponse<OnboardingCase>>;
+  /** PUT /api/v1/onboarding-cases/{id} */
+  updateOnboardingCase: (
+    id: string,
+    req: OnboardingCaseUpdateRequest,
+  ) => Promise<ApiResponse<OnboardingCase>>;
+  /** POST /api/v1/onboarding-cases/{id}/submit */
+  submitOnboardingCase: (
+    id: string,
+    req?: OnboardingSubmitRequest,
+  ) => Promise<ApiResponse<OnboardingCase>>;
+  /** POST /api/v1/onboarding-cases/{id}/cancel */
+  cancelOnboardingCase: (id: string) => Promise<ApiResponse<OnboardingCase>>;
+  /** POST /api/v1/onboarding-cases/{id}/complete */
+  completeOnboardingCase: (id: string) => Promise<ApiResponse<OnboardingCase>>;
+};
+

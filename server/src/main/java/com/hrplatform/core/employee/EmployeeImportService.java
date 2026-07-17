@@ -187,7 +187,8 @@ public class EmployeeImportService {
         organizationId,
         positionId,
         employmentType.isBlank() ? null : employmentType,
-        hireDate
+        hireDate,
+        null
     ));
   }
 

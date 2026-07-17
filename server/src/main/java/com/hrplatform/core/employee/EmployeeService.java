@@ -672,7 +672,12 @@ public class EmployeeService {
       );
     }
 
-    movementService.recordHire(entity.getId(), assignment == null ? null : assignment.getId(), cmd.hireDate());
+    movementService.recordHire(
+        entity.getId(),
+        assignment == null ? null : assignment.getId(),
+        cmd.hireDate(),
+        cmd.hireSourceType()
+    );
     return require(entity.getId());
   }
 
@@ -1417,7 +1422,9 @@ public class EmployeeService {
       Long organizationId,
       Long positionId,
       String employmentType,
-      LocalDate assignmentEffectiveStartDate
+      LocalDate assignmentEffectiveStartDate,
+      /** 异动来源：manual_create / onboarding 等，null 视为 manual_create */
+      String hireSourceType
   ) {}
 
   public record MasterUpdateCommand(
