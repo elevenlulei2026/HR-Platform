@@ -39,7 +39,7 @@ export function ArchiveAddButton({
 
 /** 档案记录列表容器 */
 export function ArchiveRecordList({ children }: { children: ReactNode }) {
-  return <div className="space-y-2 p-2.5">{children}</div>;
+  return <div className="space-y-2.5 p-3">{children}</div>;
 }
 
 type ArchiveRecordCardProps = {
@@ -61,16 +61,17 @@ export function ArchiveRecordCard({
   return (
     <article
       className={cn(
-        "group relative flex items-start gap-3 rounded-lg border border-border/70 bg-card",
+        "group relative flex items-start gap-3 rounded-[10px] border border-border/65 bg-card",
+        "shadow-[0_1px_2px_hsl(var(--foreground)/0.03)]",
         "transition-[border-color,box-shadow,background-color] duration-200 ease-out",
-        "hover:border-border hover:bg-muted/[0.35]",
+        "hover:border-border hover:bg-muted/[0.28] hover:shadow-[0_2px_8px_-2px_hsl(var(--foreground)/0.06)]",
         adminCardEnter,
         className,
       )}
     >
       {index !== undefined ? (
         <div className="flex w-8 shrink-0 flex-col items-center pt-2.5 pl-2.5">
-          <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold tabular-nums text-primary">
+          <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold tabular-nums text-primary ring-1 ring-primary/15">
             {index}
           </span>
         </div>
@@ -79,7 +80,7 @@ export function ArchiveRecordCard({
         {children}
       </div>
       {actions ? (
-        <div className="flex shrink-0 items-center gap-0.5 py-2 pr-2 opacity-80 transition-opacity duration-200 group-hover:opacity-100">
+        <div className="flex shrink-0 items-center gap-0.5 py-2 pr-2 opacity-70 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100">
           {actions}
         </div>
       ) : null}
@@ -154,23 +155,23 @@ export function ArchiveRecordField({
       className={cn(
         "min-w-0",
         wide && "col-span-2",
-        highlight && "rounded-md bg-primary/[0.05] px-2 py-1.5 ring-1 ring-primary/10",
+        highlight && "rounded-lg bg-primary/[0.045] px-2 py-1.5 ring-1 ring-primary/12",
       )}
     >
       <div
         className={cn(
           "flex items-center gap-1 text-xs font-medium text-muted-foreground",
-          compact && "text-[11px]",
+          compact && "text-[11px] tracking-wide",
         )}
       >
-        {Icon ? <Icon className="size-3 shrink-0 opacity-50" /> : null}
+        {Icon ? <Icon className="size-3 shrink-0 opacity-50" aria-hidden /> : null}
         <span className="truncate">{label}</span>
       </div>
       <div
         className={cn(
           "mt-0.5 text-sm leading-snug font-medium text-foreground",
-          mono && "font-mono text-[13px]",
-          isEmpty && "text-muted-foreground/70",
+          mono && "font-mono text-[13px] tabular-nums",
+          isEmpty && "font-normal text-muted-foreground/55",
         )}
       >
         {isEmpty ? "—" : React.isValidElement(value) ? value : (value as ReactNode)}

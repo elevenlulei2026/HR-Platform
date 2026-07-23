@@ -44,25 +44,25 @@ export function SheetEntityHeader({
     >
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/70 to-transparent"
+        className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-primary via-primary/65 to-transparent"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute -right-8 -top-10 size-36 rounded-full bg-primary/[0.05]"
+        className="pointer-events-none absolute -right-10 -top-12 size-40 rounded-full bg-primary/[0.045]"
       />
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.04] via-transparent to-transparent"
+        className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.035] via-transparent to-transparent"
       />
 
       <div className="relative flex items-start gap-3.5">
         {icon ? <div className="shrink-0">{icon}</div> : null}
-        <div className="min-w-0 flex-1 space-y-2">
+        <div className="min-w-0 flex-1 space-y-2.5">
           <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0 space-y-1">
-              <SheetTitle className="truncate text-xl tracking-tight">{title}</SheetTitle>
+            <div className="min-w-0 space-y-1.5">
+              <SheetTitle className="truncate text-xl font-semibold tracking-tight">{title}</SheetTitle>
               {description != null && description !== "" ? (
-                <SheetDescription className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs">
+                <SheetDescription className="flex flex-wrap items-center gap-x-2 gap-y-1.5 font-mono text-xs">
                   {description}
                 </SheetDescription>
               ) : null}

@@ -175,25 +175,25 @@ function MasterSubSection({
 }) {
   const iconTone =
     accent === "sky"
-      ? "bg-sky-500/10 text-sky-700 dark:text-sky-300"
+      ? "bg-sky-500/10 text-sky-700 ring-sky-500/15 dark:text-sky-300"
       : accent === "amber"
-        ? "bg-amber-500/10 text-amber-800 dark:text-amber-300"
+        ? "bg-amber-500/10 text-amber-800 ring-amber-500/15 dark:text-amber-300"
         : accent === "emerald"
-          ? "bg-emerald-500/10 text-emerald-800 dark:text-emerald-300"
-          : "bg-primary/10 text-primary";
+          ? "bg-emerald-500/10 text-emerald-800 ring-emerald-500/15 dark:text-emerald-300"
+          : "bg-primary/10 text-primary ring-primary/15";
 
   return (
     <ArchiveRecordCard>
-      <div className="mb-2.5 flex items-center gap-2 border-b border-border/40 pb-2">
+      <div className="mb-3 flex items-center gap-2 border-b border-border/35 pb-2.5">
         <div
           className={cn(
-            "flex size-6 items-center justify-center rounded-md",
+            "flex size-6 items-center justify-center rounded-md ring-1",
             iconTone,
           )}
         >
-          <Icon className="size-3.5" strokeWidth={2.25} />
+          <Icon className="size-3.5" strokeWidth={2.25} aria-hidden />
         </div>
-        <p className="text-xs font-semibold tracking-tight text-foreground">{title}</p>
+        <h3 className="text-xs font-semibold tracking-tight text-foreground">{title}</h3>
       </div>
       <ArchiveRecordFieldGrid layout="fluid">{children}</ArchiveRecordFieldGrid>
     </ArchiveRecordCard>
@@ -243,7 +243,7 @@ function VersionTimeline({
   onRetry?: () => void;
 }) {
   if (loading) {
-    return <div className="mb-3 h-16 animate-pulse rounded-lg bg-muted/30" />;
+    return <div className="mb-3 h-16 animate-pulse rounded-[10px] bg-muted/30" aria-hidden />;
   }
   if (error) {
     return (
@@ -254,18 +254,24 @@ function VersionTimeline({
   }
   if (versions.length === 0) return null;
   return (
-    <div className="mb-3 rounded-lg border border-border/60 bg-muted/15 p-3">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
-          <History className="size-3.5" />
+    <div
+      className="mb-3 rounded-[10px] border border-border/55 bg-muted/20 p-3 shadow-[inset_0_1px_0_hsl(var(--foreground)/0.02)]"
+      role="group"
+      aria-label="主档生效版本"
+    >
+      <div className="mb-2.5 flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+          <span className="flex size-5 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <History className="size-3" aria-hidden />
+          </span>
           生效版本
           <Badge variant="secondary" className="h-5 px-1.5 text-[11px] font-normal">
             {versions.length} 个
           </Badge>
         </div>
-        <span className="text-xs text-muted-foreground">点击切换查看快照</span>
+        <span className="text-[11px] text-muted-foreground/80">点击切换查看快照</span>
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-0.5">
+      <div className="flex gap-2 overflow-x-auto pb-0.5 [scrollbar-width:thin]">
         {versions.map((v) => {
           const isActive = v.id === activeId;
           return (
@@ -273,8 +279,10 @@ function VersionTimeline({
               key={v.id}
               type="button"
               onClick={() => onSelect(v)}
+              aria-pressed={isActive}
               className={cn(
-                "flex min-w-[148px] shrink-0 flex-col gap-1 rounded-md border px-2.5 py-2 text-left",
+                "flex min-w-[148px] shrink-0 cursor-pointer flex-col gap-1 rounded-lg border px-2.5 py-2 text-left",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/35 focus-visible:ring-offset-1",
                 isActive ? adminChipActive : adminChipIdle,
               )}
             >
@@ -573,27 +581,27 @@ export function EmployeeArchiveDetailView({
             employeeId={employee.id}
             fullName={employee.fullName}
             attachments={archiveData.attachments}
-            className="size-12 ring-2 ring-primary/15"
+            className="size-12 shadow-sm ring-2 ring-primary/20 ring-offset-2 ring-offset-background"
             fallbackClassName="bg-primary/10 text-base font-semibold text-primary"
           />
         }
         title={employee.fullName}
         description={
-          <>
-            <span>{employee.employeeNo}</span>
+          <span className="flex flex-wrap items-center gap-1.5 font-sans text-xs text-muted-foreground">
+            <span className="inline-flex items-center rounded-md bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] font-medium tabular-nums text-foreground/85 ring-1 ring-border/50">
+              {employee.employeeNo}
+            </span>
             {employee.primaryOrganizationName ? (
-              <>
-                <span className="text-muted-foreground/50">·</span>
-                <span>{employee.primaryOrganizationName}</span>
-              </>
+              <span className="inline-flex max-w-[14rem] items-center truncate rounded-md bg-muted/40 px-1.5 py-0.5 ring-1 ring-border/40">
+                {employee.primaryOrganizationName}
+              </span>
             ) : null}
             {employee.primaryPositionName ? (
-              <>
-                <span className="text-muted-foreground/50">·</span>
-                <span>{employee.primaryPositionName}</span>
-              </>
+              <span className="inline-flex max-w-[12rem] items-center truncate rounded-md bg-muted/40 px-1.5 py-0.5 ring-1 ring-border/40">
+                {employee.primaryPositionName}
+              </span>
             ) : null}
-          </>
+          </span>
         }
         actions={
           <>
@@ -601,7 +609,7 @@ export function EmployeeArchiveDetailView({
               type="button"
               variant={viewMode === "scroll" ? "secondary" : "outline"}
               size="sm"
-              className="h-7"
+              className="h-7 cursor-pointer"
               title={
                 viewMode === "filter"
                   ? "展开全部档案模块，连续滚动浏览"
@@ -629,7 +637,7 @@ export function EmployeeArchiveDetailView({
                   type="button"
                   variant={revealSensitive ? "secondary" : "outline"}
                   size="sm"
-                  className="h-7 shrink-0"
+                  className="h-7 shrink-0 cursor-pointer"
                   title={
                     revealSensitive
                       ? "当前为明文查看，操作将记入审计"
@@ -656,13 +664,15 @@ export function EmployeeArchiveDetailView({
               {employee.statusLabel ?? employeeStatusLabel(employee.status)}
             </Badge>
             {employee.hireDate ? (
-              <span className="text-xs text-muted-foreground">入职 {employee.hireDate}</span>
+              <span className="inline-flex items-center rounded-md bg-muted/35 px-1.5 py-0.5 text-xs text-muted-foreground ring-1 ring-border/40">
+                入职{" "}
+                <span className="ml-1 font-mono tabular-nums text-foreground/80">{employee.hireDate}</span>
+              </span>
             ) : null}
             {assignmentHeader.versionCount > 0 ? (
               <span className="inline-flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                <span className="text-muted-foreground/50">·</span>
-                <span className="inline-flex items-center gap-1">
-                  <Briefcase className="size-3 opacity-70" />
+                <span className="inline-flex items-center gap-1 rounded-md bg-muted/35 px-1.5 py-0.5 ring-1 ring-border/40">
+                  <Briefcase className="size-3 opacity-70" aria-hidden />
                   任职 {assignmentHeader.rangeLabel}
                 </span>
                 <Badge
@@ -713,23 +723,24 @@ export function EmployeeArchiveDetailView({
         onSectionClick={scrollTo}
       />
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
-        <div className="space-y-3 px-5 py-3">
+      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto bg-muted/[0.12]">
+        <div className="space-y-3.5 px-5 py-4">
           {isSectionVisible("personal-master") ? (
             <ArchiveSectionAnchor id="personal-master">
               <PanelCard
                 title="个人主档"
+                description="基础信息、联系方式与招聘来源"
                 toolbar={
                   canEdit ? (
-                    <Button size="sm" variant="outline" onClick={onEditMaster}>
+                    <Button size="sm" variant="outline" className="cursor-pointer" onClick={onEditMaster}>
                       <PencilLine className="size-3.5" />
                       编辑主档
                     </Button>
                   ) : null
                 }
               >
-                <div className="space-y-2">
-                  <div className="px-2.5 pt-2.5">
+                <div className="space-y-2.5">
+                  <div className="px-3 pt-3">
                     <VersionTimeline
                       versions={versions}
                       activeId={activeVersionId}
@@ -1214,9 +1225,9 @@ export function EmployeeArchiveDetailView({
         </div>
       </div>
 
-      <SheetFooter className="shrink-0 border-t px-5 py-3">
+      <SheetFooter className="shrink-0 border-t border-border/70 bg-background px-5 py-3 shadow-[0_-1px_0_hsl(var(--foreground)/0.03)]">
         <div className="flex w-full justify-end">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" className="cursor-pointer" onClick={onClose}>
             关闭
           </Button>
         </div>

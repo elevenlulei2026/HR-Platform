@@ -14,7 +14,7 @@ export function ArchiveSectionAnchor({ id, children, className }: ArchiveSection
     <section
       id={`archive-section-${id}`}
       data-archive-section={id}
-      className={cn("scroll-mt-2", className)}
+      className={cn("scroll-mt-3 motion-safe:animate-in motion-safe:fade-in-0 motion-safe:duration-200", className)}
     >
       {children}
     </section>
