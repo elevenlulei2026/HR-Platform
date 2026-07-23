@@ -38,6 +38,52 @@ public class EmployeeAccountBindingService {
     return emp == null ? null : emp.getFullName();
   }
 
+  /**
+   * 流程/审批展示用：优先员工中文名，附带工号；系统账号回退 displayName / username。
+   */
+  public UserPersonLabel resolveUserPersonLabel(SysUserEntity user) {
+    if (user == null) return null;
+    String employeeNo = null;
+    String employeeName = null;
+    if (user.getEmployeeId() != null) {
+      EmployeeEntity emp = employeeMapper.selectById(user.getEmployeeId());
+      if (emp != null) {
+        employeeNo = emp.getEmployeeNo();
+        employeeName = emp.getFullName();
+      }
+    }
+    String displayName;
+    if (employeeName != null && !employeeName.isBlank()) {
+      displayName = employeeName.trim();
+    } else if (user.getDisplayName() != null && !user.getDisplayName().isBlank()) {
+      displayName = user.getDisplayName().trim();
+    } else {
+      displayName = user.getUsername();
+    }
+    return new UserPersonLabel(user.getUsername(), displayName, employeeNo, employeeName);
+  }
+
+  /** 写入 username / displayName / employeeNo（prefix 如 assignee、initiator） */
+  public void putPersonFields(Map<String, Object> dto, String prefix, SysUserEntity user) {
+    UserPersonLabel label = resolveUserPersonLabel(user);
+    if (label == null) {
+      dto.put(prefix + "Username", null);
+      dto.put(prefix + "DisplayName", null);
+      dto.put(prefix + "EmployeeNo", null);
+      return;
+    }
+    dto.put(prefix + "Username", label.username());
+    dto.put(prefix + "DisplayName", label.displayName());
+    dto.put(prefix + "EmployeeNo", label.employeeNo());
+  }
+
+  public record UserPersonLabel(
+      String username,
+      String displayName,
+      String employeeNo,
+      String employeeName
+  ) {}
+
   public List<Long> findEmployeeIdsByKeyword(String keyword) {
     if (keyword == null || keyword.isBlank()) return List.of();
     String kw = keyword.trim();

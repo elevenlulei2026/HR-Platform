@@ -180,18 +180,22 @@ public class WorkflowController {
 
   @GetMapping("/tasks/todo")
   public ApiResponse<Map<String, Object>> listTodo(
+      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) String businessType,
       @RequestParam @Min(1) long page,
       @RequestParam @Min(1) @Max(200) long pageSize
   ) {
-    return ApiResponse.ok(workflowEngine.pageTodo(page, pageSize));
+    return ApiResponse.ok(workflowEngine.pageTodo(keyword, businessType, page, pageSize));
   }
 
   @GetMapping("/tasks/done")
   public ApiResponse<Map<String, Object>> listDone(
+      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) String businessType,
       @RequestParam @Min(1) long page,
       @RequestParam @Min(1) @Max(200) long pageSize
   ) {
-    return ApiResponse.ok(workflowEngine.pageDone(page, pageSize));
+    return ApiResponse.ok(workflowEngine.pageDone(keyword, businessType, page, pageSize));
   }
 
   @PostMapping("/tasks/{id}/approve")

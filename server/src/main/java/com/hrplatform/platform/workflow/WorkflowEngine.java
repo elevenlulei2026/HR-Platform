@@ -3,6 +3,7 @@ package com.hrplatform.platform.workflow;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hrplatform.core.employee.EmployeeAccountBindingService;
 import com.hrplatform.platform.audit.ForbiddenException;
 import com.hrplatform.platform.auth.AuthContext;
 import com.hrplatform.platform.auth.AuthUser;
@@ -28,6 +29,7 @@ public class WorkflowEngine {
   private final WorkflowCallbackDispatcher callbackDispatcher;
   private final SysUserMapper sysUserMapper;
   private final RbacService rbacService;
+  private final EmployeeAccountBindingService accountBindingService;
 
   public WorkflowEngine(
       WorkflowDefinitionMapper definitionMapper,
@@ -36,7 +38,8 @@ public class WorkflowEngine {
       WorkflowAssigneeResolver assigneeResolver,
       WorkflowCallbackDispatcher callbackDispatcher,
       SysUserMapper sysUserMapper,
-      RbacService rbacService
+      RbacService rbacService,
+      EmployeeAccountBindingService accountBindingService
   ) {
     this.definitionMapper = definitionMapper;
     this.instanceMapper = instanceMapper;
@@ -45,6 +48,7 @@ public class WorkflowEngine {
     this.callbackDispatcher = callbackDispatcher;
     this.sysUserMapper = sysUserMapper;
     this.rbacService = rbacService;
+    this.accountBindingService = accountBindingService;
   }
 
   @Transactional
@@ -346,16 +350,18 @@ public class WorkflowEngine {
     return u.permissions();
   }
 
-  public Map<String, Object> pageTodo(long page, long pageSize) {
+  public Map<String, Object> pageTodo(String keyword, String businessType, long page, long pageSize) {
     rbacService.requirePermission("workflow:task:view");
     AuthUser current = AuthContext.current();
     if (current == null) throw new IllegalArgumentException("未登录");
 
+    String kw = normalizeKeyword(keyword);
+    String bt = normalizeBusinessType(businessType);
     long p = Math.max(1, page);
     long ps = Math.max(1, pageSize);
     long offset = (p - 1) * ps;
-    Long total = taskMapper.countTodoByAssignee(current.id());
-    List<WorkflowTaskEntity> items = taskMapper.selectTodoPage(current.id(), offset, ps);
+    Long total = taskMapper.countTodoByAssignee(current.id(), kw, bt);
+    List<WorkflowTaskEntity> items = taskMapper.selectTodoPage(current.id(), kw, bt, offset, ps);
 
     Map<String, Object> result = new HashMap<>();
     result.put("items", items.stream().map(this::toTaskDto).toList());
@@ -365,16 +371,18 @@ public class WorkflowEngine {
     return result;
   }
 
-  public Map<String, Object> pageDone(long page, long pageSize) {
+  public Map<String, Object> pageDone(String keyword, String businessType, long page, long pageSize) {
     rbacService.requirePermission("workflow:task:view");
     AuthUser current = AuthContext.current();
     if (current == null) throw new IllegalArgumentException("未登录");
 
+    String kw = normalizeKeyword(keyword);
+    String bt = normalizeBusinessType(businessType);
     long p = Math.max(1, page);
     long ps = Math.max(1, pageSize);
     long offset = (p - 1) * ps;
-    Long total = taskMapper.countDoneByAssignee(current.id());
-    List<WorkflowTaskEntity> items = taskMapper.selectDonePage(current.id(), offset, ps);
+    Long total = taskMapper.countDoneByAssignee(current.id(), kw, bt);
+    List<WorkflowTaskEntity> items = taskMapper.selectDonePage(current.id(), kw, bt, offset, ps);
 
     Map<String, Object> result = new HashMap<>();
     result.put("items", items.stream().map(this::toTaskDto).toList());
@@ -382,6 +390,18 @@ public class WorkflowEngine {
     result.put("page", p);
     result.put("pageSize", ps);
     return result;
+  }
+
+  private static String normalizeKeyword(String keyword) {
+    if (keyword == null) return null;
+    String kw = keyword.trim();
+    return kw.isEmpty() ? null : kw;
+  }
+
+  private static String normalizeBusinessType(String businessType) {
+    if (businessType == null) return null;
+    String bt = businessType.trim();
+    return bt.isEmpty() ? null : bt;
   }
 
   public Map<String, Object> toInstanceDto(WorkflowInstanceEntity instance) {
@@ -400,7 +420,7 @@ public class WorkflowEngine {
     dto.put("completedAt", instance.getCompletedAt() == null ? null : instance.getCompletedAt().toString());
 
     SysUserEntity initiator = sysUserMapper.selectById(instance.getInitiatorUserId());
-    dto.put("initiatorUsername", initiator == null ? null : initiator.getUsername());
+    accountBindingService.putPersonFields(dto, "initiator", initiator);
     return dto;
   }
 
@@ -422,12 +442,13 @@ public class WorkflowEngine {
       dto.put("businessId", instance.getBusinessId());
       dto.put("definitionCode", instance.getDefinitionCode());
       dto.put("definitionName", instance.getDefinitionName());
+      dto.put("instanceStatus", instance.getStatus());
       SysUserEntity initiator = sysUserMapper.selectById(instance.getInitiatorUserId());
-      dto.put("initiatorUsername", initiator == null ? null : initiator.getUsername());
+      accountBindingService.putPersonFields(dto, "initiator", initiator);
     }
 
     SysUserEntity assignee = sysUserMapper.selectById(task.getAssigneeUserId());
-    dto.put("assigneeUsername", assignee == null ? null : assignee.getUsername());
+    accountBindingService.putPersonFields(dto, "assignee", assignee);
     return dto;
   }
 

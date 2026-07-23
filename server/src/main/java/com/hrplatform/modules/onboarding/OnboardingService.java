@@ -157,8 +157,9 @@ public class OnboardingService {
     int fiscalYear = fiscalYearOf(cur.getExpectedHireDate());
     headcountService.reserve(cur.getOrganizationId(), fiscalYear, 1);
 
-    // 审批人由流程定义规则解析（ORG_LEADER / ROLE 等）；
-    // nodeAssignees 仅在流程含 INITIATOR_SELECT 时由前端传入
+    // 审批人由流程定义规则解析（DIRECT_MANAGER / ORG_* / ROLE 等）；
+    // nodeAssignees 仅在流程含 INITIATOR_SELECT 时由前端传入；
+    // organizationId 传入流程上下文，供 DIRECT_MANAGER / ORG_* 按待入职组织解析
     Map<String, Long> assignees = nodeAssignees == null ? Map.of() : Map.copyOf(nodeAssignees);
 
     WorkflowInstanceEntity instance;

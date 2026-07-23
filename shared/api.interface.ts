@@ -883,7 +883,8 @@ export type WorkflowTaskStatus = "PENDING" | "APPROVED" | "REJECTED";
 
 /**
  * 审批人规则：
- * - DIRECT_MANAGER：汇报线直属上级（优先手工 DIRECT，其次组织衍生，再回退账号 manager）
+ * - DIRECT_MANAGER：汇报线直属上级（若上下文带 organizationId 则优先按目标组织衍生；
+ *   否则优先手工 DIRECT，其次发起人组织衍生；最后回退账号 manager）
  * - REPORTING_LINE：完整汇报线上第 N 级上级（level≥1）
  * - ORG_LEADER / ORG_HRBP / ORG_SSC / ORG_HR_COORDINATOR：组织或任职主数据角色（可沿组织树上溯）
  * - ROLE：系统角色（取该角色下一名可用用户）
@@ -943,6 +944,9 @@ export type WorkflowInstance = {
   status: WorkflowInstanceStatus;
   initiatorUserId: string;
   initiatorUsername?: string;
+  /** 中文名（员工优先） */
+  initiatorDisplayName?: string;
+  initiatorEmployeeNo?: string;
   currentNodeIndex: number;
   createdAt?: string;
   updatedAt?: string;
@@ -956,6 +960,10 @@ export type WorkflowTask = {
   nodeName: string;
   assigneeUserId: string;
   assigneeUsername?: string;
+  /** 中文名（员工优先） */
+  assigneeDisplayName?: string;
+  assigneeEmployeeNo?: string;
+  /** 本人在该节点的审批状态 */
   status: WorkflowTaskStatus;
   comment?: string;
   businessType: string;
@@ -963,6 +971,10 @@ export type WorkflowTask = {
   definitionCode: string;
   definitionName: string;
   initiatorUsername?: string;
+  initiatorDisplayName?: string;
+  initiatorEmployeeNo?: string;
+  /** 所属流程实例状态（已办列表需同时展示流程进度） */
+  instanceStatus?: WorkflowInstanceStatus;
   createdAt?: string;
   completedAt?: string;
 };
@@ -1007,10 +1019,21 @@ export type WorkflowTaskActionRequest = {
   comment?: string;
 };
 
+/** 待办 / 已办列表查询 */
+export type WorkflowTaskListQuery = {
+  page: number;
+  pageSize: number;
+  /** 模糊：节点名、流程名/编码、业务类型/单号、发起人账号/姓名/工号 */
+  keyword?: string;
+  /** 业务类型精确筛选，如 ONBOARDING */
+  businessType?: string;
+};
+
 export type WorkflowAssigneeOption = {
   id: string;
   username: string;
   displayName?: string;
+  employeeNo?: string;
 };
 
 /** 预览/测试：各节点审批人解析结果 */
@@ -1022,6 +1045,7 @@ export type WorkflowAssigneePreviewItem = {
   assigneeUserId?: string;
   assigneeUsername?: string;
   assigneeDisplayName?: string;
+  assigneeEmployeeNo?: string;
   errorMessage?: string;
 };
 
@@ -1076,10 +1100,10 @@ export type WorkflowApi = {
   /** GET /api/v1/workflow-instances/{id}/tasks */
   listWorkflowInstanceTasks: (id: string) => Promise<ApiResponse<WorkflowTask[]>>;
 
-  /** GET /api/v1/tasks/todo?page=&pageSize= */
-  listTodoTasks: (query: { page: number; pageSize: number }) => Promise<ApiResponse<PageResult<WorkflowTask>>>;
-  /** GET /api/v1/tasks/done?page=&pageSize= */
-  listDoneTasks: (query: { page: number; pageSize: number }) => Promise<ApiResponse<PageResult<WorkflowTask>>>;
+  /** GET /api/v1/tasks/todo?page=&pageSize=&keyword=&businessType= */
+  listTodoTasks: (query: WorkflowTaskListQuery) => Promise<ApiResponse<PageResult<WorkflowTask>>>;
+  /** GET /api/v1/tasks/done?page=&pageSize=&keyword=&businessType= */
+  listDoneTasks: (query: WorkflowTaskListQuery) => Promise<ApiResponse<PageResult<WorkflowTask>>>;
   /** POST /api/v1/tasks/{id}/approve */
   approveTask: (id: string, req: WorkflowTaskActionRequest) => Promise<ApiResponse<WorkflowTask>>;
   /** POST /api/v1/tasks/{id}/reject */

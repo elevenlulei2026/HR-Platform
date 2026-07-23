@@ -125,6 +125,34 @@ public class ReportingChainService {
     return chain.size() >= 2 ? chain.get(1) : null;
   }
 
+  /**
+   * 按目标组织推导默认直属上级（无在职员工时，如入职办理）。
+   * 口径同汇报关系规则：本层负责人 → 分管领导，再沿上级组织上溯，取第一位。
+   */
+  public EmployeeEntity deriveDirectManagerFromOrganization(Long organizationId, Snapshot snapshot) {
+    if (organizationId == null || snapshot == null) return null;
+    OrganizationEntity org = resolveOrg(organizationId, snapshot);
+    Set<String> visitedOrgCodes = new HashSet<>();
+    while (org != null) {
+      if (org.getCode() != null && !org.getCode().isBlank()) {
+        if (!visitedOrgCodes.add(org.getCode())) break;
+      }
+      EmployeeEntity leader = resolveLeaderByNo(org.getOrgLeaderNo(), snapshot);
+      if (leader != null) return leader;
+      EmployeeEntity supervising = resolveLeaderByNo(org.getSupervisingLeaderNo(), snapshot);
+      if (supervising != null) return supervising;
+      String parentCode = org.getParentCode();
+      if (parentCode == null || parentCode.isBlank()) break;
+      org = snapshot.byCode().get(parentCode);
+    }
+    return null;
+  }
+
+  private EmployeeEntity resolveLeaderByNo(String employeeNo, Snapshot snapshot) {
+    if (employeeNo == null || employeeNo.isBlank()) return null;
+    return snapshot.byNo().get(employeeNo.trim());
+  }
+
   private void appendLeader(
       List<EmployeeEntity> chain,
       Set<Long> seenIds,

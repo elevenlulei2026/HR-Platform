@@ -652,7 +652,9 @@ export function AdminWorkflowPage() {
               <OptionToggle
                 options={assigneeOptions.map((opt) => ({
                   id: opt.id,
-                  label: opt.displayName || opt.username,
+                  label: opt.employeeNo
+                    ? `${opt.displayName || opt.username}（${opt.employeeNo}）`
+                    : opt.displayName || opt.username,
                 }))}
                 value={initiatorUserId}
                 onChange={setInitiatorUserId}
@@ -689,7 +691,9 @@ export function AdminWorkflowPage() {
                 <OptionToggle
                   options={assigneeOptions.map((opt) => ({
                     id: opt.id,
-                    label: opt.displayName || opt.username,
+                    label: opt.employeeNo
+                      ? `${opt.displayName || opt.username}（${opt.employeeNo}）`
+                      : opt.displayName || opt.username,
                   }))}
                   value={nodeAssignees[node.key] ?? ""}
                   onChange={(v) =>
@@ -742,7 +746,9 @@ export function AdminWorkflowPage() {
                         </div>
                         {item.resolvable ? (
                           <Badge variant="outline">
-                            {item.assigneeDisplayName || item.assigneeUsername}
+                            {item.assigneeEmployeeNo
+                              ? `${item.assigneeDisplayName || item.assigneeUsername}（${item.assigneeEmployeeNo}）`
+                              : item.assigneeDisplayName || item.assigneeUsername}
                           </Badge>
                         ) : (
                           <Badge variant="destructive">无法解析</Badge>

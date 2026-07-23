@@ -2,7 +2,6 @@ import type {
   OnboardingCase,
   OnboardingStatus,
   OrganizationTreeNode,
-  Position,
   WorkflowTask,
 } from "@shared/api.interface";
 
@@ -24,9 +23,15 @@ import {
   submitOnboardingCase,
   updateOnboardingCase,
 } from "@/api/onboarding";
-import { flattenOrgTree, getOrganizationTree, listAllPositions } from "@/api/organization";
+import {
+  defaultDepartmentId,
+  filterAssignableDepartments,
+  flattenOrgTree,
+  getOrganizationTree,
+} from "@/api/organization";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { FormField, OptionToggle } from "@/components/admin/form-field";
+import { DepartmentPositionFields } from "@/components/admin/employee-archive/DepartmentPositionFields";
 import { OnboardingApprovalTimeline } from "@/components/admin/onboarding/OnboardingApprovalTimeline";
 import { OnboardingCaseSummary } from "@/components/admin/onboarding/OnboardingCaseSummary";
 import { OptionSelect } from "@/components/admin/option-select";
@@ -54,6 +59,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
 import { usePermission } from "@/hooks/usePermission";
+import { formatWorkflowAssignee } from "@/lib/workflow-person";
 import { cn } from "@/lib/utils";
 
 type LoadState =
@@ -120,7 +126,6 @@ export function AdminOnboardingPage() {
   const [state, setState] = useState<LoadState>({ type: "loading" });
 
   const [orgs, setOrgs] = useState<OrganizationTreeNode[]>([]);
-  const [positions, setPositions] = useState<Position[]>([]);
 
   const [sheet, setSheet] = useState<SheetMode>({ type: "closed" });
   const [detail, setDetail] = useState<OnboardingCase | null>(null);
@@ -132,21 +137,11 @@ export function AdminOnboardingPage() {
   const [cancelTarget, setCancelTarget] = useState<OnboardingCase | null>(null);
 
   const flatOrgs = useMemo(() => flattenOrgTree(orgs), [orgs]);
-
-  const positionOptions = useMemo(() => {
-    const list = form.organizationId
-      ? positions.filter((p) => p.organizationId === form.organizationId)
-      : positions;
-    return list.map((p) => ({
-      value: p.id,
-      label: `${p.name}（${p.code}）`,
-    }));
-  }, [positions, form.organizationId]);
+  const assignableOrgs = useMemo(() => filterAssignableDepartments(flatOrgs), [flatOrgs]);
 
   const loadRefs = useCallback(async () => {
-    const [treeRes, posRes] = await Promise.all([getOrganizationTree(), listAllPositions()]);
+    const treeRes = await getOrganizationTree();
     setOrgs(treeRes.data);
-    setPositions(posRes);
   }, []);
 
   const load = useCallback(async () => {
@@ -201,7 +196,7 @@ export function AdminOnboardingPage() {
     setApprovalTasks([]);
     setForm({
       ...EMPTY_FORM,
-      organizationId: flatOrgs[0]?.id ?? "",
+      organizationId: defaultDepartmentId(flatOrgs),
     });
     setSheet({ type: "new" });
   };
@@ -517,28 +512,24 @@ export function AdminOnboardingPage() {
                         onChange={(v) => patchForm("gender", v)}
                       />
                     </FormField>
-                    <FormField label="组织" required>
-                      <OptionSelect
-                        value={form.organizationId}
-                        onValueChange={(v) => {
-                          patchForm("organizationId", v);
-                          patchForm("positionId", "");
+                    <div className="grid grid-cols-1 gap-4">
+                      <DepartmentPositionFields
+                        organizationId={form.organizationId}
+                        positionId={form.positionId}
+                        departments={assignableOrgs}
+                        organizationsForPath={flatOrgs}
+                        organizationRequired
+                        positionRequired
+                        onOrganizationChange={(organizationId) => {
+                          setForm((prev) => ({
+                            ...prev,
+                            organizationId,
+                            positionId: "",
+                          }));
                         }}
-                        placeholder="选择组织"
-                        options={flatOrgs.map((o) => ({
-                          value: o.id,
-                          label: `${o.name}（${o.code}）`,
-                        }))}
+                        onPositionChange={(positionId) => patchForm("positionId", positionId)}
                       />
-                    </FormField>
-                    <FormField label="岗位" required>
-                      <OptionSelect
-                        value={form.positionId}
-                        onValueChange={(v) => patchForm("positionId", v)}
-                        placeholder="选择岗位"
-                        options={positionOptions}
-                      />
-                    </FormField>
+                    </div>
                     <FormField label="预计入职日" required>
                       <Input
                         type="date"
@@ -594,7 +585,7 @@ export function AdminOnboardingPage() {
                         {(() => {
                           const pending = approvalTasks.find((t) => t.status === "PENDING");
                           if (!pending) return "。";
-                          return `，当前待「${pending.assigneeUsername || pending.assigneeUserId}」处理。`;
+                          return `，当前待「${formatWorkflowAssignee(pending)}」处理。`;
                         })()}
                         通过后将自动创建员工档案。
                       </div>

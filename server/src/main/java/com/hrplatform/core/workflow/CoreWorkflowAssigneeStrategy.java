@@ -86,9 +86,20 @@ public class CoreWorkflowAssigneeStrategy implements WorkflowAssigneeStrategy {
   }
 
   private long resolveDirectManager(WorkflowAssigneeResolveContext context) {
+    LocalDate asOf = LocalDate.now();
+    // 上下文显式带组织时优先按目标组织衍生（入职：候选人入职部门的默认直属上级）
+    if (context.getOrganizationId() != null) {
+      ReportingChainService.Snapshot snapshot = reportingChainService.loadSnapshot(asOf);
+      EmployeeEntity fromOrg = reportingChainService.deriveDirectManagerFromOrganization(
+          context.getOrganizationId(),
+          snapshot
+      );
+      if (fromOrg != null) {
+        return requireActiveUserByEmployeeId(fromOrg.getId(), "目标组织衍生直属上级");
+      }
+    }
     EmployeeEntity subject = resolveSubjectEmployee(context);
     if (subject != null) {
-      LocalDate asOf = LocalDate.now();
       ReportingLineEntity direct = findActiveDirectLine(subject.getId(), asOf);
       if (direct != null && direct.getManagerEmployeeId() != null) {
         return requireActiveUserByEmployeeId(direct.getManagerEmployeeId(), "汇报线直属上级");
@@ -216,7 +227,9 @@ public class CoreWorkflowAssigneeStrategy implements WorkflowAssigneeStrategy {
     }
     Long managerId = initiator.getManagerUserId();
     if (managerId == null) {
-      throw new IllegalArgumentException("发起人未配置直属上级，无法解析 DIRECT_MANAGER 节点");
+      throw new IllegalArgumentException(
+          "无法解析 DIRECT_MANAGER：发起人无汇报上级，且目标组织未配置负责人/分管领导"
+      );
     }
     SysUserEntity manager = sysUserMapper.selectById(managerId);
     if (manager == null || !"ACTIVE".equals(manager.getStatus())) {

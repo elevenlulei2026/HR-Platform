@@ -3,6 +3,7 @@ import type { WorkflowTask, WorkflowTaskStatus } from "@shared/api.interface";
 import { Check, CircleDashed, MessageSquareText, UserRound, X } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { formatWorkflowAssignee } from "@/lib/workflow-person";
 import { cn } from "@/lib/utils";
 
 const STATUS_META: Record<
@@ -82,7 +83,7 @@ export function OnboardingApprovalTimeline({ tasks, loading }: OnboardingApprova
           <div className="mt-0.5 text-[11px] text-muted-foreground">
             共 {tasks.length} 个节点
             {pending
-              ? ` · 当前待 ${pending.assigneeUsername || pending.assigneeUserId} 审批`
+              ? ` · 当前待 ${formatWorkflowAssignee(pending)} 审批`
               : ""}
           </div>
         </div>
@@ -149,7 +150,7 @@ export function OnboardingApprovalTimeline({ tasks, loading }: OnboardingApprova
                     </div>
                     <p className="flex items-center gap-1.5 text-[12px] text-foreground/85">
                       <UserRound className="size-3 shrink-0 text-muted-foreground" />
-                      <span className="font-medium">{task.assigneeUsername || task.assigneeUserId}</span>
+                      <span className="font-medium">{formatWorkflowAssignee(task)}</span>
                       <span className="text-muted-foreground">· {meta.action}</span>
                     </p>
                   </div>

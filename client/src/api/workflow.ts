@@ -13,6 +13,7 @@ import type {
   WorkflowInstance,
   WorkflowTask,
   WorkflowTaskActionRequest,
+  WorkflowTaskListQuery,
 } from "@shared/api.interface";
 
 import { deleteJson, getJson, postJson, putJson } from "@/api/http";
@@ -96,17 +97,21 @@ export async function listWorkflowInstanceTasks(id: string) {
   return getJson<WorkflowTask[]>(`/api/v1/workflow-instances/${id}/tasks`);
 }
 
-export async function listTodoTasks(query: { page: number; pageSize: number }) {
+export async function listTodoTasks(query: WorkflowTaskListQuery) {
   const q = new URLSearchParams();
   q.set("page", String(query.page));
   q.set("pageSize", String(query.pageSize));
+  if (query.keyword) q.set("keyword", query.keyword);
+  if (query.businessType) q.set("businessType", query.businessType);
   return getJson<PageResult<WorkflowTask>>(`/api/v1/tasks/todo?${q.toString()}`);
 }
 
-export async function listDoneTasks(query: { page: number; pageSize: number }) {
+export async function listDoneTasks(query: WorkflowTaskListQuery) {
   const q = new URLSearchParams();
   q.set("page", String(query.page));
   q.set("pageSize", String(query.pageSize));
+  if (query.keyword) q.set("keyword", query.keyword);
+  if (query.businessType) q.set("businessType", query.businessType);
   return getJson<PageResult<WorkflowTask>>(`/api/v1/tasks/done?${q.toString()}`);
 }
 
@@ -123,7 +128,7 @@ export const ASSIGNEE_RULE_OPTIONS: Array<{
   label: string;
   hint: string;
 }> = [
-  { type: "DIRECT_MANAGER", label: "汇报线直属上级", hint: "优先手工 DIRECT，其次组织衍生链" },
+  { type: "DIRECT_MANAGER", label: "汇报线直属上级", hint: "优先手工 DIRECT，其次组织衍生；可按目标组织解析" },
   { type: "REPORTING_LINE", label: "汇报线上第 N 级", hint: "完整汇报链中本人之后的第 N 位" },
   { type: "ORG_LEADER", label: "组织负责人", hint: "按组织树上溯找部门负责人" },
   { type: "ORG_HRBP", label: "HRBP", hint: "任职字段优先，否则组织 HRBP" },

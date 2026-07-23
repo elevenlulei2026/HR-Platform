@@ -3,6 +3,7 @@ package com.hrplatform.platform.workflow;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hrplatform.core.employee.EmployeeAccountBindingService;
 import com.hrplatform.platform.auth.SysUserEntity;
 import com.hrplatform.platform.auth.SysUserMapper;
 import com.hrplatform.platform.rbac.RbacService;
@@ -24,17 +25,20 @@ public class WorkflowDefinitionService {
   private final WorkflowAssigneeResolver assigneeResolver;
   private final RbacService rbacService;
   private final SysUserMapper sysUserMapper;
+  private final EmployeeAccountBindingService accountBindingService;
 
   public WorkflowDefinitionService(
       WorkflowDefinitionMapper definitionMapper,
       WorkflowAssigneeResolver assigneeResolver,
       RbacService rbacService,
-      SysUserMapper sysUserMapper
+      SysUserMapper sysUserMapper,
+      EmployeeAccountBindingService accountBindingService
   ) {
     this.definitionMapper = definitionMapper;
     this.assigneeResolver = assigneeResolver;
     this.rbacService = rbacService;
     this.sysUserMapper = sysUserMapper;
+    this.accountBindingService = accountBindingService;
   }
 
   public Map<String, Object> page(String keyword, String status, long page, long pageSize) {
@@ -236,8 +240,7 @@ public class WorkflowDefinitionService {
         SysUserEntity user = sysUserMapper.selectById(assigneeId);
         item.put("resolvable", true);
         item.put("assigneeUserId", String.valueOf(assigneeId));
-        item.put("assigneeUsername", user == null ? null : user.getUsername());
-        item.put("assigneeDisplayName", user == null ? null : user.getUsername());
+        accountBindingService.putPersonFields(item, "assignee", user);
       } catch (IllegalArgumentException ex) {
         item.put("resolvable", false);
         item.put("errorMessage", ex.getMessage());
@@ -257,8 +260,10 @@ public class WorkflowDefinitionService {
     return users.stream().map(u -> {
       Map<String, Object> m = new LinkedHashMap<>();
       m.put("id", String.valueOf(u.getId()));
-      m.put("username", u.getUsername());
-      m.put("displayName", u.getUsername());
+      EmployeeAccountBindingService.UserPersonLabel label = accountBindingService.resolveUserPersonLabel(u);
+      m.put("username", label == null ? u.getUsername() : label.username());
+      m.put("displayName", label == null ? u.getUsername() : label.displayName());
+      m.put("employeeNo", label == null ? null : label.employeeNo());
       return m;
     }).toList();
   }

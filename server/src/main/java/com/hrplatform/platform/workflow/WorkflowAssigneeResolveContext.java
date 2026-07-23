@@ -4,7 +4,9 @@ import java.util.Collections;
 import java.util.Map;
 
 /**
- * 审批人解析上下文。organizationId 可选，用于 ORG_* 规则或测试场景覆盖。
+ * 审批人解析上下文。
+ * organizationId 可选：ORG_* 规则优先使用；DIRECT_MANAGER / REPORTING_LINE
+ * 在发起人无员工汇报上级时，也可按该组织衍生默认直属上级（如入职办理）。
  */
 public class WorkflowAssigneeResolveContext {
   private final long initiatorUserId;
