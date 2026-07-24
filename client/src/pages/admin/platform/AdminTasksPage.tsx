@@ -1,18 +1,33 @@
-import type { OnboardingCase, WorkflowInstanceStatus, WorkflowTask } from "@shared/api.interface";
+import type {
+  ContractChangeRequest,
+  JobMovementRequest,
+  OffboardingCase,
+  OnboardingCase,
+  RegularizationRequest,
+  WorkflowInstanceStatus,
+  WorkflowTask,
+} from "@shared/api.interface";
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
+  ArrowDownWideNarrow,
   ArrowRight,
+  ArrowUpWideNarrow,
+  BadgeCheck,
   BriefcaseBusiness,
   Check,
   CheckCircle2,
   ClipboardList,
   Clock3,
+  FilePenLine,
   FlaskConical,
   Inbox,
   RefreshCw,
+  ScrollText,
+  UserMinus,
   UserRound,
+  UsersRound,
   X,
 } from "lucide-react";
 
@@ -23,11 +38,19 @@ import {
   listWorkflowInstanceTasks,
   rejectTask,
 } from "@/api/workflow";
+import { getContractChangeRequest } from "@/api/contract-change";
+import { getJobMovementRequest } from "@/api/job-movement";
+import { getOffboardingCase } from "@/api/offboarding";
 import { getOnboardingCase } from "@/api/onboarding";
+import { getRegularizationRequest } from "@/api/regularization";
 import type { ApiError } from "@/api/http";
+import { ContractChangeRequestSummary } from "@/components/admin/contract-change/ContractChangeRequestSummary";
 import { FormField } from "@/components/admin/form-field";
+import { JobMovementRequestSummary } from "@/components/admin/job-movement/JobMovementRequestSummary";
+import { OffboardingCaseSummary } from "@/components/admin/offboarding/OffboardingCaseSummary";
 import { OnboardingApprovalTimeline } from "@/components/admin/onboarding/OnboardingApprovalTimeline";
 import { OnboardingCaseSummary } from "@/components/admin/onboarding/OnboardingCaseSummary";
+import { RegularizationRequestSummary } from "@/components/admin/regularization/RegularizationRequestSummary";
 import {
   NoPermissionCard,
   PageHeader,
@@ -61,7 +84,17 @@ type LoadState =
   | { type: "ok"; items: WorkflowTask[]; total: number };
 
 type TabKey = "todo" | "done";
-type BizFilter = "ALL" | "ONBOARDING" | "WORKFLOW_TEST";
+type BizFilter =
+  | "ALL"
+  | "ONBOARDING"
+  | "REGULARIZATION"
+  | "OFFBOARDING"
+  | "PROMOTION"
+  | "DEMOTION"
+  | "EMPLOYMENT_TYPE_CHANGE"
+  | "CONTRACT_RENEWAL"
+  | "CONTRACT_CHANGE"
+  | "WORKFLOW_TEST";
 
 const TASK_STATUS_LABEL: Record<WorkflowTask["status"], string> = {
   PENDING: "待处理",
@@ -78,14 +111,39 @@ const INSTANCE_STATUS_LABEL: Record<WorkflowInstanceStatus, string> = {
 
 const BUSINESS_TYPE_LABEL: Record<string, string> = {
   ONBOARDING: "入职办理",
+  REGULARIZATION: "转正审批",
+  OFFBOARDING: "离职审批",
+  PROMOTION: "晋升晋级",
+  DEMOTION: "降职降级",
+  EMPLOYMENT_TYPE_CHANGE: "雇佣类型变更",
+  CONTRACT_RENEWAL: "合同续签",
+  CONTRACT_CHANGE: "合同变更",
   WORKFLOW_TEST: "流程测试",
 };
 
 const BIZ_FILTER_OPTIONS: Array<{ id: BizFilter; label: string }> = [
   { id: "ALL", label: "全部类型" },
   { id: "ONBOARDING", label: "入职办理" },
+  { id: "REGULARIZATION", label: "转正审批" },
+  { id: "OFFBOARDING", label: "离职审批" },
+  { id: "PROMOTION", label: "晋升晋级" },
+  { id: "DEMOTION", label: "降职降级" },
+  { id: "EMPLOYMENT_TYPE_CHANGE", label: "雇佣类型变更" },
+  { id: "CONTRACT_RENEWAL", label: "合同续签" },
+  { id: "CONTRACT_CHANGE", label: "合同变更" },
   { id: "WORKFLOW_TEST", label: "流程测试" },
 ];
+
+const JOB_MOVEMENT_BUSINESS_TYPES = new Set([
+  "PROMOTION",
+  "DEMOTION",
+  "EMPLOYMENT_TYPE_CHANGE",
+]);
+
+const CONTRACT_CHANGE_BUSINESS_TYPES = new Set([
+  "CONTRACT_RENEWAL",
+  "CONTRACT_CHANGE",
+]);
 
 function toApiError(e: unknown): ApiError {
   if (typeof (e as ApiError)?.message === "string") {
@@ -133,6 +191,22 @@ function isOnboardingTask(task: WorkflowTask) {
   return task.businessType === "ONBOARDING";
 }
 
+function isRegularizationTask(task: WorkflowTask) {
+  return task.businessType === "REGULARIZATION";
+}
+
+function isOffboardingTask(task: WorkflowTask) {
+  return task.businessType === "OFFBOARDING";
+}
+
+function isJobMovementTask(task: WorkflowTask) {
+  return JOB_MOVEMENT_BUSINESS_TYPES.has(task.businessType);
+}
+
+function isContractChangeTask(task: WorkflowTask) {
+  return CONTRACT_CHANGE_BUSINESS_TYPES.has(task.businessType);
+}
+
 function businessTypeLabel(type: string) {
   return BUSINESS_TYPE_LABEL[type] || type;
 }
@@ -167,6 +241,27 @@ function TaskTypeIcon({ type }: { type: string }) {
   if (type === "ONBOARDING") {
     return <BriefcaseBusiness className="size-4" />;
   }
+  if (type === "REGULARIZATION") {
+    return <BadgeCheck className="size-4" />;
+  }
+  if (type === "OFFBOARDING") {
+    return <UserMinus className="size-4" />;
+  }
+  if (type === "PROMOTION") {
+    return <ArrowUpWideNarrow className="size-4" />;
+  }
+  if (type === "DEMOTION") {
+    return <ArrowDownWideNarrow className="size-4" />;
+  }
+  if (type === "EMPLOYMENT_TYPE_CHANGE") {
+    return <UsersRound className="size-4" />;
+  }
+  if (type === "CONTRACT_RENEWAL") {
+    return <ScrollText className="size-4" />;
+  }
+  if (type === "CONTRACT_CHANGE") {
+    return <FilePenLine className="size-4" />;
+  }
   if (type === "WORKFLOW_TEST") {
     return <FlaskConical className="size-4" />;
   }
@@ -176,6 +271,27 @@ function TaskTypeIcon({ type }: { type: string }) {
 function typeIconClass(type: string) {
   if (type === "ONBOARDING") {
     return "border-sky-500/25 bg-sky-500/10 text-sky-700 dark:text-sky-400";
+  }
+  if (type === "REGULARIZATION") {
+    return "border-violet-500/25 bg-violet-500/10 text-violet-700 dark:text-violet-400";
+  }
+  if (type === "OFFBOARDING") {
+    return "border-rose-500/25 bg-rose-500/10 text-rose-700 dark:text-rose-400";
+  }
+  if (type === "PROMOTION") {
+    return "border-emerald-500/25 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400";
+  }
+  if (type === "DEMOTION") {
+    return "border-orange-500/25 bg-orange-500/10 text-orange-700 dark:text-orange-400";
+  }
+  if (type === "EMPLOYMENT_TYPE_CHANGE") {
+    return "border-indigo-500/25 bg-indigo-500/10 text-indigo-700 dark:text-indigo-400";
+  }
+  if (type === "CONTRACT_RENEWAL") {
+    return "border-cyan-500/25 bg-cyan-500/10 text-cyan-700 dark:text-cyan-400";
+  }
+  if (type === "CONTRACT_CHANGE") {
+    return "border-fuchsia-500/25 bg-fuchsia-500/10 text-fuchsia-700 dark:text-fuchsia-400";
   }
   if (type === "WORKFLOW_TEST") {
     return "border-teal-500/25 bg-teal-500/10 text-teal-700 dark:text-teal-400";
@@ -211,6 +327,12 @@ export function AdminTasksPage() {
   const [selected, setSelected] = useState<WorkflowTask | null>(null);
   const [historyTasks, setHistoryTasks] = useState<WorkflowTask[]>([]);
   const [onboardingCase, setOnboardingCase] = useState<OnboardingCase | null>(null);
+  const [regularizationRequest, setRegularizationRequest] =
+    useState<RegularizationRequest | null>(null);
+  const [offboardingCase, setOffboardingCase] = useState<OffboardingCase | null>(null);
+  const [jobMovementRequest, setJobMovementRequest] = useState<JobMovementRequest | null>(null);
+  const [contractChangeRequest, setContractChangeRequest] =
+    useState<ContractChangeRequest | null>(null);
   const [bizLoading, setBizLoading] = useState(false);
   const [bizError, setBizError] = useState<string | null>(null);
   const [comment, setComment] = useState("");
@@ -278,6 +400,10 @@ export function AdminTasksPage() {
     setSelected(task);
     setComment("");
     setOnboardingCase(null);
+    setRegularizationRequest(null);
+    setOffboardingCase(null);
+    setJobMovementRequest(null);
+    setContractChangeRequest(null);
     setBizError(null);
     setHistoryTasks([]);
     setDetailOpen(true);
@@ -297,7 +423,47 @@ export function AdminTasksPage() {
               setOnboardingCase(null);
               setBizError(toApiError(e).message || "加载入职单失败");
             })
-        : Promise.resolve();
+        : isRegularizationTask(task)
+          ? getRegularizationRequest(task.businessId)
+              .then((res) => {
+                setRegularizationRequest(res.data);
+                setBizError(null);
+              })
+              .catch((e: unknown) => {
+                setRegularizationRequest(null);
+                setBizError(toApiError(e).message || "加载转正单失败");
+              })
+          : isOffboardingTask(task)
+            ? getOffboardingCase(task.businessId)
+                .then((res) => {
+                  setOffboardingCase(res.data);
+                  setBizError(null);
+                })
+                .catch((e: unknown) => {
+                  setOffboardingCase(null);
+                  setBizError(toApiError(e).message || "加载离职单失败");
+                })
+            : isJobMovementTask(task)
+              ? getJobMovementRequest(task.businessId)
+                  .then((res) => {
+                    setJobMovementRequest(res.data);
+                    setBizError(null);
+                  })
+                  .catch((e: unknown) => {
+                    setJobMovementRequest(null);
+                    setBizError(toApiError(e).message || "加载职务异动单失败");
+                  })
+              : isContractChangeTask(task)
+                ? getContractChangeRequest(task.businessId)
+                    .then((res) => {
+                      setContractChangeRequest(res.data);
+                      setBizError(null);
+                    })
+                    .catch((e: unknown) => {
+                      setContractChangeRequest(null);
+                      setBizError(toApiError(e).message || "加载合同变更单失败");
+                    })
+                : Promise.resolve();
 
       await Promise.all([historyPromise, casePromise]);
     } finally {
@@ -671,6 +837,10 @@ export function AdminTasksPage() {
           if (!open) {
             setSelected(null);
             setOnboardingCase(null);
+            setRegularizationRequest(null);
+            setOffboardingCase(null);
+            setJobMovementRequest(null);
+            setContractChangeRequest(null);
             setHistoryTasks([]);
             setComment("");
           }
@@ -688,7 +858,15 @@ export function AdminTasksPage() {
               description={
                 onboardingCase
                   ? `${onboardingCase.candidateName} · ${onboardingCase.caseNo}`
-                  : `${bizLabel} · ${selected.definitionName}`
+                  : regularizationRequest
+                    ? `${regularizationRequest.employeeName || "转正"} · ${regularizationRequest.requestNo}`
+                    : offboardingCase
+                      ? `${offboardingCase.employeeName || "离职"} · ${offboardingCase.caseNo}`
+                      : jobMovementRequest
+                        ? `${jobMovementRequest.employeeName || jobMovementRequest.movementTypeName || "异动"} · ${jobMovementRequest.requestNo}`
+                        : contractChangeRequest
+                          ? `${contractChangeRequest.employeeName || "合同"} · ${contractChangeRequest.requestNo}`
+                          : `${bizLabel} · ${selected.definitionName}`
               }
               badges={
                 <>
@@ -739,7 +917,51 @@ export function AdminTasksPage() {
                 )
               ) : null}
 
-              {!bizLoading && !isOnboardingTask(selected) ? (
+              {!bizLoading && isRegularizationTask(selected) ? (
+                regularizationRequest ? (
+                  <RegularizationRequestSummary data={regularizationRequest} />
+                ) : (
+                  <div className="rounded-xl border border-dashed border-destructive/30 bg-destructive/5 px-4 py-5 text-center text-xs text-destructive">
+                    {bizError || "未能加载转正单详情"}
+                  </div>
+                )
+              ) : null}
+
+              {!bizLoading && isOffboardingTask(selected) ? (
+                offboardingCase ? (
+                  <OffboardingCaseSummary data={offboardingCase} />
+                ) : (
+                  <div className="rounded-xl border border-dashed border-destructive/30 bg-destructive/5 px-4 py-5 text-center text-xs text-destructive">
+                    {bizError || "未能加载离职单详情"}
+                  </div>
+                )
+              ) : null}
+
+              {!bizLoading && isJobMovementTask(selected) ? (
+                jobMovementRequest ? (
+                  <JobMovementRequestSummary data={jobMovementRequest} />
+                ) : (
+                  <div className="rounded-xl border border-dashed border-destructive/30 bg-destructive/5 px-4 py-5 text-center text-xs text-destructive">
+                    {bizError || "未能加载职务异动单详情"}
+                  </div>
+                )
+              ) : null}
+
+              {!bizLoading && isContractChangeTask(selected) ? (
+                contractChangeRequest ? (
+                  <ContractChangeRequestSummary data={contractChangeRequest} />
+                ) : (
+                  <div className="rounded-xl border border-dashed border-destructive/30 bg-destructive/5 px-4 py-5 text-center text-xs text-destructive">
+                    {bizError || "未能加载合同变更单详情"}
+                  </div>
+                )
+              ) : null}
+
+              {!bizLoading &&
+              !isOnboardingTask(selected) &&
+              !isRegularizationTask(selected) &&
+              !isJobMovementTask(selected) &&
+              !isContractChangeTask(selected) ? (
                 <div className="space-y-2.5 rounded-xl border border-border/80 bg-gradient-to-b from-muted/25 to-background px-4 py-3.5 text-sm">
                   <div className="text-[13px] font-semibold tracking-tight">流程摘要</div>
                   <div className="flex justify-between gap-3">

@@ -66,7 +66,7 @@
 | 任务 | 说明 |
 | --- | --- |
 | `headcount_plan` 部门编制 | 计划数、已用数、在途数 |
-| 编制校验 API | 入职/调岗前调用 |
+| 编制校验 API | 入职前调用 |
 | 编制管理页 | 部门维度列表 |
 
 ### Slice 7：员工主数据
@@ -86,7 +86,7 @@
 | **7.9 档案数据批管** | 「管理数据」菜单：跨员工维护档案子表；阶段 1 证件信息试点 |
 | 花名册 + 档案 Sheet | 5 个一级 Tab + 异动；见前端 UI 规范 §5.2 |
 
-## 阶段 3：入转调离（Slice 8–12）
+## 阶段 3：入转离（Slice 8–9、11–12）
 
 ### Slice 8：入职
 
@@ -99,20 +99,14 @@
 | 入职完成事件 | 创建 Employee + Assignment |
 | Admin 入职办理 | 列表/详情、信息采集表单（HR 代填或发送链接占位）、流程监控 |
 
-### Slice 9：转正
+### Slice 9：转正与职务异动扩展
 
 | 任务 | 说明 |
 | --- | --- |
-| `regularization_request` | 关联试用期 Assignment |
-| 审批通过后更新员工状态 | 写入 Movement |
-
-### Slice 10：调岗调薪
-
-| 任务 | 说明 |
-| --- | --- |
-| `transfer_request` | 新组织、岗位、生效日 |
-| 关闭旧任职、创建新任职 | 事务 + 编制校验 |
-| 薪资档案占位字段 | 仅记录调薪建议，不算薪 |
+| `regularization_request` | 关联试用期 Assignment；审批通过 PROBATION→ACTIVE，写 `PRC` |
+| `job_movement_request` | 晋升晋级 `PRO` / 降职降级 `DEM` / 雇佣类型变更 `SPR`，对齐 `MOVEMENT_CATALOG` 三级原因 |
+| 独立流程定义 | `promotion` / `demotion` / `employment_type_change`：直属上级 → HRBP |
+| Admin `/admin/movements` | Tab：转正 \| 晋升晋级 \| 降职降级 \| 雇佣类型变更 |
 
 ### Slice 11：合同
 
@@ -198,10 +192,10 @@
 1. **Admin 端**可独立完成全部 MVP 演示（无 MSS/ESS 页面）
 2. 组织、岗位、职级、法人可维护，支持生效日期；组织部门可填写成本中心文本字段
 3. 员工档案 **27 项二级模块** 可维护（见领域模型 §4.1）；任职、汇报、异动完整
-4. 入职 → 转正 → 调岗 → 离职全流程可跑通（均在 Admin）
+4. 入职 → 转正/职务异动 → 离职全流程可跑通（均在 Admin）
 5. RBAC + 数据范围 + 敏感字段脱敏 + 审计
 6. 待办驱动审批（Admin 待办中心）
-7. 编制校验接入入职/调岗
+7. 编制校验接入入职
 8. 基础人力报表 + 员工/组织导入导出
 9. 证明申请可演示（Admin 代发起 + 审批开具）
 
@@ -245,16 +239,12 @@ flowchart TD
   S6 --> S8
   S7 --> S8
 
-  S8 --> S9[Slice9 转正]
+  S8 --> S9[Slice9 转正与职务异动]
   S8 --> S11[Slice11 合同]
 
-  S4 --> S10[Slice10 调岗]
-  S6 --> S10
-  S7 --> S10
-  S9 --> S10
-
   S4 --> S12[Slice12 离职]
-  S10 --> S12
+  S7 --> S12
+  S9 --> S12
 
   S4 --> S13[Slice13 证明]
   S7 --> S13
@@ -452,7 +442,7 @@ flowchart TD
   - 验收：迁移成功；部门+年度唯一
 - **6.1.3**：后端编制 CRUD（计划数/已用/在途）
   - 验收：增删改查可用
-- **6.1.4**：后端 `POST /api/v1/headcount/check`（入职/调岗前校验）
+- **6.1.4**：后端 `POST /api/v1/headcount/check`（入职前校验）
   - 验收：超编返回 false + 原因
 - **6.1.5**：前端 `/admin/org/headcount` 编制管理页
   - 验收：部门维度列表可用
@@ -592,7 +582,7 @@ flowchart TD
 - **8.1.10**：前端入职详情（HR 代填信息采集表单）
   - 验收：可完成 DRAFT→提交→审批通过的完整演示
 
-### Slice 9：转正
+### Slice 9：转正与职务异动扩展
 
 - **9.1.1**：shared 增加 `RegularizationRequest` 契约
   - 验收：DTO 对齐
@@ -602,22 +592,15 @@ flowchart TD
   - 验收：待办中心可审批
 - **9.1.4**：审批通过后更新 `employee.status`（PROBATION→ACTIVE）并写入 `employee_movement(PRC, P01|P02|P03)`
   - 验收：员工状态变化；异动记录存在
-- **9.1.5**：前端在 `/admin/movements` 或相关入口提供转正发起能力
+- **9.1.5**：前端在 `/admin/movements` 提供转正发起能力
   - 验收：能针对试用期员工发起并走通
-
-### Slice 10：调岗调薪
-
-- **10.1.1**：shared 增加 `TransferRequest` 契约（新组织/岗位/生效日/调薪建议占位）
-  - 验收：DTO 对齐
-- **10.1.2**：Flyway 创建 `transfer_request`
-  - 验收：迁移成功
-- **10.1.3**：后端发起调岗：编制校验 + 流程审批
-  - 验收：超编被拒绝；正常生成待办
-- **10.1.4**：审批通过：关闭旧任职、创建新任职（事务一致）
-  - 验收：主任职只剩一条当前有效；旧任职正确 end
-- **10.1.5**：写入 `employee_movement(XFR, X01–X14)`；若含调薪占位则另写 `PAY`
-  - 验收：异动时间线可见
-- **10.1.6**：前端 `/admin/movements` 提供调岗列表/详情/发起
+- **9.2.1**：shared 增加 `JobMovementRequest`（PRO / DEM / SPR）
+  - 验收：DTO 与 `MOVEMENT_CATALOG` 三级原因码对齐
+- **9.2.2**：Flyway 创建 `job_movement_request` + 流程定义 `promotion` / `demotion` / `employment_type_change`（上级→HRBP）
+  - 验收：迁移成功；流程已发布
+- **9.2.3**：后端发起/审批三类职务异动；审批通过新建任职版本并写 `employee_movement`
+  - 验收：待办可审批；PRO/DEM/SPR 异动记录与原因子项正确
+- **9.2.4**：前端 `/admin/movements` Tab 扩展三类操作
   - 验收：端到端可演示
 
 ### Slice 11：合同

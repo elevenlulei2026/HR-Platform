@@ -65,6 +65,8 @@ type SearchableSelectProps = {
    * entity 触发器密度：card=大卡片（组织/岗位）；form=与 OptionSelect 一致的单行样式
    */
   entityTone?: "card" | "form";
+  /** 已选值过长时换行完整展示（窄抽屉场景） */
+  wrapValue?: boolean;
 };
 
 const EMPTY_VALUE = "__none__";
@@ -296,6 +298,7 @@ export function SearchableSelect({
   portal = true,
   dropdownZIndex = 80,
   entityTone = "card",
+  wrapValue = false,
 }: SearchableSelectProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -467,7 +470,8 @@ export function SearchableSelect({
             <>
               <span
                 className={cn(
-                  "min-w-0 flex-1 truncate text-sm",
+                  "min-w-0 flex-1 text-sm",
+                  wrapValue ? "whitespace-normal break-words" : "truncate",
                   displayValue
                     ? adminFormControlValueClassName
                     : adminFormControlPlaceholderClassName,

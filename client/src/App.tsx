@@ -21,6 +21,9 @@ import { AdminArchiveDataHubPage } from "@/pages/admin/employees/AdminArchiveDat
 import { AdminArchiveDataPage } from "@/pages/admin/employees/AdminArchiveDataPage";
 import { AdminWorkflowPage } from "@/pages/admin/platform/AdminWorkflowPage";
 import { AdminOnboardingPage } from "@/pages/admin/onboarding/AdminOnboardingPage";
+import { AdminMovementsPage } from "@/pages/admin/movements/AdminMovementsPage";
+import { AdminOffboardingPage } from "@/pages/admin/offboarding/AdminOffboardingPage";
+import { AdminContractsPage } from "@/pages/admin/contracts/AdminContractsPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 
 function Guarded(props: { title?: string; children: React.ReactNode }) {
@@ -96,7 +99,7 @@ export default function App() {
           path="movements"
           element={
             <Guarded title="人事异动">
-              <AdminPlaceholderPage title="人事异动" />
+              <AdminMovementsPage />
             </Guarded>
           }
         />
@@ -104,7 +107,7 @@ export default function App() {
           path="offboarding"
           element={
             <Guarded title="离职办理">
-              <AdminPlaceholderPage title="离职办理" />
+              <AdminOffboardingPage />
             </Guarded>
           }
         />
@@ -112,7 +115,7 @@ export default function App() {
           path="contracts"
           element={
             <Guarded title="合同管理">
-              <AdminPlaceholderPage title="合同管理" />
+              <AdminContractsPage />
             </Guarded>
           }
         />

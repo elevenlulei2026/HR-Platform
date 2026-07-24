@@ -144,7 +144,7 @@ export const adminTopNav: AdminNavTopItem[] = [
           },
           {
             title: "人事异动",
-            description: "办理转岗、调动等员工任职变更",
+            description: "办理转正、晋升晋级、降职降级、雇佣类型变更等",
             to: "/admin/movements",
             group: "入转调离",
             permission: "employee:movement:view",

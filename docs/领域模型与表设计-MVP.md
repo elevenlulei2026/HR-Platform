@@ -365,9 +365,12 @@
 | workflow_instance_id | |
 | employee_id | 完成后回填 |
 
-### regularization_request / transfer_request / offboarding_case
+### regularization_request / job_movement_request / transfer_request / offboarding_case
 
-结构类似：单据号、employee_id、状态、workflow_instance_id、业务字段 JSON 或独立列。
+- **`regularization_request`**（Slice 9）：试用期转正；字段含单据号、`employee_id`、`assignment_id`、实际转正日、原因码 `P01|P02|P03`、状态、`workflow_instance_id`。
+- **`job_movement_request`**（Slice 9 扩展）：职务异动流程单据，`movement_type` ∈ `PRO` / `DEM` / `SPR`，对齐 `MOVEMENT_CATALOG` 三级原因（含 `reason_sub_code`）；目标字段按类型选用岗位/职级或员工组/子组；审批通过后新建任职生效版本并写 `employee_movement`。独立流程：`promotion` / `demotion` / `employment_type_change`（直属上级 → HRBP）。
+- **`contract_change_request`**（Slice 11）：合同/协议续签 `RENEWAL` 或变更 `CHANGE`；`target_kind` ∈ `CONTRACT` / `AGREEMENT`，关联 `source_record_id`；审批通过后收口旧档案并新建续签行（续签）或更新源行（变更）。独立流程：`contract_renewal` / `contract_change`（直属上级 → HR）。
+- **`transfer_request` / `offboarding_case`**：结构类似：单据号、employee_id、状态、workflow_instance_id、业务字段 JSON 或独立列。
 
 ### employee_contract / employee_agreement
 

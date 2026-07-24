@@ -27,6 +27,13 @@ type DepartmentPositionFieldsProps = {
   onPositionChange: (positionId: string) => void;
   organizationRequired?: boolean;
   positionRequired?: boolean;
+  /**
+   * grid：嵌入 4 列档案表单（部门 1 + 组织路径 3 + 岗位 1 + 序列 1）
+   * stack：窄抽屉场景，各部门/组织路径/岗位各自独占一整行，避免截断
+   */
+  layout?: "grid" | "stack";
+  /** stack 布局下默认不展示岗位序列（入职等场景无此字段） */
+  showJobSequence?: boolean;
 };
 
 function toApiError(e: unknown): ApiError {
@@ -118,7 +125,16 @@ export function DepartmentPositionFields({
   onPositionChange,
   organizationRequired = false,
   positionRequired = false,
+  layout = "grid",
+  showJobSequence,
 }: DepartmentPositionFieldsProps) {
+  const stacked = layout === "stack";
+  const renderJobSequence = showJobSequence ?? !stacked;
+  const cellClass = stacked ? "w-full min-w-0" : undefined;
+  const departmentCellClass = stacked ? cellClass : "md:col-span-1";
+  const orgPathCellClass = stacked ? cellClass : "md:col-span-3";
+  const positionCellClass = stacked ? cellClass : "md:col-span-1";
+  const jobSequenceCellClass = stacked ? cellClass : "md:col-span-1";
   const [orgPositions, setOrgPositions] = useState<
     Array<{ id: string; code: string; name: string }>
   >([]);
@@ -212,9 +228,9 @@ export function DepartmentPositionFields({
   const departmentDisabled = departmentOptions.length === 0;
   const positionDisabled = !organizationId;
 
-  return (
+  const fields = (
     <>
-      <div className="md:col-span-1">
+      <div className={departmentCellClass}>
         <FormField label="部门" required={organizationRequired}>
           <SearchableDialogPicker
             value={organizationId}
@@ -231,10 +247,11 @@ export function DepartmentPositionFields({
             disabled={departmentDisabled}
             helperText="none"
             className="w-full"
+            wrapValue={stacked}
           />
         </FormField>
       </div>
-      <div className="md:col-span-3">
+      <div className={orgPathCellClass}>
         <FormField label="组织路径">
           <div className={adminFormControlShellClassName({ readOnly: true })}>
             {orgPathSegments.length ? (
@@ -244,7 +261,7 @@ export function DepartmentPositionFields({
                     {idx > 0 ? <span className="text-muted-foreground/60">/</span> : null}
                     <Badge
                       variant={idx === orgPathSegments.length - 1 ? "default" : "secondary"}
-                      className="h-5"
+                      className="h-5 max-w-full whitespace-normal break-words"
                     >
                       {seg}
                     </Badge>
@@ -257,7 +274,7 @@ export function DepartmentPositionFields({
           </div>
         </FormField>
       </div>
-      <div className="md:col-span-1">
+      <div className={positionCellClass}>
         <FormField label="岗位" required={positionRequired}>
           <SearchableSelect
             value={positionId}
@@ -300,14 +317,23 @@ export function DepartmentPositionFields({
             shouldFilter={false}
             onSearchChange={setPositionKeyword}
             className="w-full"
+            wrapValue={stacked}
           />
         </FormField>
       </div>
-      <div className="md:col-span-1">
-        <FormField label="岗位序列">
-          <Input value={jobSequence || "—"} disabled className="h-9" />
-        </FormField>
-      </div>
+      {renderJobSequence ? (
+        <div className={jobSequenceCellClass}>
+          <FormField label="岗位序列">
+            <Input value={jobSequence || "—"} disabled className="h-9" />
+          </FormField>
+        </div>
+      ) : null}
     </>
   );
+
+  if (stacked) {
+    return <div className="space-y-4">{fields}</div>;
+  }
+
+  return fields;
 }

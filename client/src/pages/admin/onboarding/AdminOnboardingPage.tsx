@@ -512,24 +512,23 @@ export function AdminOnboardingPage() {
                         onChange={(v) => patchForm("gender", v)}
                       />
                     </FormField>
-                    <div className="grid grid-cols-1 gap-4">
-                      <DepartmentPositionFields
-                        organizationId={form.organizationId}
-                        positionId={form.positionId}
-                        departments={assignableOrgs}
-                        organizationsForPath={flatOrgs}
-                        organizationRequired
-                        positionRequired
-                        onOrganizationChange={(organizationId) => {
-                          setForm((prev) => ({
-                            ...prev,
-                            organizationId,
-                            positionId: "",
-                          }));
-                        }}
-                        onPositionChange={(positionId) => patchForm("positionId", positionId)}
-                      />
-                    </div>
+                    <DepartmentPositionFields
+                      layout="stack"
+                      organizationId={form.organizationId}
+                      positionId={form.positionId}
+                      departments={assignableOrgs}
+                      organizationsForPath={flatOrgs}
+                      organizationRequired
+                      positionRequired
+                      onOrganizationChange={(organizationId) => {
+                        setForm((prev) => ({
+                          ...prev,
+                          organizationId,
+                          positionId: "",
+                        }));
+                      }}
+                      onPositionChange={(positionId) => patchForm("positionId", positionId)}
+                    />
                     <FormField label="预计入职日" required>
                       <Input
                         type="date"

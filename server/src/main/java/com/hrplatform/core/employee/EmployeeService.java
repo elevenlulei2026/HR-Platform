@@ -1124,12 +1124,15 @@ public class EmployeeService {
     if (patch.getGroupAttrLevel() != null) cur.setGroupAttrLevel(patch.getGroupAttrLevel());
     if (patch.getSalaryGroup() != null) cur.setSalaryGroup(patch.getSalaryGroup());
     if (patch.getSupplier() != null) cur.setSupplier(patch.getSupplier());
-    // 转正后不可再改试用期期限、实际转正日期
+    // 转正后不可再改试用期期限、实际转正日期、转正意见
     boolean alreadyRegularized = cur.getActualRegularizationDate() != null;
     if (!alreadyRegularized) {
       if (patch.getProbationPeriod() != null) cur.setProbationPeriod(patch.getProbationPeriod());
       if (patch.getActualRegularizationDate() != null) {
         cur.setActualRegularizationDate(patch.getActualRegularizationDate());
+      }
+      if (patch.getRegularizationOpinion() != null) {
+        cur.setRegularizationOpinion(patch.getRegularizationOpinion());
       }
     }
     if (patch.getGroupResponsibilityStartDate() != null) {

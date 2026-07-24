@@ -3006,3 +3006,537 @@ export type OnboardingApi = {
   listOnboardingApprovalTasks: (id: string) => Promise<ApiResponse<WorkflowTask[]>>;
 };
 
+// -----------------------------
+// Slice 9：转正
+// -----------------------------
+
+export type RegularizationStatus = "DRAFT" | "PENDING" | "COMPLETED" | "CANCELLED";
+
+/** 转正原因：P01 正常 / P02 提前 / P03 延迟 */
+export type RegularizationReasonCode = "P01" | "P02" | "P03";
+
+export type RegularizationRequest = {
+  id: string;
+  requestNo: string;
+  employeeId: string;
+  employeeNo?: string;
+  employeeName?: string;
+  /** 关联试用期主任职 */
+  assignmentId: string;
+  organizationId?: string;
+  organizationName?: string;
+  positionId?: string;
+  positionName?: string;
+  /** 预计转正日（创建时从任职快照） */
+  expectedRegularizationDate?: string;
+  actualRegularizationDate: string; // YYYY-MM-DD
+  reasonCode: RegularizationReasonCode;
+  reasonLabel?: string;
+  opinion?: string;
+  status: RegularizationStatus;
+  workflowInstanceId?: string;
+  remark?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RegularizationRequestCreateRequest = {
+  employeeId: string;
+  /** 不传则取当前主任职 */
+  assignmentId?: string;
+  actualRegularizationDate: string;
+  /** 不传则按 actual vs expected 自动判定 P01/P02/P03 */
+  reasonCode?: RegularizationReasonCode;
+  opinion?: string;
+  remark?: string;
+};
+
+export type RegularizationRequestUpdateRequest = {
+  actualRegularizationDate?: string;
+  reasonCode?: RegularizationReasonCode;
+  opinion?: string;
+  remark?: string;
+};
+
+export type RegularizationRequestListQuery = {
+  keyword?: string;
+  status?: RegularizationStatus;
+  page: number;
+  pageSize: number;
+};
+
+export type RegularizationSubmitRequest = {
+  /**
+   * 仅当流程定义含 INITIATOR_SELECT 节点时需要；
+   * 默认转正流程按 ORG_LEADER / ROLE 等规则自动派单，无需传入。
+   */
+  nodeAssignees?: Record<string, string>;
+};
+
+export type RegularizationApi = {
+  /** GET /api/v1/regularization-requests?page=&pageSize=&keyword=&status= */
+  listRegularizationRequests: (
+    query: RegularizationRequestListQuery,
+  ) => Promise<ApiResponse<PageResult<RegularizationRequest>>>;
+  /** GET /api/v1/regularization-requests/{id} */
+  getRegularizationRequest: (id: string) => Promise<ApiResponse<RegularizationRequest>>;
+  /** POST /api/v1/regularization-requests */
+  createRegularizationRequest: (
+    req: RegularizationRequestCreateRequest,
+  ) => Promise<ApiResponse<RegularizationRequest>>;
+  /** PUT /api/v1/regularization-requests/{id} */
+  updateRegularizationRequest: (
+    id: string,
+    req: RegularizationRequestUpdateRequest,
+  ) => Promise<ApiResponse<RegularizationRequest>>;
+  /** POST /api/v1/regularization-requests/{id}/submit */
+  submitRegularizationRequest: (
+    id: string,
+    req?: RegularizationSubmitRequest,
+  ) => Promise<ApiResponse<RegularizationRequest>>;
+  /** POST /api/v1/regularization-requests/{id}/cancel */
+  cancelRegularizationRequest: (
+    id: string,
+  ) => Promise<ApiResponse<RegularizationRequest>>;
+  /** GET /api/v1/regularization-requests/{id}/approval-tasks */
+  listRegularizationApprovalTasks: (id: string) => Promise<ApiResponse<WorkflowTask[]>>;
+};
+
+// -----------------------------
+// Slice 9 扩展：职务异动（晋升晋级 / 降职降级 / 雇佣类型变更）
+// 对齐 MOVEMENT_CATALOG 三级：PRO / DEM / SPR
+// -----------------------------
+
+export type JobMovementStatus = "DRAFT" | "PENDING" | "COMPLETED" | "CANCELLED";
+
+/** 本页支持的流程类职务异动操作码（不含转正 PRC，转正仍用 RegularizationRequest） */
+export type JobMovementTypeCode = "PRO" | "DEM" | "SPR";
+
+export type JobMovementRequest = {
+  id: string;
+  requestNo: string;
+  movementType: JobMovementTypeCode;
+  movementTypeName?: string;
+  employeeId: string;
+  employeeNo?: string;
+  employeeName?: string;
+  /** 变更前主任职 */
+  fromAssignmentId: string;
+  /** 审批通过后新任职版本 */
+  toAssignmentId?: string;
+  effectiveDate: string; // YYYY-MM-DD
+  reasonCode: string;
+  reasonLabel?: string;
+  reasonSubCode?: string;
+  reasonSubLabel?: string;
+  /** 变更前快照 */
+  fromOrganizationId?: string;
+  fromOrganizationName?: string;
+  fromPositionId?: string;
+  fromPositionName?: string;
+  fromJobGradeCode?: string;
+  fromEmployeeGroupCode?: string;
+  fromEmployeeSubgroupCode?: string;
+  /** 目标变更（按类型选用） */
+  organizationId?: string;
+  organizationName?: string;
+  positionId?: string;
+  positionName?: string;
+  jobGradeCode?: string;
+  employeeGroupCode?: string;
+  employeeGroupName?: string;
+  employeeSubgroupCode?: string;
+  employeeSubgroupName?: string;
+  opinion?: string;
+  status: JobMovementStatus;
+  workflowInstanceId?: string;
+  remark?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type JobMovementRequestCreateRequest = {
+  movementType: JobMovementTypeCode;
+  employeeId: string;
+  /** 不传则取当前主任职 */
+  fromAssignmentId?: string;
+  effectiveDate: string;
+  reasonCode: string;
+  reasonSubCode?: string;
+  organizationId?: string;
+  positionId?: string;
+  jobGradeCode?: string;
+  employeeGroupCode?: string;
+  employeeSubgroupCode?: string;
+  opinion?: string;
+  remark?: string;
+};
+
+export type JobMovementRequestUpdateRequest = {
+  effectiveDate?: string;
+  reasonCode?: string;
+  reasonSubCode?: string;
+  organizationId?: string;
+  positionId?: string;
+  jobGradeCode?: string;
+  employeeGroupCode?: string;
+  employeeSubgroupCode?: string;
+  opinion?: string;
+  remark?: string;
+};
+
+export type JobMovementRequestListQuery = {
+  movementType?: JobMovementTypeCode;
+  keyword?: string;
+  status?: JobMovementStatus;
+  page: number;
+  pageSize: number;
+};
+
+export type JobMovementSubmitRequest = {
+  nodeAssignees?: Record<string, string>;
+};
+
+export type JobMovementApi = {
+  /** GET /api/v1/job-movement-requests?page=&pageSize=&movementType=&keyword=&status= */
+  listJobMovementRequests: (
+    query: JobMovementRequestListQuery,
+  ) => Promise<ApiResponse<PageResult<JobMovementRequest>>>;
+  /** GET /api/v1/job-movement-requests/{id} */
+  getJobMovementRequest: (id: string) => Promise<ApiResponse<JobMovementRequest>>;
+  /** POST /api/v1/job-movement-requests */
+  createJobMovementRequest: (
+    req: JobMovementRequestCreateRequest,
+  ) => Promise<ApiResponse<JobMovementRequest>>;
+  /** PUT /api/v1/job-movement-requests/{id} */
+  updateJobMovementRequest: (
+    id: string,
+    req: JobMovementRequestUpdateRequest,
+  ) => Promise<ApiResponse<JobMovementRequest>>;
+  /** POST /api/v1/job-movement-requests/{id}/submit */
+  submitJobMovementRequest: (
+    id: string,
+    req?: JobMovementSubmitRequest,
+  ) => Promise<ApiResponse<JobMovementRequest>>;
+  /** POST /api/v1/job-movement-requests/{id}/cancel */
+  cancelJobMovementRequest: (id: string) => Promise<ApiResponse<JobMovementRequest>>;
+  /** GET /api/v1/job-movement-requests/{id}/approval-tasks */
+  listJobMovementApprovalTasks: (id: string) => Promise<ApiResponse<WorkflowTask[]>>;
+};
+
+// -----------------------------
+// Slice 11：合同续签 / 变更
+// 档案 CRUD 见 EmployeeContract / EmployeeAgreement（Slice 7.2）
+// -----------------------------
+
+export type ContractChangeStatus = "DRAFT" | "PENDING" | "COMPLETED" | "CANCELLED";
+
+/** 续签 RENEWAL / 变更 CHANGE */
+export type ContractChangeRequestType = "RENEWAL" | "CHANGE";
+
+/** 目标档案：劳动合同 / 协议 */
+export type ContractChangeTargetKind = "CONTRACT" | "AGREEMENT";
+
+export type ContractChangeRequest = {
+  id: string;
+  requestNo: string;
+  requestType: ContractChangeRequestType;
+  requestTypeLabel?: string;
+  targetKind: ContractChangeTargetKind;
+  targetKindLabel?: string;
+  employeeId: string;
+  employeeNo?: string;
+  employeeName?: string;
+  /** 源合同/协议档案行 ID */
+  sourceRecordId: string;
+  /** 源档案摘要（列表/详情拼装） */
+  sourceCode?: string;
+  sourceEndDate?: string;
+  sourceStatus?: string;
+  proposedStartDate: string; // YYYY-MM-DD
+  proposedEndDate?: string;
+  proposedEffectiveStartDate?: string;
+  legalEntityId?: string;
+  legalEntityName?: string;
+  /** 合同类别（targetKind=CONTRACT） */
+  contractCategory?: string;
+  contractCategoryDesc?: string;
+  contractCode?: string;
+  /** 协议类别/编号（targetKind=AGREEMENT） */
+  agreementCategory?: string;
+  agreementCode?: string;
+  fileAttachmentId?: string;
+  opinion?: string;
+  status: ContractChangeStatus;
+  workflowInstanceId?: string;
+  remark?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ContractChangeRequestCreateRequest = {
+  requestType: ContractChangeRequestType;
+  targetKind: ContractChangeTargetKind;
+  employeeId: string;
+  sourceRecordId: string;
+  proposedStartDate: string;
+  proposedEndDate?: string;
+  proposedEffectiveStartDate?: string;
+  legalEntityId?: string;
+  contractCategory?: string;
+  contractCategoryDesc?: string;
+  contractCode?: string;
+  agreementCategory?: string;
+  agreementCode?: string;
+  fileAttachmentId?: string;
+  opinion?: string;
+  remark?: string;
+};
+
+export type ContractChangeRequestUpdateRequest = {
+  proposedStartDate?: string;
+  proposedEndDate?: string;
+  proposedEffectiveStartDate?: string;
+  legalEntityId?: string;
+  contractCategory?: string;
+  contractCategoryDesc?: string;
+  contractCode?: string;
+  agreementCategory?: string;
+  agreementCode?: string;
+  fileAttachmentId?: string;
+  opinion?: string;
+  remark?: string;
+};
+
+export type ContractChangeRequestListQuery = {
+  requestType?: ContractChangeRequestType;
+  targetKind?: ContractChangeTargetKind;
+  keyword?: string;
+  status?: ContractChangeStatus;
+  page: number;
+  pageSize: number;
+};
+
+export type ContractChangeSubmitRequest = {
+  nodeAssignees?: Record<string, string>;
+};
+
+/** 即将到期合同/协议（运营页「即将到期」Tab） */
+export type ContractExpiringRecord = {
+  targetKind: ContractChangeTargetKind;
+  targetKindLabel?: string;
+  recordId: string;
+  employeeId: string;
+  employeeNo?: string;
+  employeeName?: string;
+  code?: string;
+  endDate: string;
+  daysRemaining: number;
+  status?: string;
+  /** 已有进行中续签/变更单时回填 */
+  openRequestId?: string;
+  openRequestNo?: string;
+  openRequestType?: ContractChangeRequestType;
+};
+
+export type ContractExpiringListQuery = {
+  /** 默认 30 */
+  days?: number;
+  targetKind?: ContractChangeTargetKind;
+  keyword?: string;
+  page: number;
+  pageSize: number;
+};
+
+export type ContractExpiryScanResult = {
+  scanned: number;
+  created: number;
+};
+
+export type ContractChangeApi = {
+  /** GET /api/v1/contract-change-requests */
+  listContractChangeRequests: (
+    query: ContractChangeRequestListQuery,
+  ) => Promise<ApiResponse<PageResult<ContractChangeRequest>>>;
+  /** GET /api/v1/contract-change-requests/{id} */
+  getContractChangeRequest: (id: string) => Promise<ApiResponse<ContractChangeRequest>>;
+  /** POST /api/v1/contract-change-requests */
+  createContractChangeRequest: (
+    req: ContractChangeRequestCreateRequest,
+  ) => Promise<ApiResponse<ContractChangeRequest>>;
+  /** PUT /api/v1/contract-change-requests/{id} */
+  updateContractChangeRequest: (
+    id: string,
+    req: ContractChangeRequestUpdateRequest,
+  ) => Promise<ApiResponse<ContractChangeRequest>>;
+  /** POST /api/v1/contract-change-requests/{id}/submit */
+  submitContractChangeRequest: (
+    id: string,
+    req?: ContractChangeSubmitRequest,
+  ) => Promise<ApiResponse<ContractChangeRequest>>;
+  /** POST /api/v1/contract-change-requests/{id}/cancel */
+  cancelContractChangeRequest: (id: string) => Promise<ApiResponse<ContractChangeRequest>>;
+  /** GET /api/v1/contract-change-requests/{id}/approval-tasks */
+  listContractChangeApprovalTasks: (id: string) => Promise<ApiResponse<WorkflowTask[]>>;
+  /** GET /api/v1/contract-change-requests/expiring */
+  listExpiringContractRecords: (
+    query: ContractExpiringListQuery,
+  ) => Promise<ApiResponse<PageResult<ContractExpiringRecord>>>;
+  /** POST /api/v1/contract-change-requests/scan-expiry — 为 30 天内到期档案生成 DRAFT 续签单（幂等） */
+  scanContractExpiryReminders: () => Promise<ApiResponse<ContractExpiryScanResult>>;
+};
+
+// -----------------------------
+// Slice 12：离职办理
+// -----------------------------
+
+export type OffboardingStatus =
+  | "APPLIED"
+  | "APPROVING"
+  | "HANDOVER"
+  | "SETTLING"
+  | "COMPLETED"
+  | "CANCELLED";
+
+/** 离职原因：TA–TH（对齐 MOVEMENT_CATALOG TER 下有效原因码） */
+export type OffboardingReasonCode =
+  | "TA"
+  | "TB"
+  | "TC"
+  | "TD"
+  | "TE"
+  | "TF"
+  | "TG"
+  | "TH";
+
+export type OffboardingHandoverItem = {
+  id: string;
+  caseId: string;
+  title: string;
+  sortOrder: number;
+  done: boolean;
+  doneAt?: string;
+  doneBy?: string;
+  assigneeNote?: string;
+};
+
+export type OffboardingCase = {
+  id: string;
+  caseNo: string;
+  employeeId: string;
+  employeeNo?: string;
+  employeeName?: string;
+  assignmentId: string;
+  organizationId?: string;
+  organizationName?: string;
+  positionId?: string;
+  positionName?: string;
+  /** 最后工作日 YYYY-MM-DD */
+  lastWorkDay: string;
+  reasonCode: OffboardingReasonCode;
+  reasonLabel?: string;
+  reasonSubCode?: string;
+  handoverToEmployeeId?: string;
+  handoverToEmployeeName?: string;
+  status: OffboardingStatus;
+  workflowInstanceId?: string;
+  remark?: string;
+  items: OffboardingHandoverItem[];
+  /** 离职证明占位（后期接入 PDF） */
+  certificatePlaceholder?: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OffboardingCaseCreateRequest = {
+  employeeId: string;
+  /** 不传则取当前主任职 */
+  assignmentId?: string;
+  lastWorkDay: string;
+  reasonCode: OffboardingReasonCode;
+  reasonSubCode?: string;
+  handoverToEmployeeId?: string;
+  remark?: string;
+};
+
+export type OffboardingCaseUpdateRequest = {
+  lastWorkDay?: string;
+  reasonCode?: OffboardingReasonCode;
+  reasonSubCode?: string;
+  handoverToEmployeeId?: string | null;
+  remark?: string;
+};
+
+export type OffboardingCaseListQuery = {
+  keyword?: string;
+  status?: OffboardingStatus;
+  page: number;
+  pageSize: number;
+};
+
+export type OffboardingSubmitRequest = {
+  nodeAssignees?: Record<string, string>;
+};
+
+export type OffboardingHandoverItemCreateRequest = {
+  title: string;
+};
+
+export type OffboardingHandoverItemUpdateRequest = {
+  title?: string;
+  done?: boolean;
+  assigneeNote?: string;
+};
+
+export type OffboardingCompleteRequest = {
+  remark?: string;
+};
+
+export type OffboardingApi = {
+  /** GET /api/v1/offboarding-cases */
+  listOffboardingCases: (
+    query: OffboardingCaseListQuery,
+  ) => Promise<ApiResponse<PageResult<OffboardingCase>>>;
+  /** GET /api/v1/offboarding-cases/{id} */
+  getOffboardingCase: (id: string) => Promise<ApiResponse<OffboardingCase>>;
+  /** POST /api/v1/offboarding-cases */
+  createOffboardingCase: (
+    req: OffboardingCaseCreateRequest,
+  ) => Promise<ApiResponse<OffboardingCase>>;
+  /** PUT /api/v1/offboarding-cases/{id} */
+  updateOffboardingCase: (
+    id: string,
+    req: OffboardingCaseUpdateRequest,
+  ) => Promise<ApiResponse<OffboardingCase>>;
+  /** POST /api/v1/offboarding-cases/{id}/submit */
+  submitOffboardingCase: (
+    id: string,
+    req?: OffboardingSubmitRequest,
+  ) => Promise<ApiResponse<OffboardingCase>>;
+  /** POST /api/v1/offboarding-cases/{id}/cancel */
+  cancelOffboardingCase: (id: string) => Promise<ApiResponse<OffboardingCase>>;
+  /** GET /api/v1/offboarding-cases/{id}/approval-tasks */
+  listOffboardingApprovalTasks: (id: string) => Promise<ApiResponse<WorkflowTask[]>>;
+  /** POST /api/v1/offboarding-cases/{id}/handover-items */
+  addOffboardingHandoverItem: (
+    id: string,
+    req: OffboardingHandoverItemCreateRequest,
+  ) => Promise<ApiResponse<OffboardingCase>>;
+  /** PUT /api/v1/offboarding-cases/{id}/handover-items/{itemId} */
+  updateOffboardingHandoverItem: (
+    id: string,
+    itemId: string,
+    req: OffboardingHandoverItemUpdateRequest,
+  ) => Promise<ApiResponse<OffboardingCase>>;
+  /** DELETE /api/v1/offboarding-cases/{id}/handover-items/{itemId} */
+  removeOffboardingHandoverItem: (
+    id: string,
+    itemId: string,
+  ) => Promise<ApiResponse<OffboardingCase>>;
+  /** POST /api/v1/offboarding-cases/{id}/complete — 交接完成并生效离职 */
+  completeOffboardingCase: (
+    id: string,
+    req?: OffboardingCompleteRequest,
+  ) => Promise<ApiResponse<OffboardingCase>>;
+};
+

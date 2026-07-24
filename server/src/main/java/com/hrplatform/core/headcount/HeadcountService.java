@@ -145,6 +145,17 @@ public class HeadcountService {
     headcountPlanMapper.updateById(plan);
   }
 
+  /** 离职完成：释放已用编制 */
+  @Transactional
+  public void releaseOccupied(long organizationId, int fiscalYear, int delta) {
+    int need = Math.max(1, delta);
+    HeadcountPlanEntity plan = findPlan(organizationId, fiscalYear);
+    if (plan == null) return;
+    int occupied = plan.getOccupiedCount() == null ? 0 : plan.getOccupiedCount();
+    plan.setOccupiedCount(Math.max(0, occupied - need));
+    headcountPlanMapper.updateById(plan);
+  }
+
   private HeadcountPlanEntity findPlan(long organizationId, int fiscalYear) {
     return headcountPlanMapper.selectOne(
         new LambdaQueryWrapper<HeadcountPlanEntity>()

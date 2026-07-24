@@ -52,6 +52,8 @@ type SearchableDialogPickerProps = {
   loading?: boolean;
   /** 默认在控件下方显示“点击打开/已选择”提示；表单密集布局可关闭以保持高度一致 */
   helperText?: "auto" | "none";
+  /** 已选值过长时换行完整展示（窄抽屉场景） */
+  wrapValue?: boolean;
 };
 
 function OptionCodeBadge({ code }: { code: string }) {
@@ -110,6 +112,7 @@ export function SearchableDialogPicker({
   onSearchChange,
   loading = false,
   helperText = "auto",
+  wrapValue = false,
 }: SearchableDialogPickerProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -176,7 +179,8 @@ export function SearchableDialogPicker({
       >
         <span
           className={cn(
-            "min-w-0 flex-1 truncate text-sm",
+            "min-w-0 flex-1 text-sm",
+            wrapValue ? "whitespace-normal break-words" : "truncate",
             displayValue ? adminFormControlValueClassName : adminFormControlPlaceholderClassName,
           )}
         >
